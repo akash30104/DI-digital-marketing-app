@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { Deliverable, Profile } from '../types';
 import { 
   Share2, Plus, HardDrive, Smartphone, Cloud, Usb, 
   Folder, Check, AlertCircle, X, Film, CheckCircle2, 
-  Clock, ArrowRight, Sparkles, Layers, ExternalLink
+  Clock, ArrowRight, Sparkles, Layers, ExternalLink, User
 } from 'lucide-react';
 
 interface RecordingWithDeliverables {
@@ -22,12 +23,15 @@ interface RecordingWithDeliverables {
     deliverable_type: string;
     editing_status: string;
     progress_percentage: number;
+    assigned_editor_id?: string;
   }[];
 }
 
 export const RecordingRegistration: React.FC = () => {
   const { currentUser } = useAuth();
   const [recordings, setRecordings] = useState<RecordingWithDeliverables[]>([]);
+  const [editors, setEditors] = useState<Profile[]>([]);
+  const [selectedEditorId, setSelectedEditorId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal State
@@ -53,16 +57,27 @@ export const RecordingRegistration: React.FC = () => {
   const loadRecordings = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('recordings')
-        .select(`
-          *,
-          deliverables (id, title, deliverable_type, editing_status, progress_percentage)
-        `)
-        .order('created_at', { ascending: false });
+      const [recRes, editorsRes] = await Promise.all([
+        supabase
+          .from('recordings')
+          .select(`
+            *,
+            deliverables (id, title, deliverable_type, editing_status, progress_percentage, assigned_editor_id)
+          `)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'editor')
+          .order('full_name')
+      ]);
 
-      if (!error && data) {
-        setRecordings(data as RecordingWithDeliverables[]);
+      if (!recRes.error && recRes.data) {
+        setRecordings(recRes.data as RecordingWithDeliverables[]);
+      }
+
+      if (!editorsRes.error && editorsRes.data) {
+        setEditors(editorsRes.data as Profile[]);
       }
     } catch (e) {
       console.error('Failed to load recordings:', e);
@@ -90,6 +105,7 @@ export const RecordingRegistration: React.FC = () => {
     setTitle('');
     setHowShared('AirDrop');
     setLocationDetails('');
+    setSelectedEditorId(editors[0]?.id || '');
     setReelsCount(3);
     setIncludeFullVideo(true);
     setIsModalOpen(true);
@@ -141,6 +157,7 @@ export const RecordingRegistration: React.FC = () => {
           recording_id: recData.id,
           title: `${title.trim()} - Reel #${i}`,
           deliverable_type: 'reel',
+          assigned_editor_id: selectedEditorId || null,
           editing_status: 'assigned',
           priority: 'medium',
           progress_percentage: 0
@@ -152,6 +169,7 @@ export const RecordingRegistration: React.FC = () => {
           recording_id: recData.id,
           title: `${title.trim()} - Full Episode Video`,
           deliverable_type: 'full_length_video',
+          assigned_editor_id: selectedEditorId || null,
           editing_status: 'assigned',
           priority: 'high',
           progress_percentage: 0
@@ -168,7 +186,9 @@ export const RecordingRegistration: React.FC = () => {
         }
       }
 
-      showToast('success', `Footage shared via ${finalMethod}! ${deliverablesToInsert.length} editing tasks created for the editor. 🚀`);
+      const assignedEditor = editors.find(ed => ed.id === selectedEditorId);
+      const editorNotice = assignedEditor ? ` assigned to ${assignedEditor.full_name}` : '';
+      showToast('success', `Footage shared via ${finalMethod}! ${deliverablesToInsert.length} editing tasks${editorNotice}. 🚀`);
       setIsModalOpen(false);
       loadRecordings();
     } catch (err: any) {
@@ -483,7 +503,30 @@ export const RecordingRegistration: React.FC = () => {
                 />
               </div>
 
-              {/* 4. Cuts to Generate */}
+              {/* 4. Assign to Editor */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>Assign to Video Editor</span>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Direct Task Assignment</span>
+                </label>
+                <select
+                  value={selectedEditorId}
+                  onChange={(e) => setSelectedEditorId(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Unassigned (Any editor can accept)</option>
+                  {editors.map((ed) => (
+                    <option key={ed.id} value={ed.id}>
+                      🎬 {ed.full_name} ({ed.email})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  The assigned editor will receive these tasks and can click "Accept Task" to begin editing.
+                </p>
+              </div>
+
+              {/* 5. Cuts to Generate */}
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-900 dark:text-white">

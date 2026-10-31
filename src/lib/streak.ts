@@ -83,6 +83,15 @@ export function calculatePublishingStreak(logs: PublishingLog[]): StreakInfo {
   };
 }
 
+export const OFFICIAL_CHANNELS = [
+  'Digital Inertia',
+  'Unfiltered Podcast',
+  'LLBS Podcast',
+  'Best Podcast'
+] as const;
+
+export type OfficialChannel = typeof OFFICIAL_CHANNELS[number];
+
 /**
  * Extracts channel name from log (supporting native column or encoded notes tag).
  */
@@ -96,7 +105,7 @@ export function getLogChannelName(log: { channel_name?: string; notes?: string }
       return match[1].trim();
     }
   }
-  return 'DI Official';
+  return 'Digital Inertia';
 }
 
 /**
@@ -116,8 +125,16 @@ export function formatPlatformLabel(platform: string): string {
       return 'YouTube Shorts';
     case 'youtube_full':
       return 'YouTube Full';
+    case 'youtube':
+      return 'YouTube';
     case 'instagram_reels':
-      return 'Instagram Reels';
+    case 'instagram':
+      return 'Instagram';
+    case 'facebook':
+      return 'Facebook';
+    case 'x':
+    case 'twitter':
+      return 'X (Twitter)';
     default:
       return 'Other Platform';
   }

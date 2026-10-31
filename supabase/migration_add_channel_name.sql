@@ -1,5 +1,7 @@
 /* ==============================================================================
-   DIGITAL INERTIA - SOCIAL MEDIA PUBLISHING CHANNEL NAME UPDATE
+   DIGITAL INERTIA - SOCIAL MEDIA PUBLISHING CHANNEL & PLATFORM UPDATE
+   Channels: Digital Inertia, Unfiltered Podcast, LLBS Podcast, Best Podcast
+   Platforms: YouTube (Shorts & Full), Instagram, Facebook, X (Twitter)
    Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/jjscejejzzspgnxyrsin/sql
    ============================================================================== */
 
@@ -7,8 +9,12 @@
 ALTER TABLE public.publishing_logs 
 ADD COLUMN IF NOT EXISTS channel_name TEXT;
 
--- 2. Add index for faster channel-based queries
 CREATE INDEX IF NOT EXISTS idx_publishing_logs_channel_name ON public.publishing_logs(channel_name);
+
+-- 2. Update platform check constraint to support Facebook and X
+ALTER TABLE public.publishing_logs DROP CONSTRAINT IF EXISTS publishing_logs_platform_check;
+ALTER TABLE public.publishing_logs ADD CONSTRAINT publishing_logs_platform_check 
+CHECK (platform IN ('youtube_shorts', 'youtube_full', 'instagram_reels', 'facebook', 'x', 'other'));
 
 -- 3. Ensure Social Media Managers can insert & update publishing logs with channel_name
 DROP POLICY IF EXISTS "SMM can insert publishing logs" ON public.publishing_logs;

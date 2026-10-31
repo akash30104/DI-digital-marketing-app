@@ -42,10 +42,10 @@ export const SocialMediaPublishing: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const CHANNEL_PRESETS = [
-    'Digital Inertia Main',
-    'DI Shorts & Clips',
-    '@digitalinertia',
-    'DI Talks & Podcast'
+    'Digital Inertia',
+    'Unfiltered Podcast',
+    'LLBS Podcast',
+    'Best Podcast'
   ];
 
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
@@ -781,53 +781,57 @@ export const SocialMediaPublishing: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Platform Published:
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedPlatform('youtube_shorts');
-                      setChannelName(prev => prev.includes('instagram') ? 'DI Shorts & Clips' : prev);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                    onClick={() => setSelectedPlatform('youtube_shorts')}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
                       selectedPlatform === 'youtube_shorts'
-                        ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 ring-2 ring-red-500/30'
-                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                        ? 'border-red-500 bg-red-500/10 text-red-600 font-bold ring-2 ring-red-500/20'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    <PlaySquare className="w-4 h-4 text-red-600" />
-                    <span className="text-[11px] font-bold">YT Shorts</span>
+                    <PlaySquare className="w-4 h-4 mx-auto text-red-600 mb-1" />
+                    <span className="text-[11px] block">YT Shorts</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedPlatform('instagram_reels');
-                      setChannelName('@digitalinertia');
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                    onClick={() => setSelectedPlatform('instagram_reels')}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
                       selectedPlatform === 'instagram_reels'
-                        ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-400 ring-2 ring-pink-500/30'
-                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                        ? 'border-pink-500 bg-pink-500/10 text-pink-600 font-bold ring-2 ring-pink-500/20'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    <Camera className="w-4 h-4 text-pink-600" />
-                    <span className="text-[11px] font-bold">Instagram Reel</span>
+                    <Camera className="w-4 h-4 mx-auto text-pink-600 mb-1" />
+                    <span className="text-[11px] block">Instagram</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedPlatform('youtube_full');
-                      setChannelName('Digital Inertia Main');
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
-                      selectedPlatform === 'youtube_full'
-                        ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500/30'
-                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                    onClick={() => setSelectedPlatform('facebook')}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      selectedPlatform === 'facebook'
+                        ? 'border-blue-600 bg-blue-600/10 text-blue-600 font-bold ring-2 ring-blue-600/20'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    <Tv className="w-4 h-4 text-blue-600" />
-                    <span className="text-[11px] font-bold">YT Full Video</span>
+                    <Send className="w-4 h-4 mx-auto text-blue-600 mb-1" />
+                    <span className="text-[11px] block">Facebook</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatform('x')}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      selectedPlatform === 'x'
+                        ? 'border-slate-900 dark:border-white bg-slate-900/10 dark:bg-white/10 text-slate-900 dark:text-white font-bold ring-2 ring-slate-900/20'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span className="w-4 h-4 mx-auto text-xs font-black block mb-1">𝕏</span>
+                    <span className="text-[11px] block">X (Twitter)</span>
                   </button>
                 </div>
               </div>

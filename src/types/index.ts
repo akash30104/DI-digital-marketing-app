@@ -15,7 +15,13 @@ export type EditingStatus =
 
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
-export type PlatformType = 'youtube_shorts' | 'youtube_full' | 'instagram_reels' | 'other';
+export type PlatformType = 
+  | 'youtube_shorts' 
+  | 'youtube_full' 
+  | 'instagram_reels' 
+  | 'facebook' 
+  | 'x' 
+  | 'other';
 
 export interface Profile {
   id: string;

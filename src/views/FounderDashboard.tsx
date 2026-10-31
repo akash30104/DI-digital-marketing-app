@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { DailySummary, ActivityLog, PublishingLog } from '../types';
+import { DailySummary, ActivityLog, PublishingLog, Deliverable } from '../types';
 import { StatCard } from '../components/StatComponents';
 import { calculatePublishingStreak, StreakInfo, getLogChannelName, formatPlatformLabel } from '../lib/streak';
 import { 
@@ -16,6 +16,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [todayPublishedLogs, setTodayPublishedLogs] = useState<PublishingLog[]>([]);
+  const [activeEditingTasks, setActiveEditingTasks] = useState<Deliverable[]>([]);
   const [streak, setStreak] = useState<StreakInfo>({
     currentStreak: 0,
     publishedToday: false,
@@ -76,6 +77,27 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         }));
         setStreak(calculatePublishingStreak(mappedLogs));
         setTodayPublishedLogs(mappedLogs.filter(l => l.reporting_date === todayStr));
+      }
+
+      // 4. Fetch Live Active Tasks for Editors
+      const { data: edData } = await supabase
+        .from('deliverables')
+        .select(`
+          *,
+          recordings (title, hard_disk_name, folder_path),
+          profiles:assigned_editor_id (full_name)
+        `)
+        .in('editing_status', ['assigned', 'editing_in_progress', 'submitted_for_approval', 'changes_requested'])
+        .order('updated_at', { ascending: false })
+        .limit(8);
+
+      if (edData) {
+        setActiveEditingTasks(edData.map((d: any) => ({
+          ...d,
+          recording_title: d.recordings?.title,
+          hard_disk_name: d.recordings?.hard_disk_name,
+          editor_name: d.profiles?.full_name || 'Unassigned'
+        })));
       }
     } catch (e) {
       console.error('Error loading dashboard data:', e);
@@ -285,6 +307,80 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Live Video Editing Progress by Editors */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Live Video Editing Progress
+            </h3>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              {activeEditingTasks.length} Active Cuts
+            </span>
+          </div>
+
+          <button
+            onClick={() => onNavigateTab?.('production')}
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          >
+            <span>Full Board</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {activeEditingTasks.length === 0 ? (
+          <div className="p-6 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-400">
+            No active video editing tasks in progress right now.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {activeEditingTasks.map((task) => (
+              <div 
+                key={task.id} 
+                className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                    {task.deliverable_type === 'reel' ? '📱 Short / Reel' : '📺 Full Video'}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    task.editing_status === 'submitted_for_approval'
+                      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
+                      : task.editing_status === 'editing_in_progress'
+                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                  }`}>
+                    {task.editing_status === 'submitted_for_approval'
+                      ? 'Cut Ready for SMM Review'
+                      : task.editing_status === 'editing_in_progress'
+                      ? 'Editing In Progress'
+                      : 'Assigned (Pending Acceptance)'}
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">
+                    {task.title}
+                  </h4>
+                  <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <span>Editor: <strong className="text-slate-800 dark:text-slate-200">{task.editor_name}</strong></span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{task.progress_percentage}% Done</span>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${task.progress_percentage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

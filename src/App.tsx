@@ -97,10 +97,9 @@ export const App: React.FC = () => {
         case 'pipeline':
           return <ProductionBoard />;
         case 'approvals':
-          return <ManagerApprovals />;
         case 'approved':
         case 'publishing':
-          return <SocialMediaPublishing />;
+          return <ManagerApprovals />;
         case 'history':
           return <PublishingHistory />;
         default:

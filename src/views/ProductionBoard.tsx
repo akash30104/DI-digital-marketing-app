@@ -72,6 +72,25 @@ export const ProductionBoard: React.FC = () => {
     };
   }, []);
 
+  const handleAssignEditor = async (deliverableId: string, editorId: string) => {
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('deliverables')
+        .update({
+          assigned_editor_id: editorId || null,
+          editing_status: editorId ? 'assigned' : 'not_started',
+          updated_at: now
+        })
+        .eq('id', deliverableId);
+
+      if (error) throw error;
+      fetchBoardData();
+    } catch (e: any) {
+      alert(`Assignment failed: ${e.message}`);
+    }
+  };
+
   const getStatusBadge = (status: EditingStatus) => {
     switch (status) {
       case 'not_started':
@@ -250,9 +269,26 @@ export const ProductionBoard: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>Editor: <strong>{item.editor_name}</strong></span>
+                  <div className="mt-2 text-xs flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <User className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <span className="font-semibold text-slate-700 dark:text-slate-300 truncate">
+                        {item.editor_name !== 'Unassigned' ? item.editor_name : 'No Editor'}
+                      </span>
+                    </div>
+
+                    <select
+                      value={item.assigned_editor_id || ''}
+                      onChange={(e) => handleAssignEditor(item.id, e.target.value)}
+                      className="text-[11px] font-bold rounded-lg px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 focus:outline-none"
+                    >
+                      <option value="">{item.assigned_editor_id ? 'Change' : '+ Assign'}</option>
+                      {editors.map((ed) => (
+                        <option key={ed.id} value={ed.id}>
+                          {ed.full_name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Progress Bar */}
