@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { ActivityLog, Profile } from '../types';
+import { Profile } from '../types';
 import { ReportingExport } from './ReportingExport';
 import { 
-  Target, Users, History, FileSpreadsheet, Save, CheckCircle2, 
+  Target, Users, FileSpreadsheet, Save, CheckCircle2, 
   AlertCircle, Shield, Clock, HardDrive, Smartphone
 } from 'lucide-react';
 
 export const FounderMore: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'targets' | 'team' | 'audit' | 'exports'>('targets');
+  const [activeSubTab, setActiveSubTab] = useState<'targets' | 'team' | 'exports'>('targets');
 
   // Targets state
   const [shortsTarget, setShortsTarget] = useState(3);
@@ -17,10 +17,8 @@ export const FounderMore: React.FC = () => {
   const [savingTargets, setSavingTargets] = useState(false);
   const [targetSuccess, setTargetSuccess] = useState(false);
 
-  // Team & Audit state
+  // Team state
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [loadingAudit, setLoadingAudit] = useState(false);
 
   // Fetch current targets
   const fetchTargets = async () => {
@@ -68,56 +66,20 @@ export const FounderMore: React.FC = () => {
     }
   };
 
-  // Fetch Team & Activity Logs
-  const fetchTeamAndLogs = async () => {
-    setLoadingAudit(true);
+  // Fetch Team Profiles
+  const fetchTeam = async () => {
     try {
-      const [pRes, lRes] = await Promise.all([
-        supabase.from('profiles').select('*').order('role'),
-        supabase
-          .from('activity_logs')
-          .select(`
-            *,
-            profiles:user_id (full_name)
-          `)
-          .order('created_at', { ascending: false })
-          .limit(50)
-      ]);
-
-      if (pRes.data) setProfiles(pRes.data);
-      if (lRes.data) {
-        const mapped = lRes.data.map((item: any) => ({
-          ...item,
-          user_name: item.profiles?.full_name || 'System'
-        }));
-        setLogs(mapped);
-      }
+      const { data } = await supabase.from('profiles').select('*').order('role');
+      if (data) setProfiles(data);
     } catch (err) {
-      console.error('Failed to load team and logs:', err);
-    } finally {
-      setLoadingAudit(false);
+      console.error('Failed to load team:', err);
     }
   };
 
   useEffect(() => {
     fetchTargets();
-    fetchTeamAndLogs();
+    fetchTeam();
   }, []);
-
-  const formatIST = (isoString: string) => {
-    try {
-      return new Date(isoString).toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      }) + ' IST';
-    } catch {
-      return isoString;
-    }
-  };
 
   return (
     <div className="space-y-6 pb-20">
@@ -145,18 +107,6 @@ export const FounderMore: React.FC = () => {
         >
           <Users className="w-4 h-4" />
           Team ({profiles.length})
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('audit')}
-          className={`flex-1 min-w-[120px] py-2 px-3 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 ${
-            activeSubTab === 'audit'
-              ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          Audit Log
         </button>
 
         <button
@@ -289,51 +239,7 @@ export const FounderMore: React.FC = () => {
         </div>
       )}
 
-      {/* 3. Audit Log Screen */}
-      {activeSubTab === 'audit' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm">
-          <div className="mb-4">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <History className="w-5 h-5 text-blue-600" />
-              Production Activity Log
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Immutable database record of all status changes, approvals, and posts
-            </p>
-          </div>
-
-          {loadingAudit ? (
-            <div className="py-12 text-center text-xs text-slate-400">Loading activity...</div>
-          ) : logs.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400">No activity logged yet.</div>
-          ) : (
-            <div className="space-y-3">
-              {logs.map(log => (
-                <div key={log.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-xs">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
-                    <span className="font-bold text-slate-700 dark:text-slate-300">{log.user_name}</span>
-                    <span>{formatIST(log.created_at)}</span>
-                  </div>
-
-                  <div className="font-semibold text-slate-800 dark:text-slate-200">
-                    {log.action.replace(/_/g, ' ')}
-                  </div>
-
-                  {log.previous_status && log.new_status && (
-                    <div className="mt-1 text-[11px] text-slate-500 flex items-center gap-1.5">
-                      <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800">{log.previous_status}</span>
-                      <span>→</span>
-                      <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold">{log.new_status}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 4. Exports Screen */}
+      {/* Exports Screen */}
       {activeSubTab === 'exports' && (
         <ReportingExport />
       )}
