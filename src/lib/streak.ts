@@ -82,3 +82,43 @@ export function calculatePublishingStreak(logs: PublishingLog[]): StreakInfo {
     statusMessage
   };
 }
+
+/**
+ * Extracts channel name from log (supporting native column or encoded notes tag).
+ */
+export function getLogChannelName(log: { channel_name?: string; notes?: string }): string {
+  if (log.channel_name && log.channel_name.trim()) {
+    return log.channel_name.trim();
+  }
+  if (log.notes) {
+    const match = log.notes.match(/\[Channel:\s*([^\]]+)\]/i);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  return 'DI Official';
+}
+
+/**
+ * Strips out the internal [Channel: ...] tag from notes.
+ */
+export function getLogCleanNotes(notes?: string): string {
+  if (!notes) return '';
+  return notes.replace(/\[Channel:\s*[^\]]+\]\s*/i, '').trim();
+}
+
+/**
+ * Formats platform type into user-facing name.
+ */
+export function formatPlatformLabel(platform: string): string {
+  switch (platform) {
+    case 'youtube_shorts':
+      return 'YouTube Shorts';
+    case 'youtube_full':
+      return 'YouTube Full';
+    case 'instagram_reels':
+      return 'Instagram Reels';
+    default:
+      return 'Other Platform';
+  }
+}

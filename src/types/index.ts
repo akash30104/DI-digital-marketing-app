@@ -79,6 +79,7 @@ export interface PublishingLog {
   published_by: string;
   published_at: string;
   post_url?: string;
+  channel_name?: string;
   notes?: string;
   reporting_date: string;
   created_at?: string;

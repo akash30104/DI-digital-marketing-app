@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { PlatformType, PublishingLog } from '../types';
+import { getLogChannelName } from '../lib/streak';
 import { 
   History, Search, ExternalLink, Calendar, Download, 
-  Youtube, Instagram, Send, RefreshCw, CheckCircle2 
+  Youtube, Instagram, Send, RefreshCw, CheckCircle2, Radio 
 } from 'lucide-react';
 
 export const PublishingHistory: React.FC = () => {
@@ -47,7 +48,8 @@ export const PublishingHistory: React.FC = () => {
         const mapped: PublishingLog[] = data.map((item: any) => ({
           ...item,
           deliverable_title: item.deliverables?.title,
-          publisher_name: item.profiles?.full_name || 'Team Member'
+          publisher_name: item.profiles?.full_name || 'Team Member',
+          channel_name: getLogChannelName(item)
         }));
         setLogs(mapped);
       }
@@ -114,7 +116,8 @@ export const PublishingHistory: React.FC = () => {
       const matchTitle = log.deliverable_title?.toLowerCase().includes(q);
       const matchUrl = log.post_url?.toLowerCase().includes(q);
       const matchUser = log.publisher_name?.toLowerCase().includes(q);
-      if (!matchTitle && !matchUrl && !matchUser) return false;
+      const matchChannel = log.channel_name?.toLowerCase().includes(q);
+      if (!matchTitle && !matchUrl && !matchUser && !matchChannel) return false;
     }
     return true;
   });
@@ -122,9 +125,10 @@ export const PublishingHistory: React.FC = () => {
   const exportToCSV = () => {
     if (filteredLogs.length === 0) return;
 
-    const headers = ['Platform', 'Deliverable Title', 'Post URL', 'Published By', 'Published At (IST)', 'Reporting Date'];
+    const headers = ['Platform', 'Channel Name', 'Deliverable Title', 'Post URL', 'Published By', 'Published At (IST)', 'Reporting Date'];
     const rows = filteredLogs.map(log => [
       getPlatformLabel(log.platform),
+      `"${(log.channel_name || '').replace(/"/g, '""')}"`,
       `"${(log.deliverable_title || '').replace(/"/g, '""')}"`,
       log.post_url || '',
       `"${(log.publisher_name || '').replace(/"/g, '""')}"`,
@@ -252,6 +256,10 @@ export const PublishingHistory: React.FC = () => {
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-xs font-bold text-slate-900 dark:text-white">
                       {getPlatformLabel(log.platform)}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                      <Radio className="w-3 h-3" />
+                      {log.channel_name || 'DI Official'}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
                       <CheckCircle2 className="w-3 h-3" />

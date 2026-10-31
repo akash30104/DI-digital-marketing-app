@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { DailySummary, ActivityLog, PublishingLog } from '../types';
 import { StatCard } from '../components/StatComponents';
-import { calculatePublishingStreak, StreakInfo } from '../lib/streak';
+import { calculatePublishingStreak, StreakInfo, getLogChannelName, formatPlatformLabel } from '../lib/streak';
 import { 
   PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
-  Send, AlertTriangle, RefreshCw, Clock, ArrowUpRight, Flame 
+  Send, AlertTriangle, RefreshCw, Clock, ArrowUpRight, Flame, Radio, ExternalLink 
 } from 'lucide-react';
 
 interface FounderDashboardProps {
@@ -15,6 +15,7 @@ interface FounderDashboardProps {
 export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTab }) => {
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [todayPublishedLogs, setTodayPublishedLogs] = useState<PublishingLog[]>([]);
   const [streak, setStreak] = useState<StreakInfo>({
     currentStreak: 0,
     publishedToday: false,
@@ -56,16 +57,25 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         setActivities(actData as ActivityLog[]);
       }
 
-      // 3. Fetch Publishing Logs for Streak Calculation
+      // 3. Fetch Publishing Logs for Streak & Today's Proofs
       const { data: pubData } = await supabase
         .from('publishing_logs')
-        .select('*')
+        .select(`
+          *,
+          deliverables:deliverable_id (title, deliverable_type)
+        `)
         .eq('publication_status', 'published')
         .order('published_at', { ascending: false })
         .limit(100);
 
       if (pubData) {
-        setStreak(calculatePublishingStreak(pubData as PublishingLog[]));
+        const mappedLogs: PublishingLog[] = pubData.map((l: any) => ({
+          ...l,
+          deliverable_title: l.deliverables?.title || l.notes?.split('\n')[0] || 'Published Video',
+          channel_name: getLogChannelName(l)
+        }));
+        setStreak(calculatePublishingStreak(mappedLogs));
+        setTodayPublishedLogs(mappedLogs.filter(l => l.reporting_date === todayStr));
       }
     } catch (e) {
       console.error('Error loading dashboard data:', e);
@@ -194,6 +204,89 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             onClick={() => onNavigateTab?.('publishing')}
           />
         </div>
+      </div>
+
+      {/* Social Media Manager's Today's Published Videos & Live Proofs */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Today's Publications from Social Media Manager
+            </h3>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400">
+              {todayPublishedLogs.length} Posted Today
+            </span>
+          </div>
+
+          <button
+            onClick={() => onNavigateTab?.('publishing')}
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          >
+            <span>Full Publishing Hub</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {todayPublishedLogs.length === 0 ? (
+          <div className="p-6 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-400">
+            No videos posted today yet. The Social Media Manager's published proofs will update here live.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {todayPublishedLogs.map((log, idx) => {
+              const channel = getLogChannelName(log);
+              const postTime = new Date(log.published_at).toLocaleTimeString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              });
+
+              return (
+                <div 
+                  key={log.id} 
+                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between gap-3"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-blue-600 text-white">
+                        #{todayPublishedLogs.length - idx}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center gap-1 truncate">
+                        <Radio className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{channel}</span>
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                        {formatPlatformLabel(log.platform)}
+                      </span>
+                    </div>
+                    <p className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                      {log.deliverable_title}
+                    </p>
+                    <span className="text-[10px] text-slate-400">
+                      Published at {postTime} IST
+                    </span>
+                  </div>
+
+                  {log.post_url ? (
+                    <a
+                      href={log.post_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors"
+                      title="Open Verified Proof"
+                    >
+                      <span>Proof</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 shrink-0">Recorded</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Production Board Pipeline Metrics */}
