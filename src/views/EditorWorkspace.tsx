@@ -14,6 +14,51 @@ interface EditorWorkspaceProps {
   onNavigateTab?: (tab: string) => void;
 }
 
+const ACCEPTED_TASKS_KEY_PREFIX = 'di_editor_accepted_tasks_';
+
+const getAcceptedTaskIds = (userId: string): Set<string> => {
+  try {
+    const raw = localStorage.getItem(`${ACCEPTED_TASKS_KEY_PREFIX}${userId}`);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+};
+
+const saveAcceptedTaskId = (userId: string, taskId: string) => {
+  try {
+    const set = getAcceptedTaskIds(userId);
+    set.add(taskId);
+    localStorage.setItem(`${ACCEPTED_TASKS_KEY_PREFIX}${userId}`, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.warn('Failed to save accepted task to local storage:', e);
+  }
+};
+
+const removeAcceptedTaskId = (userId: string, taskId: string) => {
+  try {
+    const set = getAcceptedTaskIds(userId);
+    set.delete(taskId);
+    localStorage.setItem(`${ACCEPTED_TASKS_KEY_PREFIX}${userId}`, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.warn('Failed to remove accepted task from local storage:', e);
+  }
+};
+
+const isMyTask = (d: Deliverable, userId?: string, fullName?: string): boolean => {
+  if (!userId) return false;
+  // 1. Direct assigned editor ID match
+  if (d.assigned_editor_id === userId) return true;
+  // 2. Direct editor name match
+  if (fullName && d.editor_name && d.editor_name.trim().toLowerCase() === fullName.trim().toLowerCase()) return true;
+  // 3. Local accepted cache (persists locally across tab switches and reloads)
+  const acceptedSet = getAcceptedTaskIds(userId);
+  if (acceptedSet.has(d.id)) return true;
+  return false;
+};
+
 export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({ 
   mode = 'my', 
   onNavigateTab 
@@ -62,9 +107,10 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         setAllDeliverables(mapped);
 
         if (mode === 'my') {
-          // In "My Tasks": show ONLY active, in-progress tasks. Completed cuts disappear!
+          // In "My Tasks": show ONLY active, in-progress tasks assigned to or accepted by this editor.
+          // Completed cuts (submitted or approved or progress = 100%) disappear immediately!
           const myFiltered = mapped.filter(d => 
-            d.assigned_editor_id === currentUser.id &&
+            isMyTask(d, currentUser.id, currentUser.full_name) &&
             d.editing_status !== 'submitted_for_approval' &&
             d.editing_status !== 'approved' &&
             (d.progress_percentage || 0) < 100
@@ -142,11 +188,14 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     setPreviewLink(task.preview_link || '');
   };
 
-  // Accept Task Action (when SMM assigned it or in Tasks list)
+  // Accept Task Action: claims task, adds to My Tasks, and immediately opens in My Tasks!
   const handleAcceptTask = async (task: Deliverable, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!currentUser) return;
     setAcceptingId(task.id);
+
+    // 1. Immediately save to local accepted tasks set so it persists in My Tasks
+    saveAcceptedTaskId(currentUser.id, task.id);
 
     const now = new Date().toISOString();
     const newProgress = Math.max(10, task.progress_percentage || 0);
@@ -159,14 +208,24 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       updated_at: now
     };
 
-    // 1. Immediately open modal so editor sees footage details & can edit right away
-    openUpdateModal(updatedTask);
-    showToast(`🎬 Accepted "${task.title}"! Editing marked In Progress.`);
-
     // 2. Optimistic update
-    setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
+    setTasks(prev => {
+      if (mode === 'my') {
+        return [updatedTask, ...prev.filter(t => t.id !== task.id)];
+      }
+      return prev.map(t => t.id === task.id ? updatedTask : t);
+    });
 
-    // 3. Database update
+    // 3. Immediately switch screen to "My Tasks" so the editor sees it in their My Tasks list
+    if (onNavigateTab) {
+      onNavigateTab('my_tasks');
+    }
+
+    // 4. Immediately open modal so editor sees footage details & can edit right away
+    openUpdateModal(updatedTask);
+    showToast(`🎬 Accepted "${task.title}"! Task is now active in My Tasks.`);
+
+    // 5. Database update in Supabase
     try {
       const { error } = await supabase
         .from('deliverables')
@@ -178,9 +237,11 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         })
         .eq('id', task.id);
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Deliverable update note in Supabase:', error);
+      }
 
-      supabase.from('activity_logs').insert([{
+      await supabase.from('activity_logs').insert([{
         user_id: currentUser.id,
         action: 'accepted_task',
         entity_type: 'deliverable',
@@ -195,8 +256,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
       loadTasks(false);
     } catch (err: any) {
-      console.error('Failed to accept task:', err);
-      showToast(err.message || 'Error claiming task');
+      console.error('Failed to accept task in database:', err);
     } finally {
       setAcceptingId(null);
     }
@@ -248,14 +308,19 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       const isCompleted = status === 'submitted_for_approval' || finalProgress === 100;
 
       // Optimistically remove completed task from My Tasks immediately
-      if (mode === 'my' && isCompleted) {
-        setTasks(prev => prev.filter(t => t.id !== editingTask.id));
+      if (isCompleted) {
+        removeAcceptedTaskId(currentUser.id, editingTask.id);
+        if (mode === 'my') {
+          setTasks(prev => prev.filter(t => t.id !== editingTask.id));
+        }
       }
 
       const nextReel = findNextReel(editingTask);
 
       if ((shouldAdvance || isCompleted) && nextReel) {
-        // Automatically advance to the next reel
+        // Automatically claim next reel for this editor in sequence
+        saveAcceptedTaskId(currentUser.id, nextReel.id);
+
         if (nextReel.assigned_editor_id !== currentUser.id || nextReel.editing_status === 'not_started' || nextReel.editing_status === 'assigned') {
           await supabase
             .from('deliverables')
@@ -271,6 +336,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         const updatedNext: Deliverable = {
           ...nextReel,
           assigned_editor_id: currentUser.id,
+          editor_name: currentUser.full_name,
           editing_status: 'editing_in_progress',
           progress_percentage: Math.max(10, nextReel.progress_percentage || 0)
         };
@@ -282,7 +348,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           });
         }
 
-        showToast(`🎉 "${editingTask.title}" completed! Advanced to "${nextReel.title}" 🎬`);
+        showToast(`🎉 "${editingTask.title}" submitted! Advanced to "${nextReel.title}" 🎬`);
         openUpdateModal(updatedNext);
       } else {
         showToast(
@@ -377,10 +443,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       ) : (
         <div className="space-y-3">
           {tasks.map((task) => {
-            const isAssignedToMe = task.assigned_editor_id === currentUser?.id;
-            const isAssignedPending = !task.assigned_editor_id || 
-              task.editing_status === 'assigned' || 
-              task.editing_status === 'not_started';
+            const isAssignedToMe = isMyTask(task, currentUser?.id, currentUser?.full_name);
             const isReel = task.deliverable_type === 'reel';
 
             return (
@@ -444,10 +507,9 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   {/* Editor assignment badge in 'all' mode */}
                   {mode === 'all' && (
                     <div className="mt-2 text-[11px]">
-                      {task.assigned_editor_id ? (
+                      {task.assigned_editor_id || isAssignedToMe ? (
                         <span className="text-slate-500 font-medium">
-                          Assigned to: <strong className="text-slate-800 dark:text-slate-200">{task.editor_name || 'Assigned'}</strong>
-                          {isAssignedToMe && <span className="ml-1 text-emerald-600 font-bold">(You)</span>}
+                          Assigned to: <strong className="text-slate-800 dark:text-slate-200">{isAssignedToMe ? `${currentUser?.full_name || 'You'} (You)` : (task.editor_name || 'Assigned')}</strong>
                         </span>
                       ) : (
                         <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">
@@ -479,7 +541,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
                 {/* ACTION BUTTONS */}
                 <div className="flex items-center gap-2 pt-1">
-                  {isAssignedPending && !isAssignedToMe ? (
+                  {!isAssignedToMe ? (
                     <button
                       onClick={(e) => handleAcceptTask(task, e)}
                       disabled={acceptingId === task.id}
@@ -492,12 +554,15 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (mode === 'all' && onNavigateTab) {
+                          onNavigateTab('my_tasks');
+                        }
                         openUpdateModal(task);
                       }}
                       className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white text-xs font-bold transition-all shadow-sm shadow-blue-500/20"
                     >
                       <Sliders className="w-3.5 h-3.5" />
-                      <span>Update Cut Progress &amp; Submit</span>
+                      <span>{mode === 'all' ? 'Open in My Tasks & Edit ↗' : 'Update Cut Progress & Submit'}</span>
                     </button>
                   )}
                 </div>
@@ -507,7 +572,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         </div>
       )}
 
-      {/* UPDATE PROGRESS MODAL (Matches user screenshot) */}
+      {/* UPDATE PROGRESS MODAL */}
       {editingTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[92vh]">
