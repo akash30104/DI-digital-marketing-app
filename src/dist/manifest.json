@@ -1,6 +1,6 @@
 {
-  "name": "Studio DiskFlow — Video Production & Social Publishing",
-  "short_name": "DiskFlow",
+  "name": "Digital Inertia Production App",
+  "short_name": "Digital Inertia",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0B1120",
@@ -8,15 +8,15 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/favicon.svg",
+      "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

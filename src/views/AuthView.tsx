@@ -110,14 +110,14 @@ export const AuthView: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-brand-navy to-brand-blue flex items-center justify-center shadow-lg shadow-blue-500/30 text-white mb-3">
-            <Video className="w-7 h-7" />
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-2 flex items-center justify-center shadow-lg shadow-blue-500/10 mb-3 overflow-hidden">
+            <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-xl font-black tracking-wider uppercase text-brand-navy dark:text-white">
-            Studio DiskFlow
+          <h1 className="text-xl font-black tracking-wider uppercase text-slate-900 dark:text-white">
+            Digital Inertia
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Video Production & Social Media Publishing
+            Production & Social Media Management App
           </p>
         </div>
 

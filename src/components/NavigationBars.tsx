@@ -35,13 +35,13 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
       <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-navy to-brand-blue flex items-center justify-center shadow-md shadow-blue-500/20 text-white">
-              <Film className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 flex items-center justify-center shadow-sm overflow-hidden shrink-0">
+              <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm tracking-wider uppercase text-brand-navy dark:text-white">
-                  Studio DiskFlow
+                <span className="font-extrabold text-sm tracking-wider uppercase text-slate-900 dark:text-white">
+                  Digital Inertia
                 </span>
                 <span className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${roleInfo.badge}`}>
                   {roleInfo.icon}
@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                Native Video Production & Social Publishing
+                Production App
               </p>
             </div>
           </div>

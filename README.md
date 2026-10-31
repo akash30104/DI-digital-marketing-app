@@ -1,4 +1,4 @@
-# Studio DiskFlow — Progressive Web App (PWA)
+# Digital Inertia — Video Production App (PWA)
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/akash30104/studio-diskflow-web)
 

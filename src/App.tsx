@@ -48,7 +48,7 @@ export const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">Loading Studio DiskFlow...</span>
+          <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">Loading Digital Inertia...</span>
         </div>
       </div>
     );
