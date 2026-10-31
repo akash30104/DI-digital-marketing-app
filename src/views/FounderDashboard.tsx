@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { DailySummary, PublishingLog, Deliverable } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { DailySummary, PublishingLog, Deliverable, PlatformType } from '../types';
 import { StatCard } from '../components/StatComponents';
-import { calculatePublishingStreak, StreakInfo, getLogChannelName, formatPlatformLabel } from '../lib/streak';
+import { calculatePublishingStreak, StreakInfo, getLogChannelName, formatPlatformLabel, OFFICIAL_CHANNELS } from '../lib/streak';
 import { 
   PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
-  Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight 
+  Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight, 
+  Share2, Plus, X, Check, Sparkles 
 } from 'lucide-react';
 
 interface FounderDashboardProps {
@@ -13,6 +15,9 @@ interface FounderDashboardProps {
 }
 
 export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTab }) => {
+  const { currentUser, role } = useAuth();
+  const isManager = role === 'social_media_manager';
+
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [todayPublishedLogs, setTodayPublishedLogs] = useState<PublishingLog[]>([]);
   const [activeEditingTasks, setActiveEditingTasks] = useState<Deliverable[]>([]);
@@ -23,6 +28,18 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
     statusMessage: 'Loading publishing streak...'
   });
   const [isLoading, setIsLoading] = useState(true);
+
+  // Social Media Manager Direct Publish Modal State
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [publishVideoTitle, setPublishVideoTitle] = useState('');
+  const [selectedChannel, setSelectedChannel] = useState<string>('Digital Inertia');
+  const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('youtube_shorts');
+  const [livePostUrl, setLivePostUrl] = useState('');
+  const [publishNotes, setPublishNotes] = useState('');
+  const [isSubmittingPublish, setIsSubmittingPublish] = useState(false);
+  const [selectedDeliverableId, setSelectedDeliverableId] = useState<string>('');
+  const [availableDeliverables, setAvailableDeliverables] = useState<Deliverable[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -86,10 +103,107 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           editor_name: d.profiles?.full_name || 'Unassigned'
         })));
       }
+      // 4. Fetch deliverables available for linking
+      const { data: delivList } = await supabase
+        .from('deliverables')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      if (delivList) {
+        setAvailableDeliverables(delivList);
+      }
     } catch (e) {
       console.error('Error loading dashboard data:', e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handlePublishSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    if (!livePostUrl.trim()) {
+      showToast('Live video link / URL is required as proof.');
+      return;
+    }
+
+    if (!publishVideoTitle.trim() && !selectedDeliverableId) {
+      showToast('Please provide a video title or select an edited cut.');
+      return;
+    }
+
+    setIsSubmittingPublish(true);
+
+    try {
+      const now = new Date().toISOString();
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+      const chosenTitle = selectedDeliverableId
+        ? availableDeliverables.find(d => d.id === selectedDeliverableId)?.title || publishVideoTitle.trim()
+        : publishVideoTitle.trim();
+
+      const combinedNotes = `[Channel: ${selectedChannel}] ${publishNotes.trim()}`.trim();
+
+      const basePayload: any = {
+        deliverable_id: selectedDeliverableId || null,
+        platform: selectedPlatform,
+        publication_status: 'published',
+        published_by: currentUser.id,
+        published_at: now,
+        post_url: livePostUrl.trim(),
+        notes: combinedNotes,
+        reporting_date: todayStr
+      };
+
+      const payloadWithChannel = {
+        ...basePayload,
+        channel_name: selectedChannel
+      };
+
+      let insertRes = await supabase
+        .from('publishing_logs')
+        .insert([payloadWithChannel]);
+
+      if (insertRes.error && insertRes.error.code === '42703') {
+        insertRes = await supabase
+          .from('publishing_logs')
+          .insert([basePayload]);
+      }
+
+      if (insertRes.error) throw insertRes.error;
+
+      // If tied to a deliverable, update it to approved
+      if (selectedDeliverableId) {
+        await supabase
+          .from('deliverables')
+          .update({
+            editing_status: 'approved',
+            approved_by: currentUser.id,
+            approved_at: now,
+            updated_at: now
+          })
+          .eq('id', selectedDeliverableId);
+      }
+
+      showToast(`🎉 Logged published video to ${selectedChannel} on ${formatPlatformLabel(selectedPlatform)}!`);
+      setIsPublishModalOpen(false);
+      setLivePostUrl('');
+      setPublishVideoTitle('');
+      setPublishNotes('');
+      setSelectedDeliverableId('');
+      loadData();
+    } catch (err: any) {
+      console.error('Failed to log published video:', err);
+      showToast(err.message || 'Failed to update publication.');
+    } finally {
+      setIsSubmittingPublish(false);
     }
   };
 
@@ -124,14 +238,26 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             {todayFormatted} (Asia/Kolkata)
           </span>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Founder Overview
+            {isManager ? 'Social Media Hub' : 'Founder Overview'}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Executive monitoring of video editing progress, channel publications, and manager consistency.
+            {isManager
+              ? 'Publish videos directly on social media (YouTube, Instagram, Facebook, X) and update the live proof links here.'
+              : 'Executive monitoring of video editing progress, channel publications, and manager consistency.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {isManager && (
+            <button
+              onClick={() => setIsPublishModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-purple-500/20 active:scale-95 transition-all"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Update Published Video</span>
+            </button>
+          )}
+
           <button
             onClick={loadData}
             disabled={isLoading}
@@ -142,6 +268,36 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           </button>
         </div>
       </div>
+
+      {/* Social Media Manager Direct Action Banner */}
+      {isManager && (
+        <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 border border-purple-500/30 rounded-3xl p-5 shadow-xl text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-black uppercase tracking-wider border border-purple-500/30">
+                Official Publishing Portal
+              </span>
+              <span className="text-[11px] text-purple-200">
+                YouTube &bull; Instagram &bull; Facebook &bull; X
+              </span>
+            </div>
+            <h3 className="text-lg font-black text-white">
+              Post Videos on Social Media &amp; Update App
+            </h3>
+            <p className="text-xs text-slate-300 max-w-xl">
+              Publish your video directly to <strong>YouTube, Instagram, Facebook, or X</strong>, then log the live video URL here. This records proof, updates today&apos;s output count, and maintains your daily streak.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setIsPublishModalOpen(true)}
+            className="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-500/30 active:scale-95 transition-all shrink-0"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>+ Update Published Video Link</span>
+          </button>
+        </div>
+      )}
 
       {/* Social Media Manager Publishing Streak Overview */}
       <div className="bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent border border-orange-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
@@ -381,6 +537,191 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           />
         </div>
       </div>
+
+      {/* SMM UPDATE PUBLISHED VIDEO MODAL */}
+      {isPublishModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                  Social Media Manager &bull; Publishing Update
+                </span>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                  Update Published Video
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsPublishModalOpen(false)} 
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePublishSubmit} className="p-5 space-y-4 overflow-y-auto">
+              <div className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/40 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                <span>
+                  Publish your video directly to YouTube, Instagram, Facebook, or X first, then paste the live link below to record verified proof.
+                </span>
+              </div>
+
+              {/* 1. Select Edited Video or Custom Title */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  1. Video / Reel Title
+                </label>
+                {availableDeliverables.length > 0 && (
+                  <div className="mb-2">
+                    <select
+                      value={selectedDeliverableId}
+                      onChange={(e) => {
+                        setSelectedDeliverableId(e.target.value);
+                        if (e.target.value) {
+                          const d = availableDeliverables.find(item => item.id === e.target.value);
+                          if (d) {
+                            setPublishVideoTitle(d.title);
+                            setSelectedPlatform(d.deliverable_type === 'reel' ? 'youtube_shorts' : 'youtube_full');
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 mb-1.5"
+                    >
+                      <option value="">-- Choose from Recent Edited Videos (or enter custom title below) --</option>
+                      {availableDeliverables.map(del => (
+                        <option key={del.id} value={del.id}>
+                          {del.deliverable_type === 'reel' ? '📱 [Reel] ' : '📺 [Full Video] '}
+                          {del.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  required={!selectedDeliverableId}
+                  value={publishVideoTitle}
+                  onChange={(e) => setPublishVideoTitle(e.target.value)}
+                  placeholder="e.g. Ep 12 - Why Consistency Beats Talent (Reel #1)"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* 2. Select Official Channel */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  2. Official Channel Published To
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {OFFICIAL_CHANNELS.map(ch => (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => setSelectedChannel(ch)}
+                      className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-all ${
+                        selectedChannel === ch
+                          ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-sm'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="truncate">{ch}</span>
+                        {selectedChannel === ch && <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Platform */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  3. Platform Published
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'youtube_shorts' as PlatformType, label: 'YouTube Shorts', icon: <PlaySquare className="w-3.5 h-3.5 text-red-500" /> },
+                    { id: 'instagram_reels' as PlatformType, label: 'Instagram Reels', icon: <Camera className="w-3.5 h-3.5 text-pink-500" /> },
+                    { id: 'youtube_full' as PlatformType, label: 'YouTube Full', icon: <Tv className="w-3.5 h-3.5 text-red-600" /> },
+                    { id: 'facebook' as PlatformType, label: 'Facebook', icon: <Share2 className="w-3.5 h-3.5 text-blue-600" /> },
+                    { id: 'x' as PlatformType, label: 'X (Twitter)', icon: <Share2 className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" /> },
+                  ].map(plat => (
+                    <button
+                      key={plat.id}
+                      type="button"
+                      onClick={() => setSelectedPlatform(plat.id)}
+                      className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
+                        selectedPlatform === plat.id
+                          ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-sm'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900'
+                      }`}
+                    >
+                      {plat.icon}
+                      <span className="truncate">{plat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Live URL Link (Proof) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  4. Live Post URL / Proof Link (Required)
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={livePostUrl}
+                  onChange={(e) => setLivePostUrl(e.target.value)}
+                  placeholder="https://youtube.com/shorts/... or https://instagram.com/reel/..."
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* 5. Notes (Optional) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={publishNotes}
+                  onChange={(e) => setPublishNotes(e.target.value)}
+                  placeholder="e.g. Published at 7 PM IST"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setIsPublishModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPublish}
+                  className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl transition-all shadow-md shadow-purple-500/20 active:scale-95 disabled:opacity-50"
+                >
+                  {isSubmittingPublish ? 'Saving Publication...' : 'Confirm & Log Published Video 🚀'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notice */}
+      {toastMessage && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-bold shadow-xl border border-slate-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 };
