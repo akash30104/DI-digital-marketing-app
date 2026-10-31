@@ -40,7 +40,7 @@ export const App: React.FC = () => {
     } else if (role === 'editor') {
       setActiveTab('my_tasks');
     } else if (role === 'social_media_manager') {
-      setActiveTab('footage');
+      setActiveTab('dashboard');
     }
   }, [role]);
 

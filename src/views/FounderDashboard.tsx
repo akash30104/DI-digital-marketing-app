@@ -3,7 +3,10 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { DailySummary, PublishingLog, Deliverable, PlatformType } from '../types';
 import { StatCard } from '../components/StatComponents';
-import { calculatePublishingStreak, StreakInfo, getLogChannelName, formatPlatformLabel, OFFICIAL_CHANNELS } from '../lib/streak';
+import { 
+  calculatePublishingStreak, StreakInfo, getLogChannelName, 
+  formatPlatformLabel, getLogPlatform, getLogCleanTitle, OFFICIAL_CHANNELS 
+} from '../lib/streak';
 import { 
   PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
   Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight, 
@@ -76,11 +79,16 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       if (pubData) {
         const mappedLogs: PublishingLog[] = pubData.map((l: any) => ({
           ...l,
-          deliverable_title: l.deliverables?.title || l.notes?.split('\n')[0] || 'Published Video',
+          deliverable_title: getLogCleanTitle(l),
           channel_name: getLogChannelName(l)
         }));
         setStreak(calculatePublishingStreak(mappedLogs));
-        setTodayPublishedLogs(mappedLogs.filter(l => l.reporting_date === todayStr));
+        
+        // Filter logs published today (matching reporting_date or published_at timestamp in IST)
+        const filteredToday = mappedLogs.filter(l => 
+          l.reporting_date === todayStr || (l.published_at && l.published_at.startsWith(todayStr))
+        );
+        setTodayPublishedLogs(filteredToday);
       }
 
       // 3. Fetch Live Active Tasks for Editors
@@ -103,12 +111,13 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           editor_name: d.profiles?.full_name || 'Unassigned'
         })));
       }
+
       // 4. Fetch deliverables available for linking
       const { data: delivList } = await supabase
         .from('deliverables')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(25);
+        .limit(30);
 
       if (delivList) {
         setAvailableDeliverables(delivList);
@@ -145,14 +154,73 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       const now = new Date().toISOString();
       const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
-      const chosenTitle = selectedDeliverableId
-        ? availableDeliverables.find(d => d.id === selectedDeliverableId)?.title || publishVideoTitle.trim()
-        : publishVideoTitle.trim();
+      // 1. Resolve Deliverable & Recording IDs
+      let finalDeliverableId = selectedDeliverableId || null;
+      let finalRecordingId = '';
 
+      const matchedDeliverable = availableDeliverables.find(d => d.id === selectedDeliverableId);
+      if (matchedDeliverable) {
+        finalRecordingId = matchedDeliverable.recording_id;
+      }
+
+      if (!finalRecordingId) {
+        // Query the latest available recording from the database
+        const { data: recs } = await supabase
+          .from('recordings')
+          .select('id')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (recs && recs.length > 0) {
+          finalRecordingId = recs[0].id;
+        } else {
+          // Fallback: create default recording for direct social upload
+          const { data: newRec } = await supabase
+            .from('recordings')
+            .insert([{
+              title: 'Social Media Direct Uploads',
+              recording_date: todayStr,
+              date_received: todayStr,
+              hard_disk_name: 'Cloud / Direct Social',
+              folder_path: '/social-media/direct-uploads',
+              registered_by: currentUser.id
+            }])
+            .select()
+            .single();
+
+          if (newRec) finalRecordingId = newRec.id;
+        }
+      }
+
+      const chosenTitle = matchedDeliverable?.title || publishVideoTitle.trim() || `Daily Video (${formatPlatformLabel(selectedPlatform)})`;
+
+      // If no deliverable was selected, create a deliverable record so it links cleanly in stats
+      if (!finalDeliverableId && finalRecordingId) {
+        const { data: newDel } = await supabase
+          .from('deliverables')
+          .insert([{
+            recording_id: finalRecordingId,
+            title: chosenTitle,
+            deliverable_type: selectedPlatform === 'youtube_full' ? 'full_length_video' : 'reel',
+            editing_status: 'approved',
+            progress_percentage: 100,
+            priority: 'medium',
+            assigned_editor_id: currentUser.id
+          }])
+          .select()
+          .single();
+
+        if (newDel) {
+          finalDeliverableId = newDel.id;
+        }
+      }
+
+      // 2. Prepare payload with notes and channel tag
       const combinedNotes = `[Channel: ${selectedChannel}] ${publishNotes.trim()}`.trim();
 
       const basePayload: any = {
-        deliverable_id: selectedDeliverableId || null,
+        deliverable_id: finalDeliverableId,
+        recording_id: finalRecordingId,
         platform: selectedPlatform,
         publication_status: 'published',
         published_by: currentUser.id,
@@ -167,29 +235,73 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         channel_name: selectedChannel
       };
 
+      // 3. Resilient Insert into publishing_logs
       let insertRes = await supabase
         .from('publishing_logs')
         .insert([payloadWithChannel]);
 
+      // Fallback A: channel_name column does not exist (PostgreSQL code 42703)
       if (insertRes.error && insertRes.error.code === '42703') {
         insertRes = await supabase
           .from('publishing_logs')
           .insert([basePayload]);
       }
 
-      if (insertRes.error) throw insertRes.error;
+      // Fallback B: platform check constraint rejects custom platforms like facebook/x (PostgreSQL code 23514)
+      if (insertRes.error && insertRes.error.code === '23514') {
+        const fallbackPayload = {
+          ...basePayload,
+          platform: 'other',
+          notes: `[Platform: ${selectedPlatform}] ${combinedNotes}`.trim()
+        };
 
-      // If tied to a deliverable, update it to approved
-      if (selectedDeliverableId) {
-        await supabase
-          .from('deliverables')
-          .update({
-            editing_status: 'approved',
-            approved_by: currentUser.id,
-            approved_at: now,
-            updated_at: now
-          })
-          .eq('id', selectedDeliverableId);
+        let fbRes = await supabase
+          .from('publishing_logs')
+          .insert([{ ...fallbackPayload, channel_name: selectedChannel }]);
+
+        if (fbRes.error && fbRes.error.code === '42703') {
+          fbRes = await supabase
+            .from('publishing_logs')
+            .insert([fallbackPayload]);
+        }
+        insertRes = fbRes;
+      }
+
+      if (insertRes.error) {
+        throw insertRes.error;
+      }
+
+      // 4. Update deliverable status to approved and 100% complete
+      if (finalDeliverableId) {
+        try {
+          const { error: updErr } = await supabase
+            .from('deliverables')
+            .update({
+              editing_status: 'approved',
+              progress_percentage: 100,
+              final_video_link: livePostUrl.trim(),
+              approval_notes: `Approved & Published to ${selectedChannel} on ${formatPlatformLabel(selectedPlatform)}`,
+              approved_by: currentUser.id,
+              approved_at: now,
+              updated_at: now
+            })
+            .eq('id', finalDeliverableId);
+
+          if (updErr && updErr.code === '42703') {
+            await supabase
+              .from('deliverables')
+              .update({
+                editing_status: 'approved',
+                progress_percentage: 100,
+                approved_by: currentUser.id,
+                approved_at: now,
+                updated_at: now
+              })
+              .eq('id', finalDeliverableId);
+          }
+        } catch (delivErr) {
+          console.warn('Deliverable update notice:', delivErr);
+        }
       }
 
       showToast(`🎉 Logged published video to ${selectedChannel} on ${formatPlatformLabel(selectedPlatform)}!`);
@@ -198,7 +310,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       setPublishVideoTitle('');
       setPublishNotes('');
       setSelectedDeliverableId('');
-      loadData();
+      await loadData();
     } catch (err: any) {
       console.error('Failed to log published video:', err);
       showToast(err.message || 'Failed to update publication.');
@@ -212,7 +324,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
     // Subscribe to Realtime updates on publishing and deliverables
     const channel = supabase
-      .channel('dashboard-realtime')
+      .channel('dashboard-realtime-feed')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'publishing_logs' }, () => loadData())
       .subscribe();
@@ -228,6 +340,17 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
     month: 'short',
     day: 'numeric'
   }).format(new Date());
+
+  // Compute live today counts directly from verified published logs
+  const todayShorts = todayPublishedLogs.filter(l => getLogPlatform(l) === 'youtube_shorts').length;
+  const todayReels = todayPublishedLogs.filter(l => getLogPlatform(l) === 'instagram_reels').length;
+  const todayFull = todayPublishedLogs.filter(l => getLogPlatform(l) === 'youtube_full').length;
+  const todayFb = todayPublishedLogs.filter(l => getLogPlatform(l) === 'facebook').length;
+  const todayX = todayPublishedLogs.filter(l => getLogPlatform(l) === 'x').length;
+
+  const displayShorts = Math.max(summary?.published.youtube_shorts ?? 0, todayShorts);
+  const displayReels = Math.max(summary?.published.instagram_reels ?? 0, todayReels);
+  const displayFull = Math.max(summary?.published.youtube_full ?? 0, todayFull);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-16">
@@ -329,12 +452,12 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       {/* Daily Publishing Goals (Read-Only Executive Overview) */}
       <div>
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-          Today's Output Goals
+          Today's Output Across Official Channels
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard
             title="YouTube Shorts"
-            count={summary?.published.youtube_shorts ?? 0}
+            count={displayShorts}
             target={summary?.targets.youtube_shorts ?? 4}
             icon={<PlaySquare className="w-5 h-5 text-red-600" />}
             colorClass="bg-red-500/10 text-red-600"
@@ -342,18 +465,34 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
           <StatCard
             title="Instagram Reels"
-            count={summary?.published.instagram_reels ?? 0}
+            count={displayReels}
             target={summary?.targets.instagram_reels ?? 4}
             icon={<Camera className="w-5 h-5 text-pink-600" />}
             colorClass="bg-pink-500/10 text-pink-600"
           />
 
           <StatCard
-            title="YouTube Full Video"
-            count={summary?.published.youtube_full ?? 0}
+            title="YouTube Full"
+            count={displayFull}
             target={summary?.targets.youtube_full ?? 1}
             icon={<Tv className="w-5 h-5 text-blue-600" />}
             colorClass="bg-blue-500/10 text-blue-600"
+          />
+
+          <StatCard
+            title="Facebook"
+            count={todayFb}
+            target={1}
+            icon={<Share2 className="w-5 h-5 text-blue-500" />}
+            colorClass="bg-blue-500/10 text-blue-500"
+          />
+
+          <StatCard
+            title="X (Twitter)"
+            count={todayX}
+            target={1}
+            icon={<Share2 className="w-5 h-5 text-slate-700 dark:text-slate-300" />}
+            colorClass="bg-slate-500/10 text-slate-700 dark:text-slate-300"
           />
         </div>
       </div>
@@ -437,7 +576,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Today's Publications by Social Media Manager
+              Today's Verified Publications by Social Media Manager
             </h3>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400">
               {todayPublishedLogs.length} Posted Today
@@ -475,7 +614,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                         <span className="truncate">{channel}</span>
                       </span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                        {formatPlatformLabel(log.platform)}
+                        {formatPlatformLabel(log.platform, log.notes)}
                       </span>
                     </div>
                     <p className="font-bold text-xs text-slate-900 dark:text-white truncate">

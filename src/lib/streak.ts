@@ -113,13 +113,26 @@ export function getLogChannelName(log: { channel_name?: string; notes?: string }
  */
 export function getLogCleanNotes(notes?: string): string {
   if (!notes) return '';
-  return notes.replace(/\[Channel:\s*[^\]]+\]\s*/i, '').trim();
+  return notes.replace(/\[Channel:\s*[^\]]+\]\s*/i, '').replace(/\[Platform:\s*[^\]]+\]\s*/i, '').trim();
 }
 
 /**
  * Formats platform type into user-facing name.
  */
-export function formatPlatformLabel(platform: string): string {
+export function formatPlatformLabel(platform: string, notes?: string): string {
+  if (notes) {
+    const match = notes.match(/\[Platform:\s*([^\]]+)\]/i);
+    if (match && match[1]) {
+      const p = match[1].toLowerCase().trim();
+      if (p === 'facebook') return 'Facebook';
+      if (p === 'x' || p === 'twitter') return 'X (Twitter)';
+      if (p === 'youtube_shorts') return 'YouTube Shorts';
+      if (p === 'youtube_full') return 'YouTube Full';
+      if (p === 'instagram_reels') return 'Instagram Reels';
+      return match[1].trim();
+    }
+  }
+
   switch (platform) {
     case 'youtube_shorts':
       return 'YouTube Shorts';
@@ -129,7 +142,7 @@ export function formatPlatformLabel(platform: string): string {
       return 'YouTube';
     case 'instagram_reels':
     case 'instagram':
-      return 'Instagram';
+      return 'Instagram Reels';
     case 'facebook':
       return 'Facebook';
     case 'x':
@@ -138,4 +151,41 @@ export function formatPlatformLabel(platform: string): string {
     default:
       return 'Other Platform';
   }
+}
+
+/**
+ * Normalizes platform identifier from log, decoding from notes fallback if needed.
+ */
+export function getLogPlatform(log: { platform: string; notes?: string }): string {
+  if (log.platform && log.platform !== 'other') return log.platform;
+  if (log.notes) {
+    const match = log.notes.match(/\[Platform:\s*([^\]]+)\]/i);
+    if (match && match[1]) {
+      const p = match[1].toLowerCase().trim();
+      if (p.includes('short')) return 'youtube_shorts';
+      if (p.includes('reel') || p.includes('instagram')) return 'instagram_reels';
+      if (p.includes('full') || p.includes('youtube')) return 'youtube_full';
+      if (p.includes('facebook')) return 'facebook';
+      if (p.includes('x') || p.includes('twitter')) return 'x';
+    }
+  }
+  return log.platform;
+}
+
+/**
+ * Extracts a human-friendly title from a publishing log.
+ */
+export function getLogCleanTitle(log: { deliverables?: { title?: string }; notes?: string; deliverable_title?: string }): string {
+  if (log.deliverables?.title) return log.deliverables.title;
+  if (log.deliverable_title && !log.deliverable_title.startsWith('[Channel:')) {
+    return log.deliverable_title;
+  }
+  if (log.notes) {
+    const clean = log.notes
+      .replace(/\[Channel:\s*[^\]]+\]/gi, '')
+      .replace(/\[Platform:\s*[^\]]+\]/gi, '')
+      .trim();
+    if (clean) return clean.split('\n')[0];
+  }
+  return 'Published Video';
 }

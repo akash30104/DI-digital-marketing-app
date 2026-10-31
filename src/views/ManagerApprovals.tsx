@@ -155,6 +155,24 @@ export const ManagerApprovals: React.FC = () => {
           .insert([basePayload]);
       }
 
+      if (insertRes.error && insertRes.error.code === '23514') {
+        // Fallback if platform check constraint rejects platform
+        const fallbackPayload = {
+          ...basePayload,
+          platform: 'other',
+          notes: `[Platform: ${selectedPlatform}] ${combinedNotes}`.trim()
+        };
+        let fbRes = await supabase
+          .from('publishing_logs')
+          .insert([{ ...fallbackPayload, channel_name: selectedChannel }]);
+        if (fbRes.error && fbRes.error.code === '42703') {
+          fbRes = await supabase
+            .from('publishing_logs')
+            .insert([fallbackPayload]);
+        }
+        insertRes = fbRes;
+      }
+
       if (insertRes.error) {
         console.warn('Publishing log insert note:', insertRes.error);
       }
