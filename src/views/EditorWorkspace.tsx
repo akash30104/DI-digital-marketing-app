@@ -5,7 +5,7 @@ import { Deliverable, EditingStatus } from '../types';
 import { StatusBadge } from '../components/StatComponents';
 import { 
   Sliders, HardDrive, Folder, AlertCircle, Send, Check, 
-  CheckCircle2, PlaySquare, Tv, Clock, ExternalLink, Sparkles, UserCheck
+  CheckCircle2, PlaySquare, Tv, Clock, ExternalLink, Sparkles, UserCheck, X
 } from 'lucide-react';
 
 export const EditorWorkspace: React.FC = () => {
@@ -22,9 +22,11 @@ export const EditorWorkspace: React.FC = () => {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const loadTasks = async () => {
+  const loadTasks = async (showLoadingSpinner = false) => {
     if (!currentUser) return;
-    setIsLoading(true);
+    if (showLoadingSpinner) {
+      setIsLoading(true);
+    }
     try {
       // Fetch deliverables assigned to this editor OR open unassigned deliverables
       const { data, error } = await supabase
@@ -51,13 +53,13 @@ export const EditorWorkspace: React.FC = () => {
   };
 
   useEffect(() => {
-    loadTasks();
+    loadTasks(true);
 
     // Subscribe to realtime changes
     const channel = supabase
       .channel('editor-workspace-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, () => {
-        loadTasks();
+        loadTasks(false);
       })
       .subscribe();
 
@@ -71,22 +73,39 @@ export const EditorWorkspace: React.FC = () => {
     if (!currentUser) return;
     setAcceptingId(task.id);
 
+    const now = new Date().toISOString();
+    const newProgress = Math.max(10, task.progress_percentage || 0);
+    const updatedTask: Deliverable = {
+      ...task,
+      assigned_editor_id: currentUser.id,
+      editing_status: 'editing_in_progress',
+      progress_percentage: newProgress,
+      updated_at: now
+    };
+
+    // 1. INSTANTLY OPEN THE TASK MODAL SO EDITOR SEES FOOTAGE DETAILS & CAN EDIT IMMEDIATELY
+    openUpdateModal(updatedTask);
+    showToast(`🎬 Accepted "${task.title}"! Editing marked In Progress.`);
+
+    // 2. Optimistically update local list
+    setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
+
+    // 3. Persist to database in background
     try {
-      const now = new Date().toISOString();
       const { error } = await supabase
         .from('deliverables')
         .update({
           assigned_editor_id: currentUser.id,
           editing_status: 'editing_in_progress',
-          progress_percentage: Math.max(10, task.progress_percentage || 0),
+          progress_percentage: newProgress,
           updated_at: now
         })
         .eq('id', task.id);
 
       if (error) throw error;
 
-      // Log activity
-      await supabase.from('activity_logs').insert([{
+      // Activity log non-blocking
+      supabase.from('activity_logs').insert([{
         user_id: currentUser.id,
         action: 'accepted_task',
         entity_type: 'deliverable',
@@ -97,22 +116,13 @@ export const EditorWorkspace: React.FC = () => {
           task_title: task.title,
           editor_name: currentUser.full_name
         }
-      }]);
+      }]).then();
 
-      const updatedTask: Deliverable = {
-        ...task,
-        assigned_editor_id: currentUser.id,
-        editing_status: 'editing_in_progress',
-        progress_percentage: Math.max(10, task.progress_percentage || 0),
-        updated_at: now
-      };
-
-      showToast(`Accepted "${task.title}"! Editing is now marked In Progress. 🎬`);
-      openUpdateModal(updatedTask);
-      loadTasks();
+      // Silent background refresh
+      loadTasks(false);
     } catch (e: any) {
-      console.error('Failed to accept task:', e);
-      showToast(e.message || 'Failed to accept task');
+      console.error('Failed to sync accepted task to database:', e);
+      showToast(e.message || 'Error updating task in database');
     } finally {
       setAcceptingId(null);
     }
@@ -211,7 +221,9 @@ export const EditorWorkspace: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {tasks.map((task) => {
-            const isAssignedPending = task.editing_status === 'assigned';
+            const isAssignedPending = task.editing_status === 'assigned' || 
+              task.editing_status === 'not_started' || 
+              !task.assigned_editor_id;
             const isReel = task.deliverable_type === 'reel';
 
             return (
@@ -309,15 +321,24 @@ export const EditorWorkspace: React.FC = () => {
           <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                  {editingTask.deliverable_type === 'reel' ? 'Reel Cut Progress' : 'Full Video Cut Progress'}
-                </span>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                    Active Editing Cut 🎬
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                    {editingTask.deliverable_type === 'reel' ? 'Reel Cut (9:16)' : 'Full Video (16:9)'}
+                  </span>
+                </div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
                   {editingTask.title}
                 </h3>
               </div>
-              <button onClick={() => setEditingTask(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600">
-                &times;
+              <button 
+                onClick={() => setEditingTask(null)} 
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 

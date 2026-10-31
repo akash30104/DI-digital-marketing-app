@@ -8,6 +8,7 @@ import { ProductionBoard } from './views/ProductionBoard';
 import { RecordingRegistration } from './views/RecordingRegistration';
 import { EditorWorkspace } from './views/EditorWorkspace';
 import { EditorFeedback } from './views/EditorFeedback';
+import { EditorProfile } from './views/EditorProfile';
 import { SocialMediaPublishing } from './views/SocialMediaPublishing';
 import { PublishingHistory } from './views/PublishingHistory';
 import { FounderMore } from './views/FounderMore';
@@ -77,7 +78,7 @@ export const App: React.FC = () => {
         case 'feedback':
           return <EditorFeedback />;
         case 'profile':
-          return <FounderMore />;
+          return <EditorProfile />;
         default:
           return <EditorWorkspace />;
       }
