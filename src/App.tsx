@@ -38,7 +38,7 @@ export const App: React.FC = () => {
     if (role === 'founder') {
       setActiveTab('dashboard');
     } else if (role === 'editor') {
-      setActiveTab('tasks');
+      setActiveTab('my_tasks');
     } else if (role === 'social_media_manager') {
       setActiveTab('footage');
     }
@@ -74,13 +74,15 @@ export const App: React.FC = () => {
     } else if (role === 'editor') {
       switch (activeTab) {
         case 'tasks':
-          return <EditorWorkspace />;
+          return <EditorWorkspace mode="all" onNavigateTab={setActiveTab} />;
+        case 'my_tasks':
+          return <EditorWorkspace mode="my" onNavigateTab={setActiveTab} />;
         case 'feedback':
           return <EditorFeedback />;
         case 'profile':
           return <EditorProfile />;
         default:
-          return <EditorWorkspace />;
+          return <EditorWorkspace mode="my" onNavigateTab={setActiveTab} />;
       }
     } else if (role === 'social_media_manager') {
       switch (activeTab) {

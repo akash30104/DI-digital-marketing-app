@@ -5,7 +5,7 @@ import {
   Crown, Film, Megaphone, Settings, LogOut, Moon, Sun, 
   BarChart3, LayoutGrid, CheckCheck, Send, MoreHorizontal, 
   CheckSquare, HardDrive, MessageSquare, User, PlusCircle, 
-  CheckCircle, History 
+  CheckCircle, History, ListTodo 
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -118,7 +118,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
         ];
       case 'editor':
         return [
-          { id: 'tasks', label: 'My Tasks', icon: <CheckSquare className="w-5 h-5" /> },
+          { id: 'tasks', label: 'Tasks', icon: <ListTodo className="w-5 h-5" /> },
+          { id: 'my_tasks', label: 'My Tasks', icon: <CheckSquare className="w-5 h-5" /> },
           { id: 'feedback', label: 'Feedback', icon: <MessageSquare className="w-5 h-5" /> },
           { id: 'profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
         ];

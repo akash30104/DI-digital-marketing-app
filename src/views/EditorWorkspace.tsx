@@ -5,12 +5,22 @@ import { Deliverable, EditingStatus } from '../types';
 import { StatusBadge } from '../components/StatComponents';
 import { 
   Sliders, HardDrive, Folder, AlertCircle, Send, Check, 
-  CheckCircle2, PlaySquare, Tv, Clock, ExternalLink, Sparkles, UserCheck, X
+  CheckCircle2, PlaySquare, Tv, Clock, ExternalLink, Sparkles, 
+  UserCheck, X, ChevronRight, ChevronLeft, ArrowRight, ListTodo, CheckSquare
 } from 'lucide-react';
 
-export const EditorWorkspace: React.FC = () => {
+interface EditorWorkspaceProps {
+  mode?: 'all' | 'my';
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({ 
+  mode = 'my', 
+  onNavigateTab 
+}) => {
   const { currentUser } = useAuth();
   const [tasks, setTasks] = useState<Deliverable[]>([]);
+  const [allDeliverables, setAllDeliverables] = useState<Deliverable[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Active Task Editor Modal
@@ -27,12 +37,16 @@ export const EditorWorkspace: React.FC = () => {
     if (showLoadingSpinner) {
       setIsLoading(true);
     }
+
     try {
-      // Fetch deliverables assigned to this editor OR open unassigned deliverables
+      // 1. Fetch all deliverables for finding sibling reels and 'all' mode
       const { data, error } = await supabase
         .from('deliverables')
-        .select('*, recordings(title, hard_disk_name, folder_path, episode_number)')
-        .or(`assigned_editor_id.eq.${currentUser.id},assigned_editor_id.is.null`)
+        .select(`
+          *,
+          recordings (title, hard_disk_name, folder_path, episode_number),
+          profiles:assigned_editor_id (full_name)
+        `)
         .order('created_at', { ascending: false });
 
       if (!error && data) {
@@ -42,8 +56,19 @@ export const EditorWorkspace: React.FC = () => {
           episode_number: d.recordings?.episode_number,
           hard_disk_name: d.recordings?.hard_disk_name,
           folder_path: d.recordings?.folder_path,
+          editor_name: d.profiles?.full_name || 'Unassigned'
         }));
-        setTasks(mapped);
+
+        setAllDeliverables(mapped);
+
+        if (mode === 'my') {
+          // In "My Tasks": show ONLY tasks accepted by/assigned to current user
+          const myFiltered = mapped.filter(d => d.assigned_editor_id === currentUser.id);
+          setTasks(myFiltered);
+        } else {
+          // In "Tasks": show ALL tasks
+          setTasks(mapped);
+        }
       }
     } catch (e) {
       console.error('Error loading editor tasks:', e);
@@ -55,9 +80,8 @@ export const EditorWorkspace: React.FC = () => {
   useEffect(() => {
     loadTasks(true);
 
-    // Subscribe to realtime changes
     const channel = supabase
-      .channel('editor-workspace-changes')
+      .channel('editor-workspace-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, () => {
         loadTasks(false);
       })
@@ -66,10 +90,56 @@ export const EditorWorkspace: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser]);
+  }, [currentUser, mode]);
 
-  // Accept Task Action (when SMM assigned it)
-  const handleAcceptTask = async (task: Deliverable) => {
+  // Find next reel in sequence (e.g. Reel #2 after Reel #1)
+  const getSiblingReels = (task: Deliverable | null) => {
+    if (!task) return [];
+    const sourceList = allDeliverables.length > 0 ? allDeliverables : tasks;
+    return sourceList
+      .filter(t => t.recording_id && t.recording_id === task.recording_id)
+      .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true }));
+  };
+
+  const findNextReel = (currentTask: Deliverable): Deliverable | null => {
+    const siblings = getSiblingReels(currentTask);
+    const currentIndex = siblings.findIndex(t => t.id === currentTask.id);
+    if (currentIndex !== -1 && currentIndex < siblings.length - 1) {
+      return siblings[currentIndex + 1];
+    }
+
+    // Otherwise next unfinished task
+    const sourceList = allDeliverables.length > 0 ? allDeliverables : tasks;
+    return sourceList.find(t => 
+      t.id !== currentTask.id && 
+      t.editing_status !== 'approved' && 
+      t.editing_status !== 'submitted_for_approval'
+    ) || null;
+  };
+
+  const findPrevReel = (currentTask: Deliverable): Deliverable | null => {
+    const siblings = getSiblingReels(currentTask);
+    const currentIndex = siblings.findIndex(t => t.id === currentTask.id);
+    if (currentIndex > 0) {
+      return siblings[currentIndex - 1];
+    }
+    return null;
+  };
+
+  // Open modal on click
+  const openUpdateModal = (task: Deliverable) => {
+    setEditingTask(task);
+    setProgress(task.progress_percentage || 0);
+    setStatus(task.editing_status === 'assigned' || task.editing_status === 'not_started' 
+      ? 'editing_in_progress' 
+      : task.editing_status
+    );
+    setPreviewLink(task.preview_link || '');
+  };
+
+  // Accept Task Action (when SMM assigned it or in Tasks list)
+  const handleAcceptTask = async (task: Deliverable, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!currentUser) return;
     setAcceptingId(task.id);
 
@@ -78,19 +148,20 @@ export const EditorWorkspace: React.FC = () => {
     const updatedTask: Deliverable = {
       ...task,
       assigned_editor_id: currentUser.id,
+      editor_name: currentUser.full_name,
       editing_status: 'editing_in_progress',
       progress_percentage: newProgress,
       updated_at: now
     };
 
-    // 1. INSTANTLY OPEN THE TASK MODAL SO EDITOR SEES FOOTAGE DETAILS & CAN EDIT IMMEDIATELY
+    // 1. Immediately open modal so editor sees footage details & can edit right away
     openUpdateModal(updatedTask);
     showToast(`🎬 Accepted "${task.title}"! Editing marked In Progress.`);
 
-    // 2. Optimistically update local list
+    // 2. Optimistic update
     setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
 
-    // 3. Persist to database in background
+    // 3. Database update
     try {
       const { error } = await supabase
         .from('deliverables')
@@ -104,7 +175,6 @@ export const EditorWorkspace: React.FC = () => {
 
       if (error) throw error;
 
-      // Activity log non-blocking
       supabase.from('activity_logs').insert([{
         user_id: currentUser.id,
         action: 'accepted_task',
@@ -118,29 +188,22 @@ export const EditorWorkspace: React.FC = () => {
         }
       }]).then();
 
-      // Silent background refresh
       loadTasks(false);
-    } catch (e: any) {
-      console.error('Failed to sync accepted task to database:', e);
-      showToast(e.message || 'Error updating task in database');
+    } catch (err: any) {
+      console.error('Failed to accept task:', err);
+      showToast(err.message || 'Error claiming task');
     } finally {
       setAcceptingId(null);
     }
   };
 
-  const openUpdateModal = (task: Deliverable) => {
-    setEditingTask(task);
-    setProgress(task.progress_percentage || 0);
-    setStatus(task.editing_status === 'assigned' ? 'editing_in_progress' : task.editing_status);
-    setPreviewLink(task.preview_link || '');
-  };
-
-  const handleSaveProgress = async (e: React.FormEvent) => {
+  // Save Progress & optionally advance to next reel
+  const handleSaveProgress = async (e: React.FormEvent, shouldAdvance = false) => {
     e.preventDefault();
     if (!editingTask || !currentUser) return;
 
     if (status === 'submitted_for_approval' && !previewLink.trim()) {
-      showToast('Please provide a preview link before submitting the cut for review.');
+      showToast('Please provide a preview video link before submitting the cut.');
       return;
     }
 
@@ -162,8 +225,7 @@ export const EditorWorkspace: React.FC = () => {
 
       if (error) throw error;
 
-      // Log activity
-      await supabase.from('activity_logs').insert([{
+      supabase.from('activity_logs').insert([{
         user_id: currentUser.id,
         action: status === 'submitted_for_approval' ? 'submitted_cut' : 'updated_progress',
         entity_type: 'deliverable',
@@ -176,15 +238,43 @@ export const EditorWorkspace: React.FC = () => {
           preview_link: previewLink.trim(),
           editor_name: currentUser.full_name
         }
-      }]);
+      }]).then();
 
-      showToast(
-        status === 'submitted_for_approval'
-          ? `Submitted completed cut to Social Media Manager! 🚀`
-          : `Progress updated to ${finalProgress}%!`
-      );
-      setEditingTask(null);
-      loadTasks();
+      const nextReel = findNextReel(editingTask);
+
+      if ((shouldAdvance || status === 'submitted_for_approval') && nextReel) {
+        // Automatically advance to the next reel
+        if (nextReel.assigned_editor_id !== currentUser.id || nextReel.editing_status === 'not_started' || nextReel.editing_status === 'assigned') {
+          await supabase
+            .from('deliverables')
+            .update({
+              assigned_editor_id: currentUser.id,
+              editing_status: 'editing_in_progress',
+              progress_percentage: Math.max(10, nextReel.progress_percentage || 0),
+              updated_at: now
+            })
+            .eq('id', nextReel.id);
+        }
+
+        const updatedNext: Deliverable = {
+          ...nextReel,
+          assigned_editor_id: currentUser.id,
+          editing_status: 'editing_in_progress',
+          progress_percentage: Math.max(10, nextReel.progress_percentage || 0)
+        };
+
+        showToast(`🎉 "${editingTask.title}" saved! Advanced to "${nextReel.title}" 🎬`);
+        openUpdateModal(updatedNext);
+      } else {
+        showToast(
+          status === 'submitted_for_approval'
+            ? `🎉 Submitted completed cut to Social Media Manager! 🚀`
+            : `Saved progress: ${finalProgress}%!`
+        );
+        setEditingTask(null);
+      }
+
+      loadTasks(false);
     } catch (e: any) {
       console.error('Failed to update progress:', e);
       showToast(e.message || 'Failed to save progress.');
@@ -198,51 +288,115 @@ export const EditorWorkspace: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Active sibling reels for sequence badge
+  const siblingReels = editingTask ? getSiblingReels(editingTask) : [];
+  const currentReelIndex = editingTask ? siblingReels.findIndex(t => t.id === editingTask.id) : -1;
+  const nextReelItem = editingTask ? findNextReel(editingTask) : null;
+  const prevReelItem = editingTask ? findPrevReel(editingTask) : null;
+
   return (
     <div className="space-y-4 animate-in fade-in duration-300 pb-16">
-      <div>
-        <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-          Video Editor Workspace
-        </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Accept tasks from your Social Media Manager, update reel progress, and submit finished cuts for review.
-        </p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            {mode === 'my' ? (
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-wider">
+                My Workspace
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase tracking-wider">
+                Production Queue
+              </span>
+            )}
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            {mode === 'my' ? 'My Tasks' : 'All Production Tasks'}
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {mode === 'my'
+              ? 'Click on any task to open footage details, adjust progress percentage, and submit cuts.'
+              : 'Browse all video deliverables & reels. Click "Accept Task" to claim and begin editing.'}
+          </p>
+        </div>
+
+        {mode === 'all' && onNavigateTab && (
+          <button
+            onClick={() => onNavigateTab('my_tasks')}
+            className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-blue-500/20 active:scale-95 transition-all"
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+            <span>Go to My Tasks</span>
+          </button>
+        )}
       </div>
 
+      {/* Task List */}
       {isLoading ? (
-        <div className="p-12 text-center text-slate-400 text-sm">Loading your tasks...</div>
+        <div className="p-12 text-center text-slate-400 text-sm">Loading tasks...</div>
       ) : tasks.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
-          <p className="font-bold text-slate-900 dark:text-white">No tasks assigned yet.</p>
-          <p className="text-xs text-slate-400">
-            When new raw footage is registered and assigned by your Social Media Manager, it will appear here.
+        <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+          <p className="font-bold text-slate-900 dark:text-white text-base">
+            {mode === 'my' ? 'No accepted tasks yet.' : 'No tasks in the queue.'}
           </p>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            {mode === 'my'
+              ? 'You have not accepted any tasks yet. Head over to the "Tasks" tab to browse all reels and accept your first video cut.'
+              : 'When the Social Media Manager registers raw shoot footage, all reels and videos will appear here.'}
+          </p>
+
+          {mode === 'my' && onNavigateTab && (
+            <button
+              onClick={() => onNavigateTab('tasks')}
+              className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-md shadow-blue-500/20 active:scale-95"
+            >
+              <ListTodo className="w-4 h-4" />
+              <span>Browse All Tasks ➡️</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
           {tasks.map((task) => {
-            const isAssignedPending = task.editing_status === 'assigned' || 
-              task.editing_status === 'not_started' || 
-              !task.assigned_editor_id;
+            const isAssignedToMe = task.assigned_editor_id === currentUser?.id;
+            const isAssignedPending = !task.assigned_editor_id || 
+              task.editing_status === 'assigned' || 
+              task.editing_status === 'not_started';
             const isReel = task.deliverable_type === 'reel';
 
             return (
               <div
                 key={task.id}
-                className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3"
+                onClick={() => {
+                  if (mode === 'my' || isAssignedToMe) {
+                    openUpdateModal(task);
+                  }
+                }}
+                className={`p-4 rounded-3xl bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 shadow-sm space-y-3 transition-all ${
+                  mode === 'my' || isAssignedToMe
+                    ? 'cursor-pointer hover:border-blue-500 hover:shadow-md active:scale-[0.99]'
+                    : ''
+                }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-1">
                       {isReel ? <PlaySquare className="w-3 h-3 text-pink-500" /> : <Tv className="w-3 h-3 text-blue-500" />}
                       <span>{isReel ? 'Short / Reel (9:16)' : 'Full Video (16:9)'}</span>
                     </span>
                     <StatusBadge status={task.editing_status} />
                   </div>
 
-                  <span className="text-xs font-black text-blue-600 dark:text-blue-400">
-                    {task.progress_percentage}% Done
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {mode === 'my' && (
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full">
+                        Click to edit ↗
+                      </span>
+                    )}
+                    <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+                      {task.progress_percentage}% Done
+                    </span>
+                  </div>
                 </div>
 
                 <div>
@@ -267,6 +421,22 @@ export const EditorWorkspace: React.FC = () => {
                       )}
                     </div>
                   )}
+
+                  {/* Editor assignment badge in 'all' mode */}
+                  {mode === 'all' && (
+                    <div className="mt-2 text-[11px]">
+                      {task.assigned_editor_id ? (
+                        <span className="text-slate-500 font-medium">
+                          Assigned to: <strong className="text-slate-800 dark:text-slate-200">{task.editor_name || 'Assigned'}</strong>
+                          {isAssignedToMe && <span className="ml-1 text-emerald-600 font-bold">(You)</span>}
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">
+                          Open for any editor to accept
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* SMM Revision / Changes Notice */}
@@ -288,11 +458,11 @@ export const EditorWorkspace: React.FC = () => {
                   />
                 </div>
 
-                {/* ACTION BUTTONS: ACCEPT TASK VS UPDATE PROGRESS */}
+                {/* ACTION BUTTONS */}
                 <div className="flex items-center gap-2 pt-1">
-                  {isAssignedPending ? (
+                  {isAssignedPending && !isAssignedToMe ? (
                     <button
-                      onClick={() => handleAcceptTask(task)}
+                      onClick={(e) => handleAcceptTask(task, e)}
                       disabled={acceptingId === task.id}
                       className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
                     >
@@ -301,11 +471,14 @@ export const EditorWorkspace: React.FC = () => {
                     </button>
                   ) : (
                     <button
-                      onClick={() => openUpdateModal(task)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openUpdateModal(task);
+                      }}
                       className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white text-xs font-bold transition-all shadow-sm shadow-blue-500/20"
                     >
                       <Sliders className="w-3.5 h-3.5" />
-                      <span>Update Cut Progress & Submit</span>
+                      <span>Update Cut Progress &amp; Submit</span>
                     </button>
                   )}
                 </div>
@@ -315,152 +488,202 @@ export const EditorWorkspace: React.FC = () => {
         </div>
       )}
 
-      {/* UPDATE PROGRESS MODAL */}
+      {/* UPDATE PROGRESS MODAL (Matches user screenshot) */}
       {editingTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
             <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
               <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                    Active Editing Cut 🎬
+                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span>ACTIVE EDITING CUT</span>
+                    <span>🎬</span>
                   </span>
                   <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                    {editingTask.deliverable_type === 'reel' ? 'Reel Cut (9:16)' : 'Full Video (16:9)'}
+                    {editingTask.deliverable_type === 'reel' ? 'REEL CUT (9:16)' : 'FULL VIDEO (16:9)'}
                   </span>
-                </div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-                  {editingTask.title}
-                </h3>
-              </div>
-              <button 
-                onClick={() => setEditingTask(null)} 
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                title="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Footage Access Details */}
-            {editingTask.hard_disk_name && (
-              <div className="mx-5 mt-4 p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs">
-                <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-0.5">
-                  How Footage Was Shared:
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5 font-bold text-slate-900 dark:text-white">
-                  <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px]">
-                    {editingTask.hard_disk_name}
-                  </span>
-                  {editingTask.folder_path && (
-                    <span className="text-slate-600 dark:text-slate-300 font-medium text-[11px]">
-                      {editingTask.folder_path}
+                  {siblingReels.length > 1 && currentReelIndex !== -1 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      Reel {currentReelIndex + 1} of {siblingReels.length}
                     </span>
                   )}
                 </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveProgress} className="p-5 space-y-4">
-              {/* Progress Presets */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Completion Percentage:
-                  </label>
-                  <span className="text-sm font-black text-blue-600 dark:text-blue-400">
-                    {progress}%
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2 mb-2">
-                  {[25, 50, 75, 100].map((val) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => {
-                        setProgress(val);
-                        if (val === 100) setStatus('submitted_for_approval');
-                      }}
-                      className={`py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                        progress === val
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-slate-100 dark:bg-slate-700/60 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-blue-400'
-                      }`}
-                    >
-                      {val}% {val === 100 ? '🎉 Done' : ''}
-                    </button>
-                  ))}
-                </div>
-
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={progress}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setProgress(val);
-                    if (val === 100) setStatus('submitted_for_approval');
-                  }}
-                  className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
+                <h3 className="font-bold text-slate-900 dark:text-white text-base line-clamp-1">
+                  {editingTask.title}
+                </h3>
               </div>
 
-              {/* Production Stage */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Production Stage
-                </label>
-                <select
-                  value={status}
-                  onChange={(e) => {
-                    const val = e.target.value as EditingStatus;
-                    setStatus(val);
-                    if (val === 'submitted_for_approval') setProgress(100);
-                  }}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <div className="flex items-center gap-1">
+                {prevReelItem && (
+                  <button
+                    type="button"
+                    onClick={() => openUpdateModal(prevReelItem)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    title={`Previous: ${prevReelItem.title}`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                )}
+                {nextReelItem && (
+                  <button
+                    type="button"
+                    onClick={() => openUpdateModal(nextReelItem)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    title={`Next: ${nextReelItem.title}`}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
+                <button 
+                  onClick={() => setEditingTask(null)} 
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ml-1"
+                  title="Close"
                 >
-                  <option value="editing_in_progress">Editing in Progress</option>
-                  <option value="internal_review">Internal Rough Cut Review</option>
-                  <option value="submitted_for_approval">🚀 Submit Completed Cut to Social Media Manager</option>
-                </select>
-              </div>
-
-              {/* Preview Link */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span>Preview Video Cut Link {status === 'submitted_for_approval' ? '(Required)' : '(Optional)'}</span>
-                  <span className="text-[10px] text-blue-500 font-semibold">Google Drive / Frame.io</span>
-                </label>
-                <input
-                  type="url"
-                  required={status === 'submitted_for_approval'}
-                  value={previewLink}
-                  onChange={(e) => setPreviewLink(e.target.value)}
-                  placeholder="https://drive.google.com/file/d/... or Frame.io cut"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setEditingTask(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl"
-                >
-                  Cancel
+                  <X className="w-4 h-4" />
                 </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto p-5 space-y-4">
+              {/* Footage Access Details Banner */}
+              {editingTask.hard_disk_name && (
+                <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block">
+                    HOW FOOTAGE WAS SHARED:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[11px]">
+                      {editingTask.hard_disk_name}
+                    </span>
+                    {editingTask.folder_path && (
+                      <span className="text-slate-600 dark:text-slate-300 font-medium text-xs">
+                        {editingTask.folder_path}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <form id="editor-progress-form" onSubmit={(e) => handleSaveProgress(e, false)} className="space-y-4">
+                {/* Completion Percentage */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Completion Percentage:
+                    </label>
+                    <span className="text-sm font-black text-blue-600 dark:text-blue-400">
+                      {progress}%
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    {[25, 50, 75, 100].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => {
+                          setProgress(val);
+                          if (val === 100) setStatus('submitted_for_approval');
+                        }}
+                        className={`py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                          progress === val
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-slate-100 dark:bg-slate-700/60 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-blue-400'
+                        }`}
+                      >
+                        {val}% {val === 100 ? '🎉 Done' : ''}
+                      </button>
+                    ))}
+                  </div>
+
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={progress}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setProgress(val);
+                      if (val === 100) setStatus('submitted_for_approval');
+                    }}
+                    className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                </div>
+
+                {/* Production Stage */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Production Stage
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => {
+                      const val = e.target.value as EditingStatus;
+                      setStatus(val);
+                      if (val === 'submitted_for_approval') setProgress(100);
+                    }}
+                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="editing_in_progress">Editing in Progress</option>
+                    <option value="internal_review">Internal Rough Cut Review</option>
+                    <option value="submitted_for_approval">🚀 Submit Completed Cut to Social Media Manager</option>
+                  </select>
+                </div>
+
+                {/* Preview Video Cut Link */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Preview Video Cut Link {status === 'submitted_for_approval' ? '(Required)' : '(Optional)'}</span>
+                    <span className="text-[10px] text-blue-500 font-semibold">Google Drive / Frame.io</span>
+                  </label>
+                  <input
+                    type="url"
+                    required={status === 'submitted_for_approval'}
+                    value={previewLink}
+                    onChange={(e) => setPreviewLink(e.target.value)}
+                    placeholder="https://drive.google.com/file/d/... or Frame.io cut"
+                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </form>
+            </div>
+
+            {/* Modal Footer with "Go to Next Reel" */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingTask(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl"
+              >
+                Cancel
+              </button>
+
+              <div className="flex items-center gap-2">
+                {nextReelItem && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleSaveProgress(e, true)}
+                    disabled={isSaving}
+                    className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl transition-all shadow-md shadow-emerald-500/20 active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                    title={`Save current cut & start editing: ${nextReelItem.title}`}
+                  >
+                    <span>Save &amp; Next Reel ➡️</span>
+                  </button>
+                )}
+
                 <button
                   type="submit"
+                  form="editor-progress-form"
                   disabled={isSaving}
                   className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
                 >
-                  {isSaving ? 'Updating...' : status === 'submitted_for_approval' ? 'Submit Cut for SMM Review 🚀' : 'Save Progress'}
+                  {isSaving ? 'Saving...' : status === 'submitted_for_approval' ? 'Submit Cut 🚀' : 'Save Progress'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
