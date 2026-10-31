@@ -73,10 +73,7 @@ export const App: React.FC = () => {
     } else if (role === 'editor') {
       switch (activeTab) {
         case 'tasks':
-        case 'recordings':
           return <EditorWorkspace />;
-        case 'production':
-          return <ProductionBoard />;
         case 'feedback':
           return <EditorFeedback />;
         case 'profile':

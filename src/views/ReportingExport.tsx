@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
-  FileSpreadsheet, Download, RefreshCw, CheckCircle2, 
-  Table, Calendar, AlertCircle, Share2, Layers
+  FileSpreadsheet, Download, RefreshCw, AlertCircle, Share2
 } from 'lucide-react';
 
 export const ReportingExport: React.FC = () => {
@@ -23,122 +22,7 @@ export const ReportingExport: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // 1. Export Deliverables CSV
-  const handleExportDeliverables = async () => {
-    setExporting('deliverables');
-    try {
-      const { data, error } = await supabase
-        .from('deliverables')
-        .select(`
-          id,
-          title,
-          deliverable_type,
-          editing_status,
-          progress_percentage,
-          priority,
-          deadline,
-          preview_link,
-          final_video_link,
-          recordings (title, episode_number, hard_disk_name, folder_path),
-          profiles:assigned_editor_id (full_name)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const headers = [
-        'Deliverable ID',
-        'Title',
-        'Type',
-        'Recording Title',
-        'Episode #',
-        'Hard Disk',
-        'Folder Path',
-        'Editor',
-        'Status',
-        'Progress %',
-        'Priority',
-        'Deadline',
-        'Preview Link',
-        'Final Video Link'
-      ];
-
-      const rows = (data || []).map((d: any) => [
-        d.id,
-        `"${(d.title || '').replace(/"/g, '""')}"`,
-        d.deliverable_type,
-        `"${(d.recordings?.title || '').replace(/"/g, '""')}"`,
-        d.recordings?.episode_number || '',
-        `"${(d.recordings?.hard_disk_name || '').replace(/"/g, '""')}"`,
-        `"${(d.recordings?.folder_path || '').replace(/"/g, '""')}"`,
-        `"${(d.profiles?.full_name || 'Unassigned').replace(/"/g, '""')}"`,
-        d.editing_status,
-        d.progress_percentage,
-        d.priority,
-        d.deadline || '',
-        d.preview_link || '',
-        d.final_video_link || ''
-      ]);
-
-      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      triggerDownload(csvContent, `deliverables_pipeline_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8;');
-    } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
-    } finally {
-      setExporting(null);
-    }
-  };
-
-  // 2. Export Publishing History CSV
-  const handleExportPublishing = async () => {
-    setExporting('publishing');
-    try {
-      const { data, error } = await supabase
-        .from('publishing_logs')
-        .select(`
-          id,
-          platform,
-          publication_status,
-          post_url,
-          reporting_date,
-          published_at,
-          deliverables (title),
-          profiles:published_by (full_name)
-        `)
-        .order('published_at', { ascending: false });
-
-      if (error) throw error;
-
-      const headers = [
-        'Log ID',
-        'Platform',
-        'Deliverable Title',
-        'Live Post URL',
-        'Reporting Date',
-        'Published At (UTC)',
-        'Publisher Name'
-      ];
-
-      const rows = (data || []).map((log: any) => [
-        log.id,
-        log.platform,
-        `"${(log.deliverables?.title || '').replace(/"/g, '""')}"`,
-        log.post_url || '',
-        log.reporting_date,
-        log.published_at,
-        `"${(log.profiles?.full_name || 'Team').replace(/"/g, '""')}"`
-      ]);
-
-      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      triggerDownload(csvContent, `publishing_audit_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8;');
-    } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
-    } finally {
-      setExporting(null);
-    }
-  };
-
-  // 3. Export Excel-Compatible XML Workbook
+  // Export Excel-Compatible XML Workbook
   const handleExportExcelXML = async () => {
     setExporting('excel');
     try {
@@ -289,55 +173,7 @@ export const ReportingExport: React.FC = () => {
       </div>
 
       {/* Direct Export Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Deliverables Pipeline CSV */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
-              <Layers className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Deliverables Pipeline CSV
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Includes editing stages, assigned editors, hard drive names, footage folder paths, and deadlines.
-            </p>
-          </div>
-
-          <button
-            onClick={handleExportDeliverables}
-            disabled={exporting !== null}
-            className="mt-6 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-black dark:bg-slate-700 dark:hover:bg-slate-600 text-white transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            {exporting === 'deliverables' ? 'Generating...' : 'Download CSV'}
-          </button>
-        </div>
-
-        {/* Social Publishing Audit CSV */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
-              <Table className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Publishing Audit Trail CSV
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Every verified YouTube and Instagram post with verified live post URL and publisher name.
-            </p>
-          </div>
-
-          <button
-            onClick={handleExportPublishing}
-            disabled={exporting !== null}
-            className="mt-6 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-black dark:bg-slate-700 dark:hover:bg-slate-600 text-white transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            {exporting === 'publishing' ? 'Generating...' : 'Download CSV'}
-          </button>
-        </div>
-
+      <div className="max-w-xl">
         {/* Multi-Tab Excel Workbook */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-5 shadow-sm flex flex-col justify-between">
           <div>

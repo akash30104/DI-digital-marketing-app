@@ -99,7 +99,16 @@ export const EditorWorkspace: React.FC = () => {
         }
       }]);
 
+      const updatedTask: Deliverable = {
+        ...task,
+        assigned_editor_id: currentUser.id,
+        editing_status: 'editing_in_progress',
+        progress_percentage: Math.max(10, task.progress_percentage || 0),
+        updated_at: now
+      };
+
       showToast(`Accepted "${task.title}"! Editing is now marked In Progress. 🎬`);
+      openUpdateModal(updatedTask);
       loadTasks();
     } catch (e: any) {
       console.error('Failed to accept task:', e);
@@ -311,6 +320,25 @@ export const EditorWorkspace: React.FC = () => {
                 &times;
               </button>
             </div>
+
+            {/* Footage Access Details */}
+            {editingTask.hard_disk_name && (
+              <div className="mx-5 mt-4 p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-0.5">
+                  How Footage Was Shared:
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+                  <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px]">
+                    {editingTask.hard_disk_name}
+                  </span>
+                  {editingTask.folder_path && (
+                    <span className="text-slate-600 dark:text-slate-300 font-medium text-[11px]">
+                      {editingTask.folder_path}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSaveProgress} className="p-5 space-y-4">
               {/* Progress Presets */}
