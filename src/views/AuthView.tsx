@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ServerConfigModal } from '../components/ServerConfigModal';
-import { Lock, Users, Crown, ShieldAlert, ArrowRight, Video, Server, CheckCircle2 } from 'lucide-react';
+import { getStoredSupabaseConfig } from '../lib/supabase';
+import { Lock, Users, Crown, ShieldAlert, ArrowRight, Video, Server, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const AuthView: React.FC = () => {
@@ -19,6 +20,9 @@ export const AuthView: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showConfig, setShowConfig] = useState(false);
 
+  const currentConfig = getStoredSupabaseConfig();
+  const isDefaultConfig = currentConfig.url.includes('xyzcompany.supabase.co') || currentConfig.key.includes('dummy_anon_key');
+
   const handleTabChange = (mode: 'signIn' | 'teamRegister' | 'founderSetup') => {
     setAuthMode(mode);
     setErrorMessage(null);
@@ -28,6 +32,14 @@ export const AuthView: React.FC = () => {
     }
   };
 
+  const sanitizeError = (err: string | undefined): string => {
+    if (!err) return 'An error occurred';
+    if (err.includes('Failed to fetch') || err.includes('NetworkError')) {
+      return 'Cannot reach Supabase database ("Failed to fetch"). Tap "Configure Supabase Connection" below to enter your real Supabase Project URL & Anon Key.';
+    }
+    return err;
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -35,7 +47,7 @@ export const AuthView: React.FC = () => {
     const res = await signIn(email, password);
     setIsLoading(false);
     if (res.error) {
-      setErrorMessage(res.error);
+      setErrorMessage(sanitizeError(res.error));
     }
   };
 
@@ -54,7 +66,7 @@ export const AuthView: React.FC = () => {
     const res = await signUp(email, password, fullName, selectedRole);
     setIsLoading(false);
     if (res.error) {
-      setErrorMessage(res.error);
+      setErrorMessage(sanitizeError(res.error));
     }
   };
 
@@ -77,7 +89,7 @@ export const AuthView: React.FC = () => {
     const res = await signUp(email, password, fullName, 'founder');
     setIsLoading(false);
     if (res.error) {
-      setErrorMessage(res.error);
+      setErrorMessage(sanitizeError(res.error));
       refreshFounderStatus();
     }
   };
@@ -136,6 +148,21 @@ export const AuthView: React.FC = () => {
             <span>Founder Setup</span>
           </button>
         </div>
+
+        {isDefaultConfig && (
+          <div 
+            onClick={() => setShowConfig(true)}
+            className="mb-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2.5 cursor-pointer hover:bg-amber-500/15 transition-colors shadow-sm"
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">Supabase Not Connected Yet</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Click here to enter your Supabase Project URL & Anon Key to connect this app to your database.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Form Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
