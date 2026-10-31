@@ -2,20 +2,52 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('----------------------------------------------------');
-console.log('>>> [RENDER DIAGNOSTIC] Current directory:', process.cwd());
-console.log('>>> [RENDER DIAGNOSTIC] Files in root:', fs.readdirSync(process.cwd()));
+const cwd = process.cwd();
+console.log('>>> [RENDER DIAGNOSTIC] Current directory:', cwd);
+console.log('>>> [RENDER DIAGNOSTIC] Files in root:', fs.readdirSync(cwd));
 
-const distDir = path.resolve(process.cwd(), 'dist');
+const distDir = path.resolve(cwd, 'dist');
 console.log('>>> [RENDER DIAGNOSTIC] Checking dist at:', distDir);
 
 if (fs.existsSync(distDir)) {
   console.log('>>> [RENDER DIAGNOSTIC] SUCCESS: dist directory exists!');
   console.log('>>> [RENDER DIAGNOSTIC] Files inside dist:', fs.readdirSync(distDir));
 
-  // Mirror to build directory just in case
-  const buildDir = path.resolve(process.cwd(), 'build');
-  fs.cpSync(distDir, buildDir, { recursive: true });
-  console.log('>>> [RENDER DIAGNOSTIC] Mirrored dist to build directory as well.');
+  // Mirror 1: ./build
+  try {
+    const buildDir = path.resolve(cwd, 'build');
+    fs.cpSync(distDir, buildDir, { recursive: true });
+    console.log('>>> [RENDER DIAGNOSTIC] Mirrored to: ./build');
+  } catch (e) {
+    console.log('>>> [RENDER DIAGNOSTIC] Could not copy to ./build:', e.message);
+  }
+
+  // Mirror 2: ../dist (in case Render checks /opt/render/project/dist)
+  try {
+    const parentDist = path.resolve(cwd, '..', 'dist');
+    fs.cpSync(distDir, parentDist, { recursive: true });
+    console.log('>>> [RENDER DIAGNOSTIC] Mirrored to parent: ../dist');
+  } catch (e) {
+    console.log('>>> [RENDER DIAGNOSTIC] Could not copy to ../dist:', e.message);
+  }
+
+  // Mirror 3: ../build (in case Render checks /opt/render/project/build)
+  try {
+    const parentBuild = path.resolve(cwd, '..', 'build');
+    fs.cpSync(distDir, parentBuild, { recursive: true });
+    console.log('>>> [RENDER DIAGNOSTIC] Mirrored to parent: ../build');
+  } catch (e) {
+    console.log('>>> [RENDER DIAGNOSTIC] Could not copy to ../build:', e.message);
+  }
+
+  // Mirror 4: ./src/dist (in case Render checks src/dist)
+  try {
+    const srcDist = path.resolve(cwd, 'src', 'dist');
+    fs.cpSync(distDir, srcDist, { recursive: true });
+    console.log('>>> [RENDER DIAGNOSTIC] Mirrored to: ./src/dist');
+  } catch (e) {
+    console.log('>>> [RENDER DIAGNOSTIC] Could not copy to ./src/dist:', e.message);
+  }
 } else {
   console.error('>>> [RENDER DIAGNOSTIC] FAIL: dist directory DOES NOT exist at', distDir);
 }
