@@ -112,11 +112,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
     switch (role) {
       case 'founder':
         return [
-          { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" /> },
+          { id: 'dashboard', label: 'Overview', icon: <BarChart3 className="w-5 h-5" /> },
           { id: 'production', label: 'Production', icon: <LayoutGrid className="w-5 h-5" /> },
-          { id: 'approvals', label: 'Approvals', icon: <CheckCheck className="w-5 h-5" /> },
-          { id: 'publishing', label: 'Publishing', icon: <Send className="w-5 h-5" /> },
-          { id: 'more', label: 'More', icon: <MoreHorizontal className="w-5 h-5" /> },
+          { id: 'more', label: 'Settings', icon: <MoreHorizontal className="w-5 h-5" /> },
         ];
       case 'editor':
         return [

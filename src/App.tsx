@@ -65,10 +65,6 @@ export const App: React.FC = () => {
           return <FounderDashboard onNavigateTab={setActiveTab} />;
         case 'production':
           return <ProductionBoard />;
-        case 'approvals':
-          return <FounderApprovals />;
-        case 'publishing':
-          return <SocialMediaPublishing />;
         case 'more':
           return <FounderMore />;
         default:
