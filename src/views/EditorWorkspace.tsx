@@ -62,8 +62,13 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         setAllDeliverables(mapped);
 
         if (mode === 'my') {
-          // In "My Tasks": show ONLY tasks accepted by/assigned to current user
-          const myFiltered = mapped.filter(d => d.assigned_editor_id === currentUser.id);
+          // In "My Tasks": show ONLY active, in-progress tasks. Completed cuts disappear!
+          const myFiltered = mapped.filter(d => 
+            d.assigned_editor_id === currentUser.id &&
+            d.editing_status !== 'submitted_for_approval' &&
+            d.editing_status !== 'approved' &&
+            (d.progress_percentage || 0) < 100
+          );
           setTasks(myFiltered);
         } else {
           // In "Tasks": show ALL tasks
@@ -240,9 +245,16 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         }
       }]).then();
 
+      const isCompleted = status === 'submitted_for_approval' || finalProgress === 100;
+
+      // Optimistically remove completed task from My Tasks immediately
+      if (mode === 'my' && isCompleted) {
+        setTasks(prev => prev.filter(t => t.id !== editingTask.id));
+      }
+
       const nextReel = findNextReel(editingTask);
 
-      if ((shouldAdvance || status === 'submitted_for_approval') && nextReel) {
+      if ((shouldAdvance || isCompleted) && nextReel) {
         // Automatically advance to the next reel
         if (nextReel.assigned_editor_id !== currentUser.id || nextReel.editing_status === 'not_started' || nextReel.editing_status === 'assigned') {
           await supabase
@@ -263,12 +275,19 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           progress_percentage: Math.max(10, nextReel.progress_percentage || 0)
         };
 
-        showToast(`🎉 "${editingTask.title}" saved! Advanced to "${nextReel.title}" 🎬`);
+        if (mode === 'my') {
+          setTasks(prev => {
+            const filtered = prev.filter(t => t.id !== editingTask.id);
+            return [updatedNext, ...filtered.filter(t => t.id !== updatedNext.id)];
+          });
+        }
+
+        showToast(`🎉 "${editingTask.title}" completed! Advanced to "${nextReel.title}" 🎬`);
         openUpdateModal(updatedNext);
       } else {
         showToast(
-          status === 'submitted_for_approval'
-            ? `🎉 Submitted completed cut to Social Media Manager! 🚀`
+          status === 'submitted_for_approval' || finalProgress === 100
+            ? `🎉 Completed & submitted cut to Social Media Manager! 🚀`
             : `Saved progress: ${finalProgress}%!`
         );
         setEditingTask(null);
@@ -337,11 +356,11 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       ) : tasks.length === 0 ? (
         <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
           <p className="font-bold text-slate-900 dark:text-white text-base">
-            {mode === 'my' ? 'No accepted tasks yet.' : 'No tasks in the queue.'}
+            {mode === 'my' ? 'No pending tasks in My Tasks.' : 'No tasks in the queue.'}
           </p>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             {mode === 'my'
-              ? 'You have not accepted any tasks yet. Head over to the "Tasks" tab to browse all reels and accept your first video cut.'
+              ? 'All accepted cuts have been completed & submitted to your Social Media Manager! Check the Tasks tab to claim more work.'
               : 'When the Social Media Manager registers raw shoot footage, all reels and videos will appear here.'}
           </p>
 
