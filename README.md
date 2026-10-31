@@ -1,6 +1,21 @@
 # Studio DiskFlow — Progressive Web App (PWA)
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/akash30104/studio-diskflow-web)
+
 A full-featured mobile & desktop web application for video production, founder approvals, and multi-platform social media publishing. Runs identically on Android, iOS (Safari PWA), iPad, and Desktop browsers, connecting to the exact same Supabase database as the native iPhone app.
+
+---
+
+## ⚡ 1-Click Deploy to Render
+
+Click the button above or visit:
+👉 **[https://render.com/deploy?repo=https://github.com/akash30104/studio-diskflow-web](https://render.com/deploy?repo=https://github.com/akash30104/studio-diskflow-web)**
+
+Render will automatically:
+1. Detect `render.yaml`.
+2. Run `npm install && npm run build`.
+3. Publish `./dist` to a high-speed global CDN with free automatic SSL.
+4. Give you your permanent public link: `https://studio-diskflow-web.onrender.com`.
 
 ---
 
