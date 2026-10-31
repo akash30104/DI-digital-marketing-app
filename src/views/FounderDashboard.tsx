@@ -1,0 +1,234 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { DailySummary, ActivityLog } from '../types';
+import { StatCard } from '../components/StatComponents';
+import { 
+  PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
+  Send, AlertTriangle, RefreshCw, Clock, ArrowUpRight 
+} from 'lucide-react';
+
+interface FounderDashboardProps {
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTab }) => {
+  const [summary, setSummary] = useState<DailySummary | null>(null);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+    try {
+      // 1. Fetch Daily Summary RPC
+      const { data: summaryData, error: summaryErr } = await supabase.rpc('get_daily_summary', {
+        p_query_date: todayStr
+      });
+
+      if (!summaryErr && summaryData) {
+        setSummary(summaryData as DailySummary);
+      } else {
+        // Fallback default structure
+        setSummary({
+          reporting_date: todayStr,
+          published: { youtube_shorts: 0, youtube_full: 0, instagram_reels: 0, other: 0, total: 0 },
+          targets: { youtube_shorts: 4, youtube_full: 1, instagram_reels: 4, other: 0, total: 9 },
+          pipeline: { in_editing: 0, pending_approval: 0, changes_requested: 0, ready_to_publish: 0, overdue_tasks: 0 }
+        });
+      }
+
+      // 2. Fetch Recent Activities
+      const { data: actData } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(8);
+
+      if (actData) {
+        setActivities(actData as ActivityLog[]);
+      }
+    } catch (e) {
+      console.error('Error loading dashboard data:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+
+    // Subscribe to Realtime updates on publishing and deliverables
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'publishing_logs' }, () => loadData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const todayFormatted = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric'
+  }).format(new Date());
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+            {todayFormatted} (Asia/Kolkata)
+          </span>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            Founder Command Center
+          </h2>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {summary && summary.pipeline.pending_approval > 0 && (
+            <button
+              onClick={() => onNavigateTab?.('approvals')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-white text-xs font-bold shadow-sm shadow-amber-500/20 active:scale-95 transition-all"
+            >
+              <span>{summary.pipeline.pending_approval} Need Approval</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 shadow-sm transition-all"
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Daily Publishing Targets */}
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          Today's Publishing Goals
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <StatCard
+            title="YouTube Shorts"
+            count={summary?.published.youtube_shorts ?? 0}
+            target={summary?.targets.youtube_shorts ?? 4}
+            icon={<PlaySquare className="w-5 h-5 text-red-600" />}
+            colorClass="bg-red-500/10 text-red-600"
+            onClick={() => onNavigateTab?.('publishing')}
+          />
+
+          <StatCard
+            title="Instagram Reels"
+            count={summary?.published.instagram_reels ?? 0}
+            target={summary?.targets.instagram_reels ?? 4}
+            icon={<Camera className="w-5 h-5 text-pink-600" />}
+            colorClass="bg-pink-500/10 text-pink-600"
+            onClick={() => onNavigateTab?.('publishing')}
+          />
+
+          <StatCard
+            title="YouTube Full Video"
+            count={summary?.published.youtube_full ?? 0}
+            target={summary?.targets.youtube_full ?? 1}
+            icon={<Tv className="w-5 h-5 text-blue-600" />}
+            colorClass="bg-blue-500/10 text-blue-600"
+            onClick={() => onNavigateTab?.('publishing')}
+          />
+        </div>
+      </div>
+
+      {/* Production Board Pipeline Metrics */}
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          Pipeline & Approvals
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard
+            title="In Editing"
+            count={summary?.pipeline.in_editing ?? 0}
+            icon={<Film className="w-5 h-5 text-blue-500" />}
+            colorClass="bg-blue-500/10 text-blue-500"
+            onClick={() => onNavigateTab?.('production')}
+          />
+
+          <StatCard
+            title="Awaiting Approval"
+            count={summary?.pipeline.pending_approval ?? 0}
+            icon={<CheckCircle2 className="w-5 h-5 text-amber-500" />}
+            colorClass="bg-amber-500/10 text-amber-500"
+            onClick={() => onNavigateTab?.('approvals')}
+          />
+
+          <StatCard
+            title="Changes Requested"
+            count={summary?.pipeline.changes_requested ?? 0}
+            icon={<RotateCcw className="w-5 h-5 text-rose-500" />}
+            colorClass="bg-rose-500/10 text-rose-500"
+            onClick={() => onNavigateTab?.('production')}
+          />
+
+          <StatCard
+            title="Ready to Publish"
+            count={summary?.pipeline.ready_to_publish ?? 0}
+            icon={<Send className="w-5 h-5 text-emerald-500" />}
+            colorClass="bg-emerald-500/10 text-emerald-500"
+            onClick={() => onNavigateTab?.('publishing')}
+          />
+        </div>
+      </div>
+
+      {/* Recent Team Activity */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Recent Team Activity
+          </h3>
+        </div>
+
+        {activities.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-400 text-xs">
+            No team actions logged yet today.
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700/60 overflow-hidden shadow-sm">
+            {activities.map((act) => (
+              <div key={act.id} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 dark:text-white capitalize">
+                      {act.action.replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-slate-400 ml-1.5 font-medium">
+                      ({act.entity_type})
+                    </span>
+                    {act.new_status && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        New stage: <span className="font-semibold text-blue-500">{act.new_status}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[10px] text-slate-400 flex-shrink-0">
+                  {new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
