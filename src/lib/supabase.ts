@@ -1,5 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+const DEFAULT_SUPABASE_URL = 'https://jjscejejzzspgnxyrsin.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqc2NlamVqenpzcGdueHlyc2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4MzU2NjYsImV4cCI6MjEwNjQxMTY2Nn0.6lcNkVZrDBRLXF_laYFVJLStVLkP68r7tK9PPETOEsM';
+
 // Default configuration with runtime localStorage fallback
 export function getStoredSupabaseConfig() {
   const customUrl = localStorage.getItem('STUDIO_SUPABASE_URL');
@@ -9,8 +12,8 @@ export function getStoredSupabaseConfig() {
   const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
   return {
-    url: customUrl || envUrl || 'https://xyzcompany.supabase.co',
-    key: customKey || envKey || 'dummy_anon_key'
+    url: customUrl || envUrl || DEFAULT_SUPABASE_URL,
+    key: customKey || envKey || DEFAULT_SUPABASE_ANON_KEY
   };
 }
 
