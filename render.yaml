@@ -3,7 +3,7 @@ services:
     name: studio-diskflow-web
     runtime: static
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
