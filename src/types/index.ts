@@ -68,6 +68,8 @@ export interface Deliverable {
   recording_title?: string;
   episode_number?: number;
   editor_name?: string;
+  hard_disk_name?: string;
+  folder_path?: string;
 }
 
 export interface PublishingLog {

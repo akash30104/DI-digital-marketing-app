@@ -33,6 +33,8 @@ export const EditorWorkspace: React.FC = () => {
           ...d,
           recording_title: d.recordings?.title,
           episode_number: d.recordings?.episode_number,
+          hard_disk_name: d.recordings?.hard_disk_name,
+          folder_path: d.recordings?.folder_path,
         }));
         setTasks(mapped);
       }
@@ -134,6 +136,17 @@ export const EditorWorkspace: React.FC = () => {
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Source: {task.recording_title}
                   </p>
+                )}
+                {task.hard_disk_name && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <span className="font-black text-blue-600 dark:text-blue-400">Shared via:</span>
+                    <span className="font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300">
+                      {task.hard_disk_name}
+                    </span>
+                    {task.folder_path && task.folder_path !== task.hard_disk_name && (
+                      <span className="text-slate-400 font-medium">({task.folder_path})</span>
+                    )}
+                  </div>
                 )}
               </div>
 
