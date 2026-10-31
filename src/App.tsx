@@ -11,6 +11,7 @@ import { EditorFeedback } from './views/EditorFeedback';
 import { SocialMediaPublishing } from './views/SocialMediaPublishing';
 import { PublishingHistory } from './views/PublishingHistory';
 import { FounderMore } from './views/FounderMore';
+import { ManagerApprovals } from './views/ManagerApprovals';
 
 export const App: React.FC = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
@@ -93,13 +94,17 @@ export const App: React.FC = () => {
           return <FounderDashboard onNavigateTab={setActiveTab} />;
         case 'footage':
           return <RecordingRegistration />;
+        case 'pipeline':
+          return <ProductionBoard />;
+        case 'approvals':
+          return <ManagerApprovals />;
         case 'approved':
         case 'publishing':
           return <SocialMediaPublishing />;
         case 'history':
           return <PublishingHistory />;
         default:
-          return <RecordingRegistration />;
+          return <FounderDashboard onNavigateTab={setActiveTab} />;
       }
     }
 

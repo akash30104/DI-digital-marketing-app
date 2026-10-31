@@ -130,9 +130,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
         return [
           { id: 'dashboard', label: 'Hub', icon: <BarChart3 className="w-5 h-5" /> },
           { id: 'footage', label: 'Footage', icon: <PlusCircle className="w-5 h-5" /> },
-          { id: 'approved', label: 'Approved', icon: <CheckCircle className="w-5 h-5" /> },
-          { id: 'publishing', label: 'Publishing', icon: <Send className="w-5 h-5" /> },
-          { id: 'history', label: 'History', icon: <History className="w-5 h-5" /> },
+          { id: 'pipeline', label: 'Editing', icon: <Film className="w-5 h-5" /> },
+          { id: 'approvals', label: 'Approvals', icon: <CheckCheck className="w-5 h-5" /> },
+          { id: 'publishing', label: 'Publish', icon: <Send className="w-5 h-5" /> },
         ];
     }
   };

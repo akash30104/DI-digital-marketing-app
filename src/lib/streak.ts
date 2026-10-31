@@ -1,0 +1,84 @@
+import { PublishingLog } from '../types';
+
+export interface StreakInfo {
+  currentStreak: number;
+  publishedToday: boolean;
+  lastPublishedDate: string | null;
+  statusMessage: string;
+}
+
+/**
+ * Calculates consecutive daily publishing streak in Asia/Kolkata timezone.
+ */
+export function calculatePublishingStreak(logs: PublishingLog[]): StreakInfo {
+  if (!logs || logs.length === 0) {
+    return {
+      currentStreak: 0,
+      publishedToday: false,
+      lastPublishedDate: null,
+      statusMessage: 'Start your publishing streak today!'
+    };
+  }
+
+  // Get distinct dates when at least 1 video was published
+  const publishedDatesSet = new Set<string>();
+  logs.forEach(log => {
+    if (log.publication_status === 'published' && log.reporting_date) {
+      publishedDatesSet.add(log.reporting_date);
+    }
+  });
+
+  const sortedDates = Array.from(publishedDatesSet).sort().reverse();
+  if (sortedDates.length === 0) {
+    return {
+      currentStreak: 0,
+      publishedToday: false,
+      lastPublishedDate: null,
+      statusMessage: 'Start your publishing streak today!'
+    };
+  }
+
+  // Get today's date formatted in Asia/Kolkata
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+  // Calculate yesterday's date in Asia/Kolkata
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(yesterday);
+
+  const publishedToday = publishedDatesSet.has(todayStr);
+  const publishedYesterday = publishedDatesSet.has(yesterdayStr);
+
+  let streak = 0;
+  let checkDate = publishedToday ? new Date(now) : publishedYesterday ? new Date(yesterday) : null;
+
+  if (checkDate) {
+    while (true) {
+      const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(checkDate);
+      if (publishedDatesSet.has(dateStr)) {
+        streak++;
+        // Move back 1 day
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+  }
+
+  let statusMessage = '';
+  if (publishedToday) {
+    statusMessage = `🔥 ${streak} Day Streak! Great job publishing today.`;
+  } else if (publishedYesterday) {
+    statusMessage = `🔥 ${streak} Day Streak active! Post today's content to keep it alive.`;
+  } else {
+    statusMessage = 'Streak reset. Publish today to begin a new streak!';
+  }
+
+  return {
+    currentStreak: streak,
+    publishedToday,
+    lastPublishedDate: sortedDates[0],
+    statusMessage
+  };
+}

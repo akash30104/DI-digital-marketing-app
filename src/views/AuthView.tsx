@@ -37,6 +37,12 @@ export const AuthView: React.FC = () => {
     if (err.includes('Failed to fetch') || err.includes('NetworkError')) {
       return 'Cannot reach Supabase database ("Failed to fetch"). Tap "Configure Supabase Connection" below to enter your real Supabase Project URL & Anon Key.';
     }
+    if (err.includes('rate limit') || err.includes('over_email_send_rate_limit')) {
+      return 'Supabase email rate limit reached. To allow instant team signups without waiting for emails, please turn OFF "Confirm email" in Supabase Dashboard (Authentication -> Providers -> Email).';
+    }
+    if (err.includes('Email not confirmed')) {
+      return 'Email not confirmed yet. Please verify your email via Gmail, or disable "Confirm email" in Supabase Dashboard (Authentication -> Providers -> Email).';
+    }
     return err;
   };
 
@@ -44,6 +50,7 @@ export const AuthView: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
     const res = await signIn(email, password);
     setIsLoading(false);
     if (res.error) {
@@ -63,10 +70,14 @@ export const AuthView: React.FC = () => {
     }
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
     const res = await signUp(email, password, fullName, selectedRole);
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));
+    } else {
+      setSuccessMessage(`Account created for ${fullName} as ${selectedRole === 'editor' ? 'Video Editor' : 'Social Media Manager'}! You can now sign in.`);
+      setAuthMode('signIn');
     }
   };
 

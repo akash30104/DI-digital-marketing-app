@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { DailySummary, ActivityLog } from '../types';
+import { DailySummary, ActivityLog, PublishingLog } from '../types';
 import { StatCard } from '../components/StatComponents';
+import { calculatePublishingStreak, StreakInfo } from '../lib/streak';
 import { 
   PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
-  Send, AlertTriangle, RefreshCw, Clock, ArrowUpRight 
+  Send, AlertTriangle, RefreshCw, Clock, ArrowUpRight, Flame 
 } from 'lucide-react';
 
 interface FounderDashboardProps {
@@ -14,6 +15,12 @@ interface FounderDashboardProps {
 export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTab }) => {
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [streak, setStreak] = useState<StreakInfo>({
+    currentStreak: 0,
+    publishedToday: false,
+    lastPublishedDate: null,
+    statusMessage: 'Loading publishing streak...'
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
@@ -47,6 +54,18 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
       if (actData) {
         setActivities(actData as ActivityLog[]);
+      }
+
+      // 3. Fetch Publishing Logs for Streak Calculation
+      const { data: pubData } = await supabase
+        .from('publishing_logs')
+        .select('*')
+        .eq('publication_status', 'published')
+        .order('published_at', { ascending: false })
+        .limit(100);
+
+      if (pubData) {
+        setStreak(calculatePublishingStreak(pubData as PublishingLog[]));
       }
     } catch (e) {
       console.error('Error loading dashboard data:', e);
@@ -110,6 +129,36 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
+      </div>
+
+      {/* Social Media Manager Publishing Streak Card */}
+      <div className="bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent border border-orange-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+            <Flame className="w-7 h-7 animate-pulse text-orange-500" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                Social Media Manager Streak
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-700 dark:text-orange-300">
+                {streak.currentStreak} {streak.currentStreak === 1 ? 'Day' : 'Days'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium mt-0.5">
+              {streak.statusMessage}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onNavigateTab?.('publishing')}
+          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-orange-500/30 text-xs font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-slate-700 shadow-sm"
+        >
+          <span>View Posts</span>
+          <ArrowUpRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* Daily Publishing Targets */}

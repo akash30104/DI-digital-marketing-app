@@ -3,12 +3,19 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Deliverable, PublishingLog, PlatformType } from '../types';
 import { StatusBadge } from '../components/StatComponents';
-import { Send, PlaySquare, Camera, ExternalLink, Check, X, CheckCircle2 } from 'lucide-react';
+import { calculatePublishingStreak, StreakInfo } from '../lib/streak';
+import { Send, PlaySquare, Camera, ExternalLink, Check, X, CheckCircle2, Flame, AlertCircle } from 'lucide-react';
 
 export const SocialMediaPublishing: React.FC = () => {
   const { currentUser } = useAuth();
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [publishedToday, setPublishedToday] = useState<PublishingLog[]>([]);
+  const [streak, setStreak] = useState<StreakInfo>({
+    currentStreak: 0,
+    publishedToday: false,
+    lastPublishedDate: null,
+    statusMessage: 'Calculating publishing streak...'
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [formatFilter, setFormatFilter] = useState<'all' | 'reel' | 'full_length_video'>('all');
 
@@ -39,10 +46,13 @@ export const SocialMediaPublishing: React.FC = () => {
       const { data: logs } = await supabase
         .from('publishing_logs')
         .select('*')
-        .eq('reporting_date', todayStr);
+        .order('published_at', { ascending: false })
+        .limit(100);
 
       if (logs) {
-        setPublishedToday(logs as PublishingLog[]);
+        const todayLogs = logs.filter((l: any) => l.reporting_date === todayStr);
+        setPublishedToday(todayLogs as PublishingLog[]);
+        setStreak(calculatePublishingStreak(logs as PublishingLog[]));
       }
     } catch (e) {
       console.error('Failed to load publishing data:', e);
@@ -120,8 +130,35 @@ export const SocialMediaPublishing: React.FC = () => {
           Social Media Publishing
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Mark platforms independently, verify live post URLs, and update daily counts.
+          Mark platforms independently, verify live post URLs as proof, and maintain your publishing streak.
         </p>
+      </div>
+
+      {/* SMM Publishing Streak Banner */}
+      <div className="bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent border border-orange-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+            <Flame className="w-7 h-7 animate-pulse text-orange-500" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                Publishing Streak
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-700 dark:text-orange-300">
+                {streak.currentStreak} {streak.currentStreak === 1 ? 'Day' : 'Days'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium mt-0.5">
+              {streak.statusMessage}
+            </p>
+          </div>
+        </div>
+
+        <div className="hidden sm:block text-right">
+          <span className="text-[11px] font-bold text-slate-400">Published Today</span>
+          <p className="text-lg font-black text-slate-900 dark:text-white">{publishedToday.length} Posts</p>
+        </div>
       </div>
 
       {/* Format Filter Tabs */}
@@ -326,16 +363,21 @@ export const SocialMediaPublishing: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Live Post URL (YouTube / Instagram link)
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>Proof of Live Post URL (Required)</span>
+                  <span className="text-[10px] text-amber-500 font-semibold">Live Link Proof</span>
                 </label>
                 <input
                   type="url"
+                  required
                   value={postUrl}
                   onChange={(e) => setPostUrl(e.target.value)}
                   placeholder="https://youtube.com/shorts/... or https://instagram.com/reel/..."
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  The live post link is recorded as official proof and displayed on the founder dashboard and audit reports.
+                </p>
               </div>
 
               <div>
