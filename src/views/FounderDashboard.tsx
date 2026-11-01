@@ -10,8 +10,64 @@ import {
 import { 
   PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
   Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight, 
-  Share2, Plus, X, Check, Sparkles 
+  Share2, Plus, X, Check, Sparkles, Layers, Calendar, Clock,
+  Play, Video
 } from 'lucide-react';
+
+// Video embed and format helpers
+const getYouTubeEmbedUrl = (url?: string): string | null => {
+  if (!url) return null;
+  try {
+    const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
+    if (shortsMatch && shortsMatch[1]) {
+      return `https://www.youtube.com/embed/${shortsMatch[1]}`;
+    }
+    const watchMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+    if (watchMatch && watchMatch[1]) {
+      return `https://www.youtube.com/embed/${watchMatch[1]}`;
+    }
+    if (url.includes('youtube.com/embed/')) {
+      return url;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const getDriveEmbedUrl = (url?: string): string | null => {
+  if (!url) return null;
+  try {
+    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+      return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const isDirectVideoUrl = (url?: string): boolean => {
+  if (!url) return false;
+  return /\.(mp4|mov|webm|ogg)($|\?)/i.test(url);
+};
+
+const formatLogDateTime = (dateStr?: string): string => {
+  if (!dateStr) return 'Recently';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch {
+    return dateStr;
+  }
+};
 
 interface FounderDashboardProps {
   onNavigateTab?: (tab: string) => void;
@@ -23,6 +79,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [todayPublishedLogs, setTodayPublishedLogs] = useState<PublishingLog[]>([]);
+  const [weekPublishedLogs, setWeekPublishedLogs] = useState<PublishingLog[]>([]);
   const [activeEditingTasks, setActiveEditingTasks] = useState<Deliverable[]>([]);
   const [streak, setStreak] = useState<StreakInfo>({
     currentStreak: 0,
@@ -31,6 +88,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
     statusMessage: 'Loading publishing streak...'
   });
   const [isLoading, setIsLoading] = useState(true);
+
+  // Channel Drilldown Modal State (7-Day Output with Live Video Player)
+  const [showChannelModal, setShowChannelModal] = useState(false);
+  const [selectedChannelFilter, setSelectedChannelFilter] = useState<string>('all');
 
   // Social Media Manager Direct Publish Modal State
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
@@ -89,6 +150,17 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           l.reporting_date === todayStr || (l.published_at && l.published_at.startsWith(todayStr))
         );
         setTodayPublishedLogs(filteredToday);
+
+        // Keep only 1 week of data (past 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const sevenDaysAgoStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(sevenDaysAgo);
+
+        const lastWeekLogs = mappedLogs.filter(l => {
+          const logDate = l.reporting_date || (l.published_at ? l.published_at.split('T')[0] : '');
+          return logDate >= sevenDaysAgoStr;
+        });
+        setWeekPublishedLogs(lastWeekLogs);
       }
 
       // 3. Fetch Live Active Tasks for Editors
@@ -454,9 +526,14 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
       {/* Daily Publishing Goals (Read-Only Executive Overview) */}
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-          Today's Output Across Official Channels
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Today's Output Across Official Channels
+          </h3>
+          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
+            Click any channel to view 7-day videos ↗
+          </span>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard
             title="YouTube Shorts"
@@ -464,6 +541,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             target={summary?.targets.youtube_shorts ?? 4}
             icon={<PlaySquare className="w-5 h-5 text-red-600" />}
             colorClass="bg-red-500/10 text-red-600"
+            onClick={() => {
+              setSelectedChannelFilter('youtube_shorts');
+              setShowChannelModal(true);
+            }}
           />
 
           <StatCard
@@ -472,6 +553,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             target={summary?.targets.instagram_reels ?? 4}
             icon={<Camera className="w-5 h-5 text-pink-600" />}
             colorClass="bg-pink-500/10 text-pink-600"
+            onClick={() => {
+              setSelectedChannelFilter('instagram_reels');
+              setShowChannelModal(true);
+            }}
           />
 
           <StatCard
@@ -480,6 +565,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             target={summary?.targets.youtube_full ?? 1}
             icon={<Tv className="w-5 h-5 text-blue-600" />}
             colorClass="bg-blue-500/10 text-blue-600"
+            onClick={() => {
+              setSelectedChannelFilter('youtube_full');
+              setShowChannelModal(true);
+            }}
           />
 
           <StatCard
@@ -488,6 +577,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             target={1}
             icon={<Share2 className="w-5 h-5 text-blue-500" />}
             colorClass="bg-blue-500/10 text-blue-500"
+            onClick={() => {
+              setSelectedChannelFilter('facebook');
+              setShowChannelModal(true);
+            }}
           />
 
           <StatCard
@@ -496,6 +589,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             target={1}
             icon={<Share2 className="w-5 h-5 text-slate-700 dark:text-slate-300" />}
             colorClass="bg-slate-500/10 text-slate-700 dark:text-slate-300"
+            onClick={() => {
+              setSelectedChannelFilter('x');
+              setShowChannelModal(true);
+            }}
           />
         </div>
       </div>
@@ -829,6 +926,253 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           </div>
         </div>
       )}
+
+      {/* 7-DAY CHANNEL DRILLDOWN & VIDEO PLAYER MODAL */}
+      {showChannelModal && (() => {
+        const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+        const filteredLogs = weekPublishedLogs.filter(l => {
+          if (selectedChannelFilter === 'all') return true;
+          if (selectedChannelFilter === 'youtube_shorts') {
+            return l.platform === 'youtube_shorts' || (l.notes && l.notes.includes('youtube_shorts'));
+          }
+          if (selectedChannelFilter === 'instagram_reels') {
+            return l.platform === 'instagram_reels' || (l.notes && l.notes.includes('instagram_reels'));
+          }
+          if (selectedChannelFilter === 'youtube_full') {
+            return l.platform === 'youtube_full' || (l.notes && l.notes.includes('youtube_full'));
+          }
+          if (selectedChannelFilter === 'facebook') {
+            return l.platform === 'facebook' || (l.notes && l.notes.toLowerCase().includes('facebook'));
+          }
+          if (selectedChannelFilter === 'x') {
+            return l.platform === 'x' || (l.notes && (l.notes.toLowerCase().includes('twitter') || l.notes.toLowerCase().includes('platform: x')));
+          }
+          return l.platform === selectedChannelFilter;
+        });
+
+        const todayLogs = filteredLogs.filter(l => 
+          l.reporting_date === todayStr || (l.published_at && l.published_at.startsWith(todayStr))
+        );
+        const pastWeekLogs = filteredLogs.filter(l => 
+          !(l.reporting_date === todayStr || (l.published_at && l.published_at.startsWith(todayStr)))
+        );
+
+        const channelTabs = [
+          { id: 'all', label: 'All Channels', icon: <Layers className="w-3.5 h-3.5" /> },
+          { id: 'youtube_shorts', label: 'YouTube Shorts', icon: <PlaySquare className="w-3.5 h-3.5 text-red-500" /> },
+          { id: 'instagram_reels', label: 'Instagram Reels', icon: <Camera className="w-3.5 h-3.5 text-pink-500" /> },
+          { id: 'youtube_full', label: 'YouTube Full', icon: <Tv className="w-3.5 h-3.5 text-blue-500" /> },
+          { id: 'facebook', label: 'Facebook', icon: <Share2 className="w-3.5 h-3.5 text-blue-600" /> },
+          { id: 'x', label: 'X (Twitter)', icon: <Share2 className="w-3.5 h-3.5 text-slate-500" /> }
+        ];
+
+        const renderPostCard = (log: PublishingLog, isToday = false) => {
+          const ytEmbed = getYouTubeEmbedUrl(log.post_url);
+          const driveEmbed = getDriveEmbedUrl(log.post_url);
+          const directVideo = isDirectVideoUrl(log.post_url);
+
+          return (
+            <div key={log.id} className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-3">
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    {formatPlatformLabel(log.platform)}
+                  </span>
+                  {log.channel_name && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                      {log.channel_name}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {isToday ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <span>🔥</span>
+                      <span>POSTED TODAY</span>
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatLogDateTime(log.published_at || log.reporting_date)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Title */}
+              <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-snug">
+                {log.deliverable_title || log.notes || 'Published Video'}
+              </h4>
+
+              {/* In-App Video Player */}
+              {ytEmbed ? (
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-md border border-slate-200/40 dark:border-slate-700/40">
+                  <iframe
+                    src={ytEmbed}
+                    title={log.deliverable_title || 'Video Player'}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full border-0"
+                  />
+                </div>
+              ) : driveEmbed ? (
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-md border border-slate-200/40 dark:border-slate-700/40">
+                  <iframe
+                    src={driveEmbed}
+                    title={log.deliverable_title || 'Google Drive Player'}
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full border-0"
+                  />
+                </div>
+              ) : directVideo ? (
+                <video
+                  controls
+                  className="w-full aspect-video rounded-2xl bg-black max-h-72 object-contain shadow-md"
+                  src={log.post_url}
+                />
+              ) : null}
+
+              {/* Video Link */}
+              {log.post_url && (
+                <div className="pt-1">
+                  <a
+                    href={log.post_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-between w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200/80 dark:border-slate-700/80 text-blue-600 dark:text-blue-400 font-bold text-xs transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <PlaySquare className="w-4 h-4 shrink-0 text-red-500" />
+                      <span className="truncate">{log.post_url}</span>
+                    </div>
+                    <span className="flex items-center gap-1 shrink-0 text-[11px] group-hover:underline">
+                      <span>Open Link</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </span>
+                  </a>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-2xl bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[92vh]">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      <span>Past 7 Days Output</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {filteredLogs.length} {filteredLogs.length === 1 ? 'Video' : 'Videos'}
+                    </span>
+                  </div>
+                  <h3 className="font-black text-slate-900 dark:text-white text-lg tracking-tight">
+                    Channel Output &amp; Video Archive
+                  </h3>
+                </div>
+
+                <button
+                  onClick={() => setShowChannelModal(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Filter Tabs across Channels */}
+              <div className="p-3 bg-slate-100/70 dark:bg-slate-900/40 border-b border-slate-200/60 dark:border-slate-700/60 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-1.5 min-w-max">
+                  {channelTabs.map(ch => (
+                    <button
+                      key={ch.id}
+                      onClick={() => setSelectedChannelFilter(ch.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                        selectedChannelFilter === ch.id
+                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {ch.icon}
+                      <span>{ch.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="overflow-y-auto p-4 sm:p-5 space-y-6">
+                {/* 1. TODAY'S POSTS */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                        Today's Posts ({todayLogs.length})
+                      </h4>
+                    </div>
+                  </div>
+
+                  {todayLogs.length > 0 ? (
+                    <div className="space-y-3">
+                      {todayLogs.map(log => renderPostCard(log, true))}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        No videos published to this channel yet today.
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Showing past 7 days output below.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. PAST 7 DAYS OUTPUT */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                      Past 7 Days History ({pastWeekLogs.length})
+                    </h4>
+                  </div>
+
+                  {pastWeekLogs.length > 0 ? (
+                    <div className="space-y-3">
+                      {pastWeekLogs.map(log => renderPostCard(log, false))}
+                    </div>
+                  ) : (
+                    <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 text-center">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        No other publications recorded in the past 7 days for this channel.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-3.5 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowChannelModal(false)}
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Floating Toast Notice */}
       {toastMessage && (
