@@ -215,11 +215,6 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       return;
     }
 
-    if (!publishVideoTitle.trim()) {
-      showToast('Please provide a video title.');
-      return;
-    }
-
     setIsSubmittingPublish(true);
 
     try {
@@ -229,14 +224,6 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       // 1. Resolve Deliverable & Recording IDs
       let finalDeliverableId: string | null = null;
       let finalRecordingId = '';
-
-      const matchedDeliverable = availableDeliverables.find(d => 
-        d.title.trim().toLowerCase() === publishVideoTitle.trim().toLowerCase()
-      );
-      if (matchedDeliverable) {
-        finalDeliverableId = matchedDeliverable.id;
-        finalRecordingId = matchedDeliverable.recording_id;
-      }
 
       if (!finalRecordingId) {
         // Query the latest available recording from the database
@@ -267,7 +254,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         }
       }
 
-      const chosenTitle = matchedDeliverable?.title || publishVideoTitle.trim() || `Daily Video (${formatPlatformLabel(selectedPlatform)})`;
+      const chosenTitle = publishNotes.trim() || `${selectedChannel} ${formatPlatformLabel(selectedPlatform)} (${todayStr})`;
 
       // If no deliverable was selected, create a deliverable record so it links cleanly in stats
       if (!finalDeliverableId && finalRecordingId) {
@@ -806,25 +793,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                 </span>
               </div>
 
-              {/* 1. Video / Reel Title */}
+              {/* 1. Select Official Channel */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  1. Video / Reel Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={publishVideoTitle}
-                  onChange={(e) => setPublishVideoTitle(e.target.value)}
-                  placeholder="e.g. Ep 12 - Why Consistency Beats Talent (Reel #1)"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              {/* 2. Select Official Channel */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  2. Official Channel Published To
+                  1. Official Channel Published To
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {OFFICIAL_CHANNELS.map(ch => (
@@ -847,10 +819,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                 </div>
               </div>
 
-              {/* 3. Platform */}
+              {/* 2. Platform */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  3. Platform Published
+                  2. Platform Published
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -877,10 +849,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                 </div>
               </div>
 
-              {/* 4. Live URL Link (Proof) */}
+              {/* 3. Live URL Link (Proof) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  4. Live Post URL / Proof Link (Required)
+                  3. Live Post URL / Proof Link (Required)
                 </label>
                 <input
                   type="url"
@@ -892,7 +864,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                 />
               </div>
 
-              {/* 5. Notes (Optional) */}
+              {/* 4. Notes (Optional) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Notes (Optional)
