@@ -202,11 +202,12 @@ export const SocialMediaPublishing: React.FC = () => {
         }
 
         // Create quick deliverable
+        const defaultPostTitle = `${channelName.trim() || 'Official Channel'} - ${formatPlatformLabel(selectedPlatform)}`;
         const { data: newDel } = await supabase
           .from('deliverables')
           .insert([{
             recording_id: finalRecordingId,
-            title: customVideoTitle.trim() || `Daily Video Post (${formatPlatformLabel(selectedPlatform)})`,
+            title: defaultPostTitle,
             deliverable_type: selectedPlatform === 'youtube_full' ? 'full_length_video' : 'reel',
             editing_status: 'approved',
             progress_percentage: 100,
@@ -325,20 +326,20 @@ export const SocialMediaPublishing: React.FC = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">
             {todayFormatted} (Asia/Kolkata IST)
           </span>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-2xl font-black text-white tracking-tight">
             Social Media Publishing Hub
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-zinc-400 mt-0.5">
             Log live video links, update channel names, maintain streaks, and give the daily video publication update.
           </p>
         </div>
 
         <button
           onClick={openQuickPublishModal}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-black shadow-md active:scale-95 transition-all self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>+ Log Video Posted Today</span>
@@ -346,18 +347,16 @@ export const SocialMediaPublishing: React.FC = () => {
       </div>
 
       {/* TODAY'S POSTED VIDEOS HERO CARD */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 text-white p-5 shadow-lg relative overflow-hidden">
-        <div className="absolute right-0 top-0 -mr-16 -mt-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 text-white p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           {/* Main Counter & Streak */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700/60">
                 Daily Output Report
               </span>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                <Flame className="w-3.5 h-3.5 animate-pulse text-orange-500" />
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-200 border border-zinc-700/60">
+                <Flame className="w-3.5 h-3.5 text-orange-400" />
                 <span>{streak.currentStreak} {streak.currentStreak === 1 ? 'Day' : 'Days'} Streak</span>
               </div>
             </div>
@@ -367,11 +366,11 @@ export const SocialMediaPublishing: React.FC = () => {
                 <span className="text-4xl font-black tracking-tight text-white">
                   {publishedToday.length}
                 </span>
-                <span className="text-lg font-bold text-slate-300">
+                <span className="text-lg font-bold text-zinc-400">
                   {publishedToday.length === 1 ? 'Video Posted Today' : 'Videos Posted Today'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-zinc-400 mt-1">
                 {streak.statusMessage}
               </p>
             </div>
@@ -379,33 +378,33 @@ export const SocialMediaPublishing: React.FC = () => {
 
           {/* Platform Breakdown Pills */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center shrink-0">
+            <div className="p-3.5 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-zinc-700/60 text-zinc-200 flex items-center justify-center shrink-0">
                 <PlaySquare className="w-5 h-5" />
               </div>
               <div>
                 <span className="text-lg font-black text-white">{ytShortsCount}</span>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">YT Shorts</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">YT Shorts</p>
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-pink-500/20 text-pink-400 flex items-center justify-center shrink-0">
+            <div className="p-3.5 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-zinc-700/60 text-zinc-200 flex items-center justify-center shrink-0">
                 <Camera className="w-5 h-5" />
               </div>
               <div>
                 <span className="text-lg font-black text-white">{igReelsCount}</span>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">IG Reels</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">IG Reels</p>
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center gap-3 col-span-2 sm:col-span-1">
-              <div className="w-9 h-9 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+            <div className="p-3.5 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center gap-3 col-span-2 sm:col-span-1">
+              <div className="w-9 h-9 rounded-lg bg-zinc-700/60 text-zinc-200 flex items-center justify-center shrink-0">
                 <Tv className="w-5 h-5" />
               </div>
               <div>
                 <span className="text-lg font-black text-white">{ytFullCount}</span>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">YT Full</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">YT Full</p>
               </div>
             </div>
           </div>
@@ -416,21 +415,21 @@ export const SocialMediaPublishing: React.FC = () => {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <span>Today's Verified Publications ({publishedToday.length})</span>
             </h3>
           </div>
-          <span className="text-[11px] font-medium text-slate-400">
+          <span className="text-[11px] font-medium text-zinc-500">
             Recorded with live URL proofs & channel names
           </span>
         </div>
 
         {publishedToday.length === 0 ? (
-          <div className="p-8 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
-            <Radio className="w-8 h-8 text-slate-400 mx-auto opacity-50" />
-            <p className="font-bold text-slate-900 dark:text-white text-sm">No videos logged for today yet.</p>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
+          <div className="p-8 text-center rounded-2xl bg-zinc-900 border border-zinc-800 space-y-2">
+            <Radio className="w-8 h-8 text-zinc-600 mx-auto" />
+            <p className="font-bold text-white text-sm">No videos logged for today yet.</p>
+            <p className="text-xs text-zinc-500 max-w-md mx-auto">
               Click the "+ Log Video Posted Today" button above or mark an approved video as published below to record today's proof link and channel.
             </p>
           </div>
@@ -449,83 +448,77 @@ export const SocialMediaPublishing: React.FC = () => {
               return (
                 <div
                   key={log.id}
-                  className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 relative overflow-hidden"
+                  className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-sm space-y-3 relative overflow-hidden"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-600 text-white">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white text-black">
                         #{publishedToday.length - index} Today
                       </span>
 
                       {/* Platform Badge */}
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
-                        log.platform === 'youtube_shorts' 
-                          ? 'bg-red-500/15 text-red-600 dark:text-red-400' 
-                          : log.platform === 'youtube_full'
-                          ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
-                          : 'bg-pink-500/15 text-pink-600 dark:text-pink-400'
-                      }`}>
-                        {log.platform === 'youtube_shorts' && <PlaySquare className="w-3 h-3" />}
-                        {log.platform === 'youtube_full' && <Tv className="w-3 h-3" />}
-                        {log.platform === 'instagram_reels' && <Camera className="w-3 h-3" />}
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 bg-zinc-800 text-zinc-200 border border-zinc-700/60">
+                        {log.platform === 'youtube_shorts' && <PlaySquare className="w-3 h-3 text-red-400" />}
+                        {log.platform === 'youtube_full' && <Tv className="w-3 h-3 text-zinc-300" />}
+                        {log.platform === 'instagram_reels' && <Camera className="w-3 h-3 text-pink-400" />}
                         <span>{formatPlatformLabel(log.platform)}</span>
                       </span>
 
                       {/* Channel Name Badge */}
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center gap-1">
-                        <Radio className="w-3 h-3" />
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-200 border border-zinc-700/60 flex items-center gap-1">
+                        <Radio className="w-3 h-3 text-zinc-400" />
                         <span>{channel}</span>
                       </span>
                     </div>
 
-                    <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] font-medium text-zinc-500 flex items-center gap-1 shrink-0">
                       <Clock className="w-3 h-3" />
                       {publishedTimeIST}
                     </span>
                   </div>
 
                   <div>
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
+                    <h4 className="font-bold text-white text-sm line-clamp-1">
                       {log.deliverable_title || 'Video Deliverable'}
                     </h4>
                     {cleanNotes && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                      <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
                         {cleanNotes}
                       </p>
                     )}
                   </div>
 
                   {/* Proof Link Action Bar */}
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                  <div className="pt-2 border-t border-zinc-800 flex items-center justify-between gap-2">
                     {log.post_url ? (
                       <div className="flex items-center gap-2 overflow-hidden">
                         <a
                           href={log.post_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition-all truncate"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-all truncate border border-zinc-700/60"
                         >
-                          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                          <ExternalLink className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
                           <span className="truncate">Open Live Post Proof</span>
                         </a>
 
                         <button
                           onClick={() => copyPostUrl(log.id, log.post_url!)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
                           title="Copy Link"
                         >
                           {copiedId === log.id ? (
-                            <CheckCheck className="w-4 h-4 text-emerald-500" />
+                            <CheckCheck className="w-4 h-4 text-emerald-400" />
                           ) : (
                             <Copy className="w-4 h-4" />
                           )}
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-amber-500 italic">No proof link recorded</span>
+                      <span className="text-xs text-zinc-500 italic">No proof link recorded</span>
                     )}
 
-                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full shrink-0">
+                    <span className="text-[10px] font-semibold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full shrink-0">
                       Verified Active
                     </span>
                   </div>
@@ -537,23 +530,23 @@ export const SocialMediaPublishing: React.FC = () => {
       </div>
 
       {/* APPROVED DELIVERABLES PIPELINE */}
-      <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+      <div className="space-y-4 pt-4 border-t border-zinc-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-base font-black text-slate-900 dark:text-white">
+            <h3 className="text-base font-black text-white">
               Approved Cuts Ready to Publish
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-zinc-400">
               Videos approved by the Social Media Manager ready to be distributed to YouTube and Instagram.
             </p>
           </div>
 
           {/* Format Filter Tabs */}
-          <div className="flex p-1 bg-slate-200 dark:bg-slate-800 rounded-xl self-start sm:self-auto">
+          <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-xl self-start sm:self-auto">
             <button
               onClick={() => setFormatFilter('all')}
               className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                formatFilter === 'all' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm' : 'text-slate-500'
+                formatFilter === 'all' ? 'bg-white text-black shadow-sm font-black' : 'text-zinc-400 hover:text-white'
               }`}
             >
               All ({deliverables.length})
@@ -561,7 +554,7 @@ export const SocialMediaPublishing: React.FC = () => {
             <button
               onClick={() => setFormatFilter('reel')}
               className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                formatFilter === 'reel' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm' : 'text-slate-500'
+                formatFilter === 'reel' ? 'bg-white text-black shadow-sm font-black' : 'text-zinc-400 hover:text-white'
               }`}
             >
               Reels / Shorts
@@ -569,7 +562,7 @@ export const SocialMediaPublishing: React.FC = () => {
             <button
               onClick={() => setFormatFilter('full_length_video')}
               className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                formatFilter === 'full_length_video' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm' : 'text-slate-500'
+                formatFilter === 'full_length_video' ? 'bg-white text-black shadow-sm font-black' : 'text-zinc-400 hover:text-white'
               }`}
             >
               Full Episodes
@@ -578,11 +571,11 @@ export const SocialMediaPublishing: React.FC = () => {
         </div>
 
         {isLoading ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Loading approved deliverables...</div>
+          <div className="p-12 text-center text-zinc-500 text-sm">Loading approved deliverables...</div>
         ) : filteredDeliverables.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
-            <p className="font-bold text-slate-900 dark:text-white">No pending videos waiting to publish.</p>
-            <p className="text-xs text-slate-400">
+          <div className="p-12 text-center rounded-2xl bg-zinc-900 border border-zinc-800 space-y-2">
+            <p className="font-bold text-white">No pending videos waiting to publish.</p>
+            <p className="text-xs text-zinc-500">
               Approve cuts in the "Approvals" tab or use "+ Log Video Posted Today" above for direct posts.
             </p>
           </div>
@@ -599,15 +592,15 @@ export const SocialMediaPublishing: React.FC = () => {
               return (
                 <div
                   key={item.id}
-                  className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3"
+                  className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-sm space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700/60">
                         {item.deliverable_type === 'full_length_video' ? '📺 Full Video' : '📱 Reel / Short'}
                       </span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                        <Check className="w-3 h-3" /> Approved for Release
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-emerald-400 border border-zinc-700/60 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-400" /> Approved for Release
                       </span>
                     </div>
 
@@ -616,7 +609,7 @@ export const SocialMediaPublishing: React.FC = () => {
                         href={item.final_video_link}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                        className="text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1"
                       >
                         <span>Final Cut</span>
                         <ExternalLink className="w-3 h-3" />
@@ -624,23 +617,23 @@ export const SocialMediaPublishing: React.FC = () => {
                     )}
                   </div>
 
-                  <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                  <h4 className="font-bold text-white text-base">
                     {item.title}
                   </h4>
 
                   {/* Independent Platform Actions */}
-                  <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-700">
+                  <div className="space-y-2 pt-1 border-t border-zinc-800">
                     {/* YouTube Platform Row */}
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
                       <div className="flex items-center gap-2">
-                        <PlaySquare className="w-4 h-4 text-red-600" />
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">YouTube</span>
+                        <PlaySquare className="w-4 h-4 text-red-500" />
+                        <span className="text-xs font-bold text-white">YouTube</span>
                         {ytPublished ? (
-                          <span className="text-[11px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Check className="w-3 h-3" /> Published on {getLogChannelName(ytPublished)}
+                          <span className="text-[11px] font-bold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-400" /> Published on {getLogChannelName(ytPublished)}
                           </span>
                         ) : (
-                          <span className="text-[11px] text-slate-400">Not Published Today</span>
+                          <span className="text-[11px] text-zinc-500">Not Published Today</span>
                         )}
                       </div>
 
@@ -650,13 +643,13 @@ export const SocialMediaPublishing: React.FC = () => {
                             href={ytPublished.post_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                            className="text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1"
                           >
                             <span>View Post</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         ) : (
-                          <span className="text-xs text-slate-400 font-medium">Logged</span>
+                          <span className="text-xs text-zinc-500 font-medium">Logged</span>
                         )
                       ) : (
                         <button
@@ -664,7 +657,7 @@ export const SocialMediaPublishing: React.FC = () => {
                             item, 
                             item.deliverable_type === 'full_length_video' ? 'youtube_full' : 'youtube_shorts'
                           )}
-                          className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all shadow-sm shadow-red-500/20 active:scale-95"
+                          className="px-3.5 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700/60 active:scale-95"
                         >
                           Mark Published
                         </button>
@@ -672,16 +665,16 @@ export const SocialMediaPublishing: React.FC = () => {
                     </div>
 
                     {/* Instagram Platform Row */}
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
                       <div className="flex items-center gap-2">
-                        <Camera className="w-4 h-4 text-pink-600" />
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">Instagram</span>
+                        <Camera className="w-4 h-4 text-pink-500" />
+                        <span className="text-xs font-bold text-white">Instagram</span>
                         {igPublished ? (
-                          <span className="text-[11px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Check className="w-3 h-3" /> Published on {getLogChannelName(igPublished)}
+                          <span className="text-[11px] font-bold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-400" /> Published on {getLogChannelName(igPublished)}
                           </span>
                         ) : (
-                          <span className="text-[11px] text-slate-400">Not Published Today</span>
+                          <span className="text-[11px] text-zinc-500">Not Published Today</span>
                         )}
                       </div>
 
@@ -691,18 +684,18 @@ export const SocialMediaPublishing: React.FC = () => {
                             href={igPublished.post_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs font-bold text-pink-600 hover:underline flex items-center gap-1"
+                            className="text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1"
                           >
                             <span>View Post</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         ) : (
-                          <span className="text-xs text-slate-400 font-medium">Logged</span>
+                          <span className="text-xs text-zinc-500 font-medium">Logged</span>
                         )
                       ) : (
                         <button
                           onClick={() => openPublishModalForDeliverable(item, 'instagram_reels')}
-                          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white text-xs font-bold transition-all shadow-sm active:scale-95"
+                          className="px-3.5 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700/60 active:scale-95"
                         >
                           Mark Published
                         </button>
@@ -718,129 +711,31 @@ export const SocialMediaPublishing: React.FC = () => {
 
       {/* UNIFIED PUBLISHING MODAL (WITH CHANNEL NAME & VIDEO PROOF LINK) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-800 overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-zinc-800 bg-zinc-900/50">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
                   Daily Post Update #{publishedToday.length + 1}
                 </span>
-                <h3 className="font-black text-slate-900 dark:text-white text-base">
+                <h3 className="font-black text-white text-base">
                   Log Video Published Today
                 </h3>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleConfirmPublish} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-              {/* 1. Target Deliverable / Title */}
+              {/* 1. Official Channel Published To */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Target Deliverable / Title:
-                </label>
-                {deliverables.length > 0 ? (
-                  <select
-                    value={selectedDeliverableId}
-                    onChange={(e) => {
-                      setSelectedDeliverableId(e.target.value);
-                      const d = deliverables.find(item => item.id === e.target.value);
-                      if (d) setCustomVideoTitle(d.title);
-                    }}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {deliverables.map(d => (
-                      <option key={d.id} value={d.id}>
-                        {d.title} ({d.deliverable_type === 'full_length_video' ? 'Full Video' : 'Reel'})
-                      </option>
-                    ))}
-                    <option value="custom">+ Direct Social Post (Custom Title)</option>
-                  </select>
-                ) : (
-                  <p className="text-xs text-slate-500 italic">Creating a direct publication post</p>
-                )}
-
-                {(!selectedDeliverableId || selectedDeliverableId === 'custom' || deliverables.length === 0) && (
-                  <input
-                    type="text"
-                    required
-                    value={customVideoTitle}
-                    onChange={(e) => setCustomVideoTitle(e.target.value)}
-                    placeholder="Enter Video Title / Topic (e.g., Scaling Laws reel)"
-                    className="mt-2 w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                )}
-              </div>
-
-              {/* 2. Platform Selector */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Platform Published:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlatform('youtube_shorts')}
-                    className={`p-2.5 rounded-xl border text-center transition-all ${
-                      selectedPlatform === 'youtube_shorts'
-                        ? 'border-red-500 bg-red-500/10 text-red-600 font-bold ring-2 ring-red-500/20'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <PlaySquare className="w-4 h-4 mx-auto text-red-600 mb-1" />
-                    <span className="text-[11px] block">YT Shorts</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlatform('instagram_reels')}
-                    className={`p-2.5 rounded-xl border text-center transition-all ${
-                      selectedPlatform === 'instagram_reels'
-                        ? 'border-pink-500 bg-pink-500/10 text-pink-600 font-bold ring-2 ring-pink-500/20'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <Camera className="w-4 h-4 mx-auto text-pink-600 mb-1" />
-                    <span className="text-[11px] block">Instagram</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlatform('facebook')}
-                    className={`p-2.5 rounded-xl border text-center transition-all ${
-                      selectedPlatform === 'facebook'
-                        ? 'border-blue-600 bg-blue-600/10 text-blue-600 font-bold ring-2 ring-blue-600/20'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <Send className="w-4 h-4 mx-auto text-blue-600 mb-1" />
-                    <span className="text-[11px] block">Facebook</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlatform('x')}
-                    className={`p-2.5 rounded-xl border text-center transition-all ${
-                      selectedPlatform === 'x'
-                        ? 'border-slate-900 dark:border-white bg-slate-900/10 dark:bg-white/10 text-slate-900 dark:text-white font-bold ring-2 ring-slate-900/20'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <span className="w-4 h-4 mx-auto text-xs font-black block mb-1">𝕏</span>
-                    <span className="text-[11px] block">X (Twitter)</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* 3. Channel Name (Required) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span>Channel / Account Name (Required)</span>
-                  <span className="text-[10px] text-purple-500 font-semibold">Official Channel Tag</span>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                  <span>1. Channel / Account Name (Required)</span>
+                  <span className="text-[10px] text-zinc-400 font-semibold">Official Channel Tag</span>
                 </label>
                 <input
                   type="text"
@@ -848,7 +743,7 @@ export const SocialMediaPublishing: React.FC = () => {
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
                   placeholder="e.g. Digital Inertia Main or @digitalinertia"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
                 />
 
                 {/* Channel Suggestions */}
@@ -858,10 +753,10 @@ export const SocialMediaPublishing: React.FC = () => {
                       key={preset}
                       type="button"
                       onClick={() => setChannelName(preset)}
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all ${
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${
                         channelName === preset
-                          ? 'bg-purple-600 text-white border-purple-600'
-                          : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-purple-400'
+                          ? 'bg-white text-black border-white'
+                          : 'bg-zinc-800 text-zinc-300 border-zinc-700/60 hover:border-zinc-500'
                       }`}
                     >
                       {preset}
@@ -870,18 +765,78 @@ export const SocialMediaPublishing: React.FC = () => {
                 </div>
               </div>
 
-              {/* 4. Live Video Proof Link (Required) */}
+              {/* 2. Platform Selector */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  2. Platform Published:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatform('youtube_shorts')}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      selectedPlatform === 'youtube_shorts'
+                        ? 'border-white bg-zinc-800 text-white font-bold'
+                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <PlaySquare className="w-4 h-4 mx-auto text-red-500 mb-1" />
+                    <span className="text-[11px] block">YT Shorts</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatform('instagram_reels')}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      selectedPlatform === 'instagram_reels'
+                        ? 'border-white bg-zinc-800 text-white font-bold'
+                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <Camera className="w-4 h-4 mx-auto text-pink-500 mb-1" />
+                    <span className="text-[11px] block">Instagram</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatform('facebook')}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      selectedPlatform === 'facebook'
+                        ? 'border-white bg-zinc-800 text-white font-bold'
+                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <Send className="w-4 h-4 mx-auto text-zinc-300 mb-1" />
+                    <span className="text-[11px] block">Facebook</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatform('x')}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      selectedPlatform === 'x'
+                        ? 'border-white bg-zinc-800 text-white font-bold'
+                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="w-4 h-4 mx-auto text-xs font-black block mb-1">𝕏</span>
+                    <span className="text-[11px] block">X (Twitter)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. Live Video Proof Link (Required) */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Live Video Link / Proof (Required)
+                  <label className="text-xs font-bold text-zinc-300">
+                    3. Live Video Link / Proof (Required)
                   </label>
                   {postUrl && (
                     <a
                       href={postUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[10px] font-bold text-blue-500 hover:underline flex items-center gap-1"
+                      className="text-[10px] font-bold text-zinc-400 hover:text-white flex items-center gap-1"
                     >
                       <span>Test Link</span>
                       <ExternalLink className="w-3 h-3" />
@@ -894,39 +849,39 @@ export const SocialMediaPublishing: React.FC = () => {
                   value={postUrl}
                   onChange={(e) => setPostUrl(e.target.value)}
                   placeholder="https://youtube.com/shorts/... or https://instagram.com/reel/..."
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-zinc-500 mt-1">
                   Founder and team verify this exact link to confirm publication.
                 </p>
               </div>
 
-              {/* 5. Notes / Caption */}
+              {/* 4. Notes / Caption */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Notes / Hashtags (optional)
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
+                  4. Notes / Hashtags (optional)
                 </label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Trending tags, high initial engagement, etc."
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 rounded-full"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPublishing}
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
+                  className="px-6 py-2.5 text-xs font-black text-black bg-white hover:bg-zinc-200 rounded-full transition-all shadow-md active:scale-95 disabled:opacity-50"
                 >
                   {isPublishing ? 'Recording Publication...' : 'Confirm & Log Video Post'}
                 </button>
@@ -938,7 +893,7 @@ export const SocialMediaPublishing: React.FC = () => {
 
       {/* Floating Toast Notice */}
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-bold shadow-xl border border-slate-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-zinc-900 text-white text-xs font-bold shadow-xl border border-zinc-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>

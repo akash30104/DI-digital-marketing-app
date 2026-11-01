@@ -110,25 +110,25 @@ export const AuthView: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-2 flex items-center justify-center shadow-lg shadow-blue-500/10 mb-3 overflow-hidden">
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-zinc-900 border border-zinc-800 p-2 flex items-center justify-center shadow-2xl mb-3 overflow-hidden">
             <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-xl font-black tracking-wider uppercase text-slate-900 dark:text-white">
+          <h1 className="text-xl font-black tracking-[0.16em] uppercase text-white">
             Digital Inertia
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-zinc-400 mt-0.5">
             Production & Social Media Management App
           </p>
         </div>
 
         {/* Top Navigation Bar / Segmented Bar */}
-        <div className="flex p-1 bg-slate-200 dark:bg-slate-800 rounded-xl mb-4">
+        <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-2xl mb-4">
           <button
             onClick={() => handleTabChange('signIn')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
               authMode === 'signIn'
-                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                ? 'bg-white text-black font-black shadow-md'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Lock className="w-3.5 h-3.5" />
@@ -137,10 +137,10 @@ export const AuthView: React.FC = () => {
 
           <button
             onClick={() => handleTabChange('teamRegister')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
               authMode === 'teamRegister'
-                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                ? 'bg-white text-black font-black shadow-md'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -149,13 +149,13 @@ export const AuthView: React.FC = () => {
 
           <button
             onClick={() => handleTabChange('founderSetup')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
               authMode === 'founderSetup'
-                ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/30'
-                : 'text-amber-600 dark:text-amber-400 hover:text-amber-700'
+                ? 'bg-zinc-800 text-white font-black border border-zinc-700 shadow-md'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <Crown className="w-3.5 h-3.5" />
+            <Crown className="w-3.5 h-3.5 text-zinc-300" />
             <span>Founder Setup</span>
           </button>
         </div>
@@ -163,12 +163,12 @@ export const AuthView: React.FC = () => {
         {isDefaultConfig && (
           <div 
             onClick={() => setShowConfig(true)}
-            className="mb-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2.5 cursor-pointer hover:bg-amber-500/15 transition-colors shadow-sm"
+            className="mb-4 p-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs flex items-start gap-2.5 cursor-pointer hover:bg-zinc-800 transition-colors shadow-sm"
           >
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-zinc-400" />
             <div>
-              <p className="font-bold">Supabase Not Connected Yet</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="font-bold text-white">Supabase Not Connected Yet</p>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
                 Click here to enter your Supabase Project URL & Anon Key to connect this app to your database.
               </p>
             </div>
@@ -176,17 +176,17 @@ export const AuthView: React.FC = () => {
         )}
 
         {/* Form Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+        <div className="bg-zinc-900 rounded-3xl shadow-xl border border-zinc-800 p-6">
           {errorMessage && (
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs mb-4">
-              <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-800 border border-rose-900/40 text-rose-300 text-xs mb-4">
+              <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-400" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {successMessage && (
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs mb-4">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-800 border border-emerald-900/40 text-emerald-300 text-xs mb-4">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-400" />
               <span>{successMessage}</span>
             </div>
           )}
@@ -195,7 +195,7 @@ export const AuthView: React.FC = () => {
           {authMode === 'signIn' && (
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Work Email
                 </label>
                 <input
@@ -204,12 +204,12 @@ export const AuthView: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="editor@studio.com"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Password
                 </label>
                 <input
@@ -218,14 +218,14 @@ export const AuthView: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white rounded-xl text-sm font-bold shadow-md shadow-blue-500/25 transition-all disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
               >
                 {isLoading ? 'Signing in...' : 'Sign In'}
                 <ArrowRight className="w-4 h-4" />
@@ -237,7 +237,7 @@ export const AuthView: React.FC = () => {
           {authMode === 'teamRegister' && (
             <form onSubmit={handleTeamSignUp} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -246,12 +246,12 @@ export const AuthView: React.FC = () => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Alex Rivera"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Work Email
                 </label>
                 <input
@@ -260,12 +260,12 @@ export const AuthView: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="alex@studio.com"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Password
                 </label>
                 <input
@@ -274,22 +274,22 @@ export const AuthView: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min. 6 characters"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Select Role
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedRole('editor')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                       selectedRole === 'editor'
-                        ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-500'
+                        ? 'border-white bg-zinc-800 text-white font-black'
+                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
                     }`}
                   >
                     🎬 Video Editor
@@ -297,10 +297,10 @@ export const AuthView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedRole('social_media_manager')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                       selectedRole === 'social_media_manager'
-                        ? 'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-500'
+                        ? 'border-white bg-zinc-800 text-white font-black'
+                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
                     }`}
                   >
                     📱 Social Media Mgr
@@ -308,14 +308,14 @@ export const AuthView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/50 text-slate-500 text-[11px]">
+              <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 text-zinc-400 text-[11px]">
                 Founder role is not selectable here. Use the Founder Setup tab if not yet registered.
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white rounded-xl text-sm font-bold shadow-md shadow-blue-500/25 transition-all disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
               >
                 {isLoading ? 'Creating account...' : `Register as ${selectedRole === 'editor' ? 'Video Editor' : 'Social Media Manager'}`}
               </button>
@@ -342,7 +342,7 @@ export const AuthView: React.FC = () => {
                   <div className="pt-2">
                     <button
                       onClick={() => handleTabChange('signIn')}
-                      className="w-full py-2.5 px-4 bg-brand-navy dark:bg-slate-700 hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all"
+                      className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full text-xs font-bold transition-all border border-zinc-700"
                     >
                       Return to Sign In
                     </button>
@@ -351,16 +351,16 @@ export const AuthView: React.FC = () => {
               ) : (
                 /* UNCLAIMED FOUNDER REGISTRATION FORM */
                 <form onSubmit={handleFounderSignUp} className="space-y-4">
-                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/15 border border-amber-500/20 text-amber-600 dark:text-amber-400">
-                    <Crown className="w-5 h-5 flex-shrink-0" />
+                  <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-zinc-800 border border-zinc-700 text-zinc-200">
+                    <Crown className="w-5 h-5 flex-shrink-0 text-zinc-300" />
                     <div className="text-xs">
-                      <p className="font-bold">Claim Primary Founder Account</p>
-                      <p className="text-[11px] opacity-90">First user gets master administrative oversight & Google Sheets sync.</p>
+                      <p className="font-bold text-white">Claim Primary Founder Account</p>
+                      <p className="text-[11px] text-zinc-400">First user gets master administrative oversight & Google Sheets sync.</p>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                       Founder Full Name
                     </label>
                     <input
@@ -369,12 +369,12 @@ export const AuthView: React.FC = () => {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Founder Name"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                       Founder Work Email
                     </label>
                     <input
@@ -383,12 +383,12 @@ export const AuthView: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="founder@company.com"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                       Master Password
                     </label>
                     <input
@@ -397,12 +397,12 @@ export const AuthView: React.FC = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Min. 6 characters"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                       Confirm Master Password
                     </label>
                     <input
@@ -411,14 +411,14 @@ export const AuthView: React.FC = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat password"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/25 transition-all disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
                   >
                     {isLoading ? 'Creating Founder...' : 'Create Primary Founder Account'}
                     <Crown className="w-4 h-4" />

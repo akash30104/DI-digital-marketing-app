@@ -17,18 +17,16 @@ import { ManagerApprovals } from './views/ManagerApprovals';
 export const App: React.FC = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem('theme') === 'dark' ||
-      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    return localStorage.getItem('theme') !== 'light';
   });
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
   useEffect(() => {
+    document.documentElement.classList.add('dark');
     if (darkMode) {
-      document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
     } else {
-      document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
@@ -46,10 +44,10 @@ export const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">Loading Digital Inertia...</span>
+          <div className="w-10 h-10 border-2 border-zinc-700 border-t-white rounded-full animate-spin" />
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Loading Digital Inertia...</span>
         </div>
       </div>
     );
@@ -107,7 +105,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#08080A] text-slate-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-white selection:text-black">
       <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">

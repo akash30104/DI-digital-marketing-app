@@ -20,11 +20,11 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
   const getRoleInfo = () => {
     switch (role) {
       case 'founder':
-        return { title: 'Founder', icon: <Crown className="w-3.5 h-3.5" />, badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' };
+        return { title: 'Founder', icon: <Crown className="w-3.5 h-3.5" />, badge: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
       case 'editor':
-        return { title: 'Video Editor', icon: <Film className="w-3.5 h-3.5" />, badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' };
+        return { title: 'Video Editor', icon: <Film className="w-3.5 h-3.5" />, badge: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
       case 'social_media_manager':
-        return { title: 'Social Media Manager', icon: <Megaphone className="w-3.5 h-3.5" />, badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' };
+        return { title: 'Social Media Manager', icon: <Megaphone className="w-3.5 h-3.5" />, badge: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
     }
   };
 
@@ -32,15 +32,15 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-white/90 dark:bg-[#08080A]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/[0.08]">
+      <header className="sticky top-0 z-30 bg-black/90 backdrop-blur-xl border-b border-zinc-800/80">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-white dark:bg-[#141417] border border-slate-200 dark:border-white/[0.08] p-1.5 flex items-center justify-center shadow-sm overflow-hidden shrink-0">
+            <div className="w-9 h-9 rounded-2xl bg-zinc-900 border border-zinc-800 p-1.5 flex items-center justify-center shadow-sm overflow-hidden shrink-0">
               <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-black text-sm tracking-[0.16em] uppercase text-slate-900 dark:text-white">
+                <span className="font-black text-sm tracking-[0.16em] uppercase text-white">
                   Digital Inertia
                 </span>
                 <span className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border backdrop-blur-md ${roleInfo.badge}`}>
@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
                   {roleInfo.title}
                 </span>
               </div>
-              <p className="text-[10px] uppercase tracking-wider text-slate-400 hidden sm:block font-semibold">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 hidden sm:block font-semibold">
                 Studio DiskFlow
               </p>
             </div>
@@ -57,7 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-xl text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
               title="Toggle Theme"
             >
               {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -65,20 +65,20 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
 
             <button
               onClick={() => setShowConfig(true)}
-              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-xl text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
               title="Supabase Settings"
             >
               <Settings className="w-4 h-4" />
             </button>
 
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block" />
+            <div className="h-4 w-px bg-zinc-800 mx-1 hidden sm:block" />
 
             <div className="hidden sm:flex items-center gap-2 pl-1">
               <div className="text-right">
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
+                <div className="text-xs font-bold text-zinc-200 truncate max-w-[120px]">
                   {currentUser?.full_name || 'User'}
                 </div>
-                <div className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                <div className="text-[10px] text-zinc-500 truncate max-w-[120px]">
                   {currentUser?.email}
                 </div>
               </div>
@@ -86,7 +86,7 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
 
             <button
               onClick={() => signOut()}
-              className="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-colors ml-1"
+              className="p-2 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-1"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />
@@ -136,7 +136,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
   const tabs = getTabs();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#08080A]/90 backdrop-blur-xl border-t border-slate-200/80 dark:border-white/[0.08] pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-black/95 backdrop-blur-xl border-t border-zinc-800/80 pb-safe">
       <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-around">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -147,7 +147,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
               className={`flex flex-col items-center justify-center flex-1 py-1 transition-all relative ${
                 isActive
                   ? 'text-white font-black scale-105'
-                  : 'text-slate-400 hover:text-slate-200 font-medium'
+                  : 'text-zinc-500 hover:text-zinc-300 font-medium'
               }`}
             >
               {tab.icon}

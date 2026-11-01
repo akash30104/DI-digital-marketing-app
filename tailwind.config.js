@@ -9,23 +9,24 @@ export default {
     extend: {
       colors: {
         stealth: {
-          bg: '#08080A',
-          card: '#141417',
-          elevated: '#1C1C22',
-          border: 'rgba(255, 255, 255, 0.08)',
-          borderLight: 'rgba(255, 255, 255, 0.14)',
-          muted: '#A1A1AA',
+          bg: '#000000',
+          card: '#18181b',
+          elevated: '#27272a',
+          surface: '#323236',
+          border: 'rgba(255, 255, 255, 0.1)',
+          borderLight: 'rgba(255, 255, 255, 0.16)',
+          muted: '#a1a1aa',
         },
         brand: {
-          navy: '#0F172A',
-          blue: '#3B82F6',
-          green: '#10B981',
-          amber: '#F59E0B',
-          red: '#EF4444',
-          purple: '#8B5CF6',
-          darkBg: '#08080A',
-          darkCard: '#141417',
-          darkBorder: 'rgba(255, 255, 255, 0.08)'
+          navy: '#18181b',
+          blue: '#52525b',
+          green: '#27272a',
+          amber: '#3f3f46',
+          red: '#71717a',
+          purple: '#27272a',
+          darkBg: '#000000',
+          darkCard: '#18181b',
+          darkBorder: 'rgba(255, 255, 255, 0.1)'
         }
       },
       borderRadius: {
