@@ -117,8 +117,14 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           );
           setTasks(myFiltered);
         } else {
-          // In "Tasks": show ALL tasks
-          setTasks(mapped);
+          // In "Tasks": show ONLY available tasks that have NOT been accepted/taken yet
+          const availableTasks = mapped.filter(d => 
+            !d.assigned_editor_id && 
+            !isMyTask(d, currentUser.id, currentUser.full_name) &&
+            d.editing_status !== 'submitted_for_approval' &&
+            d.editing_status !== 'approved'
+          );
+          setTasks(availableTasks);
         }
       }
     } catch (e) {
@@ -188,7 +194,52 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     setPreviewLink(task.preview_link || '');
   };
 
-  // Accept Task Action: claims task, adds to My Tasks, and immediately opens in My Tasks!
+  // Quick Progress Update directly from the card
+  const handleQuickProgressUpdate = async (task: Deliverable, newProgress: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!currentUser) return;
+
+    if (newProgress === 100) {
+      // 100% requires the final video link before submitting
+      openUpdateModal({
+        ...task,
+        progress_percentage: 100,
+        editing_status: 'submitted_for_approval'
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const updatedTask: Deliverable = {
+      ...task,
+      progress_percentage: newProgress,
+      editing_status: 'editing_in_progress',
+      updated_at: now
+    };
+
+    // 1. Immediate optimistic UI update (progress bar & % update instantly)
+    setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
+    showToast(`Updated progress to ${newProgress}%!`);
+
+    // 2. Database update in Supabase
+    try {
+      const { error } = await supabase
+        .from('deliverables')
+        .update({
+          progress_percentage: newProgress,
+          editing_status: 'editing_in_progress',
+          assigned_editor_id: currentUser.id,
+          updated_at: now
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('Failed to update progress on card:', err);
+    }
+  };
+
+  // Accept Task Action: claims task, removes from Tasks queue, adds to My Tasks, and immediately opens in My Tasks!
   const handleAcceptTask = async (task: Deliverable, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!currentUser) return;
@@ -208,13 +259,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       updated_at: now
     };
 
-    // 2. Optimistic update
-    setTasks(prev => {
-      if (mode === 'my') {
-        return [updatedTask, ...prev.filter(t => t.id !== task.id)];
-      }
-      return prev.map(t => t.id === task.id ? updatedTask : t);
-    });
+    // 2. Optimistic update: Disappear immediately from Tasks page!
+    setTasks(prev => prev.filter(t => t.id !== task.id));
 
     // 3. Immediately switch screen to "My Tasks" so the editor sees it in their My Tasks list
     if (onNavigateTab) {
@@ -313,6 +359,15 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         if (mode === 'my') {
           setTasks(prev => prev.filter(t => t.id !== editingTask.id));
         }
+      } else {
+        // Optimistically update intermediate progress so card immediately reflects new percentage and progress bar!
+        setTasks(prev => prev.map(t => t.id === editingTask.id ? {
+          ...t,
+          progress_percentage: finalProgress,
+          editing_status: status,
+          preview_link: previewLink.trim() || undefined,
+          assigned_editor_id: currentUser.id
+        } : t));
       }
 
       const nextReel = findNextReel(editingTask);
@@ -531,12 +586,42 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   </div>
                 )}
 
-                {/* Progress Bar */}
-                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                    style={{ width: `${task.progress_percentage}%` }}
-                  />
+                {/* Interactive Progress Bar & Quick Edit Buttons */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      Cut Progress: <strong className="text-blue-600 dark:text-blue-400">{task.progress_percentage || 0}%</strong>
+                    </span>
+                    {mode === 'my' && (
+                      <span className="text-[10px] text-slate-400 font-medium">Quick Edit:</span>
+                    )}
+                  </div>
+
+                  <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${task.progress_percentage || 0}%` }}
+                    />
+                  </div>
+
+                  {mode === 'my' && (
+                    <div className="grid grid-cols-4 gap-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
+                      {[25, 50, 75, 100].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={(e) => handleQuickProgressUpdate(task, pct, e)}
+                          className={`py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                            (task.progress_percentage || 0) === pct
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40'
+                          }`}
+                        >
+                          {pct}% {pct === 100 ? '🎬' : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* ACTION BUTTONS */}
@@ -717,21 +802,33 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   </select>
                 </div>
 
-                {/* Preview Video Cut Link */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-                    <span>Preview Video Cut Link {status === 'submitted_for_approval' ? '(Required)' : '(Optional)'}</span>
-                    <span className="text-[10px] text-blue-500 font-semibold">Google Drive / Frame.io</span>
-                  </label>
-                  <input
-                    type="url"
-                    required={status === 'submitted_for_approval'}
-                    value={previewLink}
-                    onChange={(e) => setPreviewLink(e.target.value)}
-                    placeholder="https://drive.google.com/file/d/... or Frame.io cut"
-                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                {/* Preview Video Cut Link - ONLY requested once progress reaches 100% */}
+                {progress === 100 || status === 'submitted_for_approval' ? (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2 animate-in fade-in duration-200">
+                    <label className="block text-xs font-black text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span>🚀 Final Video Link (Required at 100%)</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">Google Drive / Frame.io</span>
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      value={previewLink}
+                      onChange={(e) => setPreviewLink(e.target.value)}
+                      placeholder="https://drive.google.com/file/d/... or Frame.io cut link"
+                      className="w-full px-3 py-2.5 text-xs rounded-xl border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                      Submit the final cut link so your Social Media Manager can review and publish it.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>Video link will be requested once the cut reaches 100% completion.</span>
+                  </div>
+                )}
               </form>
             </div>
 
