@@ -8,17 +8,32 @@ export default {
   theme: {
     extend: {
       colors: {
+        stealth: {
+          bg: '#08080A',
+          card: '#141417',
+          elevated: '#1C1C22',
+          border: 'rgba(255, 255, 255, 0.08)',
+          borderLight: 'rgba(255, 255, 255, 0.14)',
+          muted: '#A1A1AA',
+        },
         brand: {
-          navy: '#172554',
+          navy: '#0F172A',
           blue: '#3B82F6',
-          green: '#16A34A',
-          amber: '#D97706',
-          red: '#DC2626',
+          green: '#10B981',
+          amber: '#F59E0B',
+          red: '#EF4444',
           purple: '#8B5CF6',
-          darkBg: '#0B1120',
-          darkCard: '#1E293B',
-          darkBorder: '#334155'
+          darkBg: '#08080A',
+          darkCard: '#141417',
+          darkBorder: 'rgba(255, 255, 255, 0.08)'
         }
+      },
+      borderRadius: {
+        '3xl': '1.5rem',
+        '4xl': '2rem',
+      },
+      letterSpacing: {
+        'ultra': '0.22em',
       }
     },
   },

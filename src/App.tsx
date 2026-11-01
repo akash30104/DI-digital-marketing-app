@@ -107,7 +107,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#08080A] text-slate-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
       <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">

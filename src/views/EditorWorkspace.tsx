@@ -509,16 +509,16 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                     openUpdateModal(task);
                   }
                 }}
-                className={`p-4 rounded-3xl bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 shadow-sm space-y-3 transition-all ${
+                className={`p-5 rounded-3xl bg-white dark:bg-[#141417] border border-slate-200/90 dark:border-white/[0.08] shadow-sm space-y-3.5 transition-all ${
                   mode === 'my' || isAssignedToMe
-                    ? 'cursor-pointer hover:border-blue-500 hover:shadow-md active:scale-[0.99]'
+                    ? 'cursor-pointer hover:border-white/25 hover:shadow-lg active:scale-[0.99]'
                     : ''
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                      {isReel ? <PlaySquare className="w-3 h-3 text-pink-500" /> : <Tv className="w-3 h-3 text-blue-500" />}
+                    <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                      {isReel ? <PlaySquare className="w-3 h-3 text-pink-400" /> : <Tv className="w-3 h-3 text-blue-400" />}
                       <span>{isReel ? 'Short / Reel (9:16)' : 'Full Video (16:9)'}</span>
                     </span>
                     <StatusBadge status={task.editing_status} />
@@ -526,35 +526,35 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
                   <div className="flex items-center gap-2">
                     {mode === 'my' && (
-                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold text-zinc-300 bg-white/10 border border-white/15 px-2.5 py-0.5 rounded-full">
                         Click to edit ↗
                       </span>
                     )}
-                    <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+                    <span className="text-xs font-black text-white bg-white/10 border border-white/10 px-2 py-0.5 rounded-full">
                       {task.progress_percentage}% Done
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                  <h4 className="font-bold text-slate-900 dark:text-zinc-100 text-base">
                     {task.title}
                   </h4>
                   {task.recording_title && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
                       Source Shoot: {task.recording_title}
                     </p>
                   )}
 
                   {/* Transfer info from SMM */}
                   {task.hard_disk_name && (
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <span className="font-black text-blue-600 dark:text-blue-400">Footage Shared via:</span>
-                      <span className="font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300">
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2.5 text-[11px] text-slate-600 dark:text-zinc-300 bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-2xl border border-slate-100 dark:border-white/[0.06]">
+                      <span className="font-black text-zinc-400 uppercase tracking-wider text-[10px]">Footage Shared via:</span>
+                      <span className="font-bold px-2.5 py-0.5 rounded-full bg-white/10 border border-white/10 text-white">
                         {task.hard_disk_name}
                       </span>
                       {task.folder_path && task.folder_path !== task.hard_disk_name && (
-                        <span className="text-slate-400 font-medium">({task.folder_path})</span>
+                        <span className="text-zinc-500 font-medium">({task.folder_path})</span>
                       )}
                     </div>
                   )}
@@ -563,11 +563,11 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   {mode === 'all' && (
                     <div className="mt-2 text-[11px]">
                       {task.assigned_editor_id || isAssignedToMe ? (
-                        <span className="text-slate-500 font-medium">
-                          Assigned to: <strong className="text-slate-800 dark:text-slate-200">{isAssignedToMe ? `${currentUser?.full_name || 'You'} (You)` : (task.editor_name || 'Assigned')}</strong>
+                        <span className="text-zinc-400 font-medium">
+                          Assigned to: <strong className="text-slate-800 dark:text-zinc-200">{isAssignedToMe ? `${currentUser?.full_name || 'You'} (You)` : (task.editor_name || 'Assigned')}</strong>
                         </span>
                       ) : (
-                        <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">
+                        <span className="text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
                           Open for any editor to accept
                         </span>
                       )}
@@ -577,7 +577,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
                 {/* SMM Revision / Changes Notice */}
                 {task.editing_status === 'changes_requested' && task.approval_notes && (
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs">
+                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold">Social Media Manager Feedback:</span>
@@ -587,34 +587,34 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                 )}
 
                 {/* Interactive Progress Bar & Quick Edit Buttons */}
-                <div className="space-y-1.5 pt-1">
+                <div className="space-y-2 pt-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                      Cut Progress: <strong className="text-blue-600 dark:text-blue-400">{task.progress_percentage || 0}%</strong>
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                      Cut Progress: <strong className="text-white">{task.progress_percentage || 0}%</strong>
                     </span>
                     {mode === 'my' && (
-                      <span className="text-[10px] text-slate-400 font-medium">Quick Edit:</span>
+                      <span className="text-[10px] text-zinc-500 font-medium">Quick Edit:</span>
                     )}
                   </div>
 
-                  <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-slate-100 dark:bg-white/5 rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                      className="bg-white h-full rounded-full transition-all duration-300"
                       style={{ width: `${task.progress_percentage || 0}%` }}
                     />
                   </div>
 
                   {mode === 'my' && (
-                    <div className="grid grid-cols-4 gap-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
+                    <div className="grid grid-cols-4 gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                       {[25, 50, 75, 100].map((pct) => (
                         <button
                           key={pct}
                           type="button"
                           onClick={(e) => handleQuickProgressUpdate(task, pct, e)}
-                          className={`py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                          className={`py-1.5 rounded-full text-[11px] font-bold border transition-all ${
                             (task.progress_percentage || 0) === pct
-                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40'
+                              ? 'bg-white text-black border-white shadow-sm'
+                              : 'bg-white/5 border border-white/10 text-zinc-400 hover:border-white/20 hover:text-white hover:bg-white/10'
                           }`}
                         >
                           {pct}% {pct === 100 ? '🎬' : ''}
@@ -630,10 +630,10 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                     <button
                       onClick={(e) => handleAcceptTask(task, e)}
                       disabled={acceptingId === task.id}
-                      className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-1.5 py-3 px-4 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50"
                     >
                       <UserCheck className="w-4 h-4" />
-                      <span>{acceptingId === task.id ? 'Accepting...' : '✅ Accept Task & Start Editing'}</span>
+                      <span>{acceptingId === task.id ? 'Accepting...' : 'Accept Task & Start Editing'}</span>
                     </button>
                   ) : (
                     <button
@@ -644,7 +644,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                         }
                         openUpdateModal(task);
                       }}
-                      className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white text-xs font-bold transition-all shadow-sm shadow-blue-500/20"
+                      className="w-full flex items-center justify-center gap-1.5 py-3 px-4 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-all shadow-md active:scale-[0.99]"
                     >
                       <Sliders className="w-3.5 h-3.5" />
                       <span>{mode === 'all' ? 'Open in My Tasks & Edit ↗' : 'Update Cut Progress & Submit'}</span>
@@ -659,26 +659,26 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
       {/* UPDATE PROGRESS MODAL */}
       {editingTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white dark:bg-[#141417] rounded-3xl shadow-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden flex flex-col max-h-[92vh]">
             {/* Modal Header */}
-            <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+            <div className="p-5 border-b border-slate-100 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] flex items-center justify-between">
               <div>
-                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                     <span>ACTIVE EDITING CUT</span>
                     <span>🎬</span>
                   </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-300">
                     {editingTask.deliverable_type === 'reel' ? 'REEL CUT (9:16)' : 'FULL VIDEO (16:9)'}
                   </span>
                   {siblingReels.length > 1 && currentReelIndex !== -1 && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-300">
                       Reel {currentReelIndex + 1} of {siblingReels.length}
                     </span>
                   )}
                 </div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base line-clamp-1">
+                <h3 className="font-bold text-slate-900 dark:text-zinc-100 text-base line-clamp-1">
                   {editingTask.title}
                 </h3>
               </div>
@@ -688,7 +688,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={() => openUpdateModal(prevReelItem)}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
                     title={`Previous: ${prevReelItem.title}`}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -698,7 +698,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={() => openUpdateModal(nextReelItem)}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
                     title={`Next: ${nextReelItem.title}`}
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -706,7 +706,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                 )}
                 <button 
                   onClick={() => setEditingTask(null)} 
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ml-1"
+                  className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors ml-1"
                   title="Close"
                 >
                   <X className="w-4 h-4" />
@@ -715,19 +715,19 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             </div>
 
             {/* Modal Body */}
-            <div className="overflow-y-auto p-5 space-y-4">
+            <div className="overflow-y-auto p-6 space-y-4">
               {/* Footage Access Details Banner */}
               {editingTask.hard_disk_name && (
-                <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
                     HOW FOOTAGE WAS SHARED:
                   </span>
-                  <div className="flex flex-wrap items-center gap-1.5 font-bold text-slate-900 dark:text-white">
-                    <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[11px]">
+                  <div className="flex flex-wrap items-center gap-1.5 font-bold text-slate-900 dark:text-zinc-100">
+                    <span className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/10 text-white text-[11px]">
                       {editingTask.hard_disk_name}
                     </span>
                     {editingTask.folder_path && (
-                      <span className="text-slate-600 dark:text-slate-300 font-medium text-xs">
+                      <span className="text-zinc-400 font-medium text-xs">
                         {editingTask.folder_path}
                       </span>
                     )}
@@ -738,11 +738,11 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
               <form id="editor-progress-form" onSubmit={(e) => handleSaveProgress(e, false)} className="space-y-4">
                 {/* Completion Percentage */}
                 <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400">
                       Completion Percentage:
                     </label>
-                    <span className="text-sm font-black text-blue-600 dark:text-blue-400">
+                    <span className="text-sm font-black text-white bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
                       {progress}%
                     </span>
                   </div>
@@ -756,10 +756,10 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                           setProgress(val);
                           if (val === 100) setStatus('submitted_for_approval');
                         }}
-                        className={`py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        className={`py-2 rounded-full text-xs font-bold border transition-all ${
                           progress === val
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                            : 'bg-slate-100 dark:bg-slate-700/60 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-blue-400'
+                            ? 'bg-white text-black border-white shadow-sm'
+                            : 'bg-white/5 border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white hover:bg-white/10'
                         }`}
                       >
                         {val}% {val === 100 ? '🎉 Done' : ''}
@@ -778,13 +778,13 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                       setProgress(val);
                       if (val === 100) setStatus('submitted_for_approval');
                     }}
-                    className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    className="w-full h-2 bg-slate-200 dark:bg-white/10 rounded-lg appearance-none cursor-pointer accent-white"
                   />
                 </div>
 
                 {/* Production Stage */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  <label className="block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400 mb-1.5">
                     Production Stage
                   </label>
                   <select
@@ -794,7 +794,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                       setStatus(val);
                       if (val === 'submitted_for_approval') setProgress(100);
                     }}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-zinc-100 font-medium focus:outline-none focus:ring-1 focus:ring-white"
                   >
                     <option value="editing_in_progress">Editing in Progress</option>
                     <option value="internal_review">Internal Rough Cut Review</option>
@@ -804,12 +804,12 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
                 {/* Preview Video Cut Link - ONLY requested once progress reaches 100% */}
                 {progress === 100 || status === 'submitted_for_approval' ? (
-                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2 animate-in fade-in duration-200">
-                    <label className="block text-xs font-black text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/15 space-y-2 animate-in fade-in duration-200">
+                    <label className="block text-xs font-black text-white flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
                         <span>🚀 Final Video Link (Required at 100%)</span>
                       </span>
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">Google Drive / Frame.io</span>
+                      <span className="text-[10px] text-zinc-400 font-bold uppercase">Google Drive / Frame.io</span>
                     </label>
                     <input
                       type="url"
@@ -817,15 +817,15 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                       value={previewLink}
                       onChange={(e) => setPreviewLink(e.target.value)}
                       placeholder="https://drive.google.com/file/d/... or Frame.io cut link"
-                      className="w-full px-3 py-2.5 text-xs rounded-xl border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-2xl border border-white/20 bg-black/40 text-white placeholder-zinc-500 font-medium focus:outline-none focus:ring-1 focus:ring-white"
                     />
-                    <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                    <p className="text-[10px] text-zinc-400">
                       Submit the final cut link so your Social Media Manager can review and publish it.
                     </p>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-zinc-400 text-xs flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>Video link will be requested once the cut reaches 100% completion.</span>
                   </div>
                 )}
@@ -833,11 +833,11 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             </div>
 
             {/* Modal Footer with "Go to Next Reel" */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-wrap items-center justify-between gap-2">
+            <div className="p-4 border-t border-slate-100 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => setEditingTask(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl"
+                className="px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white rounded-full transition-colors"
               >
                 Cancel
               </button>
@@ -848,7 +848,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                     type="button"
                     onClick={(e) => handleSaveProgress(e, true)}
                     disabled={isSaving}
-                    className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl transition-all shadow-md shadow-emerald-500/20 active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-4 py-2 text-xs font-bold text-white bg-white/10 hover:bg-white/15 border border-white/10 rounded-full transition-all shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
                     title={`Save current cut & start editing: ${nextReelItem.title}`}
                   >
                     <span>Save &amp; Next Reel ➡️</span>
@@ -859,7 +859,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   type="submit"
                   form="editor-progress-form"
                   disabled={isSaving}
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
+                  className="px-6 py-2.5 text-xs font-bold text-black bg-white hover:bg-zinc-200 rounded-full transition-all shadow-md active:scale-95 disabled:opacity-50"
                 >
                   {isSaving ? 'Saving...' : status === 'submitted_for_approval' ? 'Submit Cut 🚀' : 'Save Progress'}
                 </button>

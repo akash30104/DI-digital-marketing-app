@@ -485,39 +485,39 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       )}
 
       {/* Social Media Manager Publishing Streak Overview */}
-      <div className="bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent border border-orange-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
-            <Flame className="w-7 h-7 animate-pulse text-orange-500" />
+      <div className="bg-white dark:bg-[#141417] border border-slate-200/80 dark:border-white/[0.08] rounded-3xl p-5 flex items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-orange-500/15 text-orange-400 flex items-center justify-center shrink-0 border border-orange-500/25">
+            <Flame className="w-6 h-6 animate-pulse text-orange-500" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
-                Social Media Manager Streak
+              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500 dark:text-orange-400">
+                Publishing Streak
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-700 dark:text-orange-300">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
                 {streak.currentStreak} {streak.currentStreak === 1 ? 'Day' : 'Days'}
               </span>
             </div>
-            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium mt-0.5">
+            <p className="text-xs text-slate-700 dark:text-zinc-300 font-medium mt-1">
               {streak.statusMessage}
             </p>
           </div>
         </div>
 
         <div className="text-right">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Today's Posts</span>
-          <span className="text-lg font-black text-slate-900 dark:text-white">{todayPublishedLogs.length} Verified</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.16em] block">Today's Output</span>
+          <span className="text-xl font-black text-slate-900 dark:text-white">{todayPublishedLogs.length} Verified</span>
         </div>
       </div>
 
       {/* Daily Publishing Goals (Read-Only Executive Overview) */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
             Today's Output Across Official Channels
           </h3>
-          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-bold text-zinc-300 bg-white/10 border border-white/10 px-2.5 py-0.5 rounded-full backdrop-blur-md">
             Click any channel to view 7-day videos ↗
           </span>
         </div>
@@ -588,25 +588,25 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
               Live Video Editing Progress
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400">
               {activeEditingTasks.length} Active Cuts
             </span>
           </div>
 
           <button
             onClick={() => onNavigateTab?.('production')}
-            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-zinc-400 hover:text-white transition-colors flex items-center gap-1 group"
           >
             <span>Production Board</span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
+            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </button>
         </div>
 
         {activeEditingTasks.length === 0 ? (
-          <div className="p-6 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-400">
+          <div className="p-6 text-center rounded-3xl bg-white dark:bg-[#141417] border border-slate-200/80 dark:border-white/[0.08] text-xs text-zinc-500">
             No active video editing tasks in progress right now.
           </div>
         ) : (
@@ -614,18 +614,18 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             {activeEditingTasks.map((task) => (
               <div 
                 key={task.id} 
-                className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm space-y-2.5"
+                className="p-4 rounded-3xl bg-white dark:bg-[#141417] border border-slate-200/80 dark:border-white/[0.08] shadow-sm hover:border-white/20 transition-all space-y-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-300">
                     {task.deliverable_type === 'reel' ? '📱 Short / Reel' : '📺 Full Video'}
                   </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
                     task.editing_status === 'submitted_for_approval'
-                      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
+                      ? 'bg-purple-500/10 border-purple-500/20 text-purple-400'
                       : task.editing_status === 'editing_in_progress'
-                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                      : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                      : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
                   }`}>
                     {task.editing_status === 'submitted_for_approval'
                       ? 'Cut Ready for SMM Review'
@@ -636,19 +636,19 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-zinc-100 line-clamp-1">
                     {task.title}
                   </h4>
-                  <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    <span>Editor: <strong className="text-slate-800 dark:text-slate-200">{task.editor_name}</strong></span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{task.progress_percentage}% Done</span>
+                  <div className="flex items-center justify-between mt-1 text-xs text-slate-500 dark:text-zinc-400">
+                    <span>Editor: <strong className="text-slate-800 dark:text-zinc-200">{task.editor_name}</strong></span>
+                    <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-full text-[11px] border border-white/10">{task.progress_percentage}% Done</span>
                   </div>
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-slate-100 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
                   <div
-                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                    className="bg-white h-full rounded-full transition-all duration-300"
                     style={{ width: `${task.progress_percentage}%` }}
                   />
                 </div>
@@ -662,17 +662,17 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
               Today's Verified Publications by Social Media Manager
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/10 border border-white/15 text-white">
               {todayPublishedLogs.length} Posted Today
             </span>
           </div>
         </div>
 
         {todayPublishedLogs.length === 0 ? (
-          <div className="p-6 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-400">
+          <div className="p-6 text-center rounded-3xl bg-white dark:bg-[#141417] border border-slate-200/80 dark:border-white/[0.08] text-xs text-zinc-500">
             No videos posted today yet. The Social Media Manager's published proofs will appear here live.
           </div>
         ) : (
@@ -689,25 +689,25 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
               return (
                 <div 
                   key={log.id} 
-                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between gap-3"
+                  className="p-4 rounded-3xl bg-white dark:bg-[#141417] border border-slate-200/80 dark:border-white/[0.08] shadow-sm hover:border-white/20 transition-all flex items-center justify-between gap-3"
                 >
-                  <div className="space-y-1 min-w-0">
+                  <div className="space-y-1.5 min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-blue-600 text-white">
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white text-black">
                         #{todayPublishedLogs.length - idx}
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center gap-1 truncate">
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 flex items-center gap-1 truncate">
                         <Radio className="w-3 h-3 shrink-0" />
                         <span className="truncate">{channel}</span>
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-300">
                         {formatPlatformLabel(log.platform, log.notes)}
                       </span>
                     </div>
-                    <p className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                    <p className="font-bold text-sm text-slate-900 dark:text-zinc-100 truncate">
                       {log.deliverable_title}
                     </p>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[11px] text-zinc-500">
                       Published at {postTime} IST
                     </span>
                   </div>
@@ -717,14 +717,14 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                       href={log.post_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors"
+                      className="px-3.5 py-2 rounded-full bg-white text-black hover:bg-zinc-200 text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors shadow-sm"
                       title="Open Verified Proof"
                     >
                       <span>Proof</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   ) : (
-                    <span className="text-[10px] text-slate-400 shrink-0">Recorded</span>
+                    <span className="text-[11px] text-zinc-500 shrink-0">Recorded</span>
                   )}
                 </div>
               );
@@ -734,60 +734,60 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       </div>
 
       {/* Production Board Pipeline Overview */}
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+      <div className="space-y-3">
+        <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
           Production Pipeline
         </h3>
         <div className="grid grid-cols-3 gap-3">
           <StatCard
             title="In Editing"
             count={summary?.pipeline.in_editing ?? 0}
-            icon={<Film className="w-5 h-5 text-blue-500" />}
-            colorClass="bg-blue-500/10 text-blue-500"
+            icon={<Film className="w-5 h-5 text-zinc-300" />}
+            colorClass="bg-white/5 text-zinc-300"
             onClick={() => onNavigateTab?.('production')}
           />
 
           <StatCard
             title="Changes Requested"
             count={summary?.pipeline.changes_requested ?? 0}
-            icon={<RotateCcw className="w-5 h-5 text-rose-500" />}
-            colorClass="bg-rose-500/10 text-rose-500"
+            icon={<RotateCcw className="w-5 h-5 text-rose-400" />}
+            colorClass="bg-rose-500/10 text-rose-400"
             onClick={() => onNavigateTab?.('production')}
           />
 
           <StatCard
             title="Ready to Publish"
             count={summary?.pipeline.ready_to_publish ?? 0}
-            icon={<Send className="w-5 h-5 text-emerald-500" />}
-            colorClass="bg-emerald-500/10 text-emerald-500"
+            icon={<Send className="w-5 h-5 text-emerald-400" />}
+            colorClass="bg-emerald-500/10 text-emerald-400"
           />
         </div>
       </div>
 
       {/* SMM UPDATE PUBLISHED VIDEO MODAL */}
       {isPublishModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white dark:bg-[#141417] rounded-3xl shadow-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-slate-100 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400">
                   Social Media Manager &bull; Publishing Update
                 </span>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                <h3 className="font-bold text-slate-900 dark:text-zinc-100 text-base">
                   Update Published Video
                 </h3>
               </div>
               <button 
                 onClick={() => setIsPublishModalOpen(false)} 
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handlePublishSubmit} className="p-5 space-y-4 overflow-y-auto">
-              <div className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/40 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+            <form onSubmit={handlePublishSubmit} className="p-6 space-y-5 overflow-y-auto">
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs text-zinc-300 flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
                 <span>
                   Publish your video directly to YouTube, Instagram, Facebook, or X first, then paste the live link below to record verified proof.
                 </span>
@@ -795,7 +795,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
               {/* 1. Select Official Channel */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400 mb-2">
                   1. Official Channel Published To
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -804,15 +804,15 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                       key={ch}
                       type="button"
                       onClick={() => setSelectedChannel(ch)}
-                      className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-all ${
+                      className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
                         selectedChannel === ch
-                          ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-sm'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900'
+                          ? 'border-white bg-white/15 text-white shadow-sm ring-1 ring-white/20'
+                          : 'border-slate-200 dark:border-white/[0.08] hover:border-white/20 text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-white/[0.02]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="truncate">{ch}</span>
-                        {selectedChannel === ch && <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
+                        {selectedChannel === ch && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
                       </div>
                     </button>
                   ))}
@@ -821,7 +821,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
               {/* 2. Platform */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400 mb-2">
                   2. Platform Published
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -829,17 +829,17 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                     { id: 'youtube_shorts' as PlatformType, label: 'YouTube Shorts', icon: <PlaySquare className="w-3.5 h-3.5 text-red-500" /> },
                     { id: 'instagram_reels' as PlatformType, label: 'Instagram Reels', icon: <Camera className="w-3.5 h-3.5 text-pink-500" /> },
                     { id: 'youtube_full' as PlatformType, label: 'YouTube Full', icon: <Tv className="w-3.5 h-3.5 text-red-600" /> },
-                    { id: 'facebook' as PlatformType, label: 'Facebook', icon: <Share2 className="w-3.5 h-3.5 text-blue-600" /> },
-                    { id: 'x' as PlatformType, label: 'X (Twitter)', icon: <Share2 className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" /> },
+                    { id: 'facebook' as PlatformType, label: 'Facebook', icon: <Share2 className="w-3.5 h-3.5 text-blue-500" /> },
+                    { id: 'x' as PlatformType, label: 'X (Twitter)', icon: <Share2 className="w-3.5 h-3.5 text-zinc-400" /> },
                   ].map(plat => (
                     <button
                       key={plat.id}
                       type="button"
                       onClick={() => setSelectedPlatform(plat.id)}
-                      className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      className={`p-2.5 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
                         selectedPlatform === plat.id
-                          ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-sm'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900'
+                          ? 'border-white bg-white/15 text-white shadow-sm ring-1 ring-white/20'
+                          : 'border-slate-200 dark:border-white/[0.08] hover:border-white/20 text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-white/[0.02]'
                       }`}
                     >
                       {plat.icon}
@@ -851,7 +851,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
               {/* 3. Live URL Link (Proof) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400 mb-2">
                   3. Live Post URL / Proof Link (Required)
                 </label>
                 <input
@@ -860,13 +860,13 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                   value={livePostUrl}
                   onChange={(e) => setLivePostUrl(e.target.value)}
                   placeholder="https://youtube.com/shorts/... or https://instagram.com/reel/..."
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 text-xs rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-white focus:border-white/40"
                 />
               </div>
 
               {/* 4. Notes (Optional) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400 mb-2">
                   Notes (Optional)
                 </label>
                 <input
@@ -874,24 +874,24 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                   value={publishNotes}
                   onChange={(e) => setPublishNotes(e.target.value)}
                   placeholder="e.g. Published at 7 PM IST"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 text-xs rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-white focus:border-white/40"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setIsPublishModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white rounded-full transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingPublish}
-                  className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl transition-all shadow-md shadow-purple-500/20 active:scale-95 disabled:opacity-50"
+                  className="px-6 py-2.5 text-xs font-bold text-black bg-white hover:bg-zinc-200 rounded-full transition-all shadow-md active:scale-95 disabled:opacity-50"
                 >
-                  {isSubmittingPublish ? 'Saving Publication...' : 'Confirm & Log Published Video 🚀'}
+                  {isSubmittingPublish ? 'Saving Publication...' : 'Confirm & Log Published Video'}
                 </button>
               </div>
             </form>
@@ -945,15 +945,15 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           const directVideo = isDirectVideoUrl(log.post_url);
 
           return (
-            <div key={log.id} className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-3">
+            <div key={log.id} className="p-4 rounded-3xl bg-white dark:bg-[#1a1a20] border border-slate-200/80 dark:border-white/[0.08] shadow-sm space-y-3">
               {/* Header */}
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-200">
                     {formatPlatformLabel(log.platform)}
                   </span>
                   {log.channel_name && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 border border-purple-500/20 text-purple-300">
                       {log.channel_name}
                     </span>
                   )}
@@ -961,12 +961,12 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
                 <div className="flex items-center gap-1.5">
                   {isToday ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 flex items-center gap-1">
                       <span>🔥</span>
                       <span>POSTED TODAY</span>
                     </span>
                   ) : (
-                    <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                    <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {formatLogDateTime(log.published_at || log.reporting_date)}
                     </span>
@@ -975,13 +975,13 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
               </div>
 
               {/* Title */}
-              <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-snug">
+              <h4 className="font-bold text-slate-900 dark:text-zinc-100 text-sm sm:text-base leading-snug">
                 {log.deliverable_title || log.notes || 'Published Video'}
               </h4>
 
               {/* In-App Video Player */}
               {ytEmbed ? (
-                <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-md border border-slate-200/40 dark:border-slate-700/40">
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-md border border-slate-200/40 dark:border-white/[0.08]">
                   <iframe
                     src={ytEmbed}
                     title={log.deliverable_title || 'Video Player'}
@@ -991,7 +991,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                   />
                 </div>
               ) : driveEmbed ? (
-                <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-md border border-slate-200/40 dark:border-slate-700/40">
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-md border border-slate-200/40 dark:border-white/[0.08]">
                   <iframe
                     src={driveEmbed}
                     title={log.deliverable_title || 'Google Drive Player'}
@@ -1002,7 +1002,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
               ) : directVideo ? (
                 <video
                   controls
-                  className="w-full aspect-video rounded-2xl bg-black max-h-72 object-contain shadow-md"
+                  className="w-full aspect-video rounded-2xl bg-black max-h-72 object-contain shadow-md border border-white/[0.08]"
                   src={log.post_url}
                 />
               ) : null}
@@ -1014,13 +1014,13 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                     href={log.post_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-between w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200/80 dark:border-slate-700/80 text-blue-600 dark:text-blue-400 font-bold text-xs transition-colors group"
+                    className="inline-flex items-center justify-between w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200/80 dark:border-white/[0.08] text-zinc-200 font-bold text-xs transition-colors group"
                   >
                     <div className="flex items-center gap-2 truncate">
                       <PlaySquare className="w-4 h-4 shrink-0 text-red-500" />
                       <span className="truncate">{log.post_url}</span>
                     </div>
-                    <span className="flex items-center gap-1 shrink-0 text-[11px] group-hover:underline">
+                    <span className="flex items-center gap-1 shrink-0 text-[11px] group-hover:underline text-white">
                       <span>Open Link</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </span>
@@ -1032,44 +1032,44 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-2xl bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="w-full max-w-2xl bg-white dark:bg-[#141417] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/[0.08] overflow-hidden flex flex-col max-h-[92vh]">
               {/* Modal Header */}
-              <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+              <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white bg-white/10 border border-white/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       <span>Past 7 Days Output</span>
                     </span>
-                    <span className="text-[10px] font-bold text-slate-400">
+                    <span className="text-[10px] font-bold text-zinc-400">
                       {filteredLogs.length} {filteredLogs.length === 1 ? 'Video' : 'Videos'}
                     </span>
                   </div>
-                  <h3 className="font-black text-slate-900 dark:text-white text-lg tracking-tight">
+                  <h3 className="font-black text-slate-900 dark:text-zinc-100 text-lg tracking-tight">
                     Channel Output &amp; Video Archive
                   </h3>
                 </div>
 
                 <button
                   onClick={() => setShowChannelModal(false)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Filter Tabs across Channels */}
-              <div className="p-3 bg-slate-100/70 dark:bg-slate-900/40 border-b border-slate-200/60 dark:border-slate-700/60 overflow-x-auto no-scrollbar">
+              <div className="p-3 bg-slate-100/70 dark:bg-black/40 border-b border-slate-200/60 dark:border-white/[0.08] overflow-x-auto no-scrollbar">
                 <div className="flex items-center gap-1.5 min-w-max">
                   {channelTabs.map(ch => (
                     <button
                       key={ch.id}
                       onClick={() => setSelectedChannelFilter(ch.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
                         selectedChannelFilter === ch.id
-                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
-                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700'
+                          ? 'bg-white text-black shadow-sm'
+                          : 'bg-white/5 border border-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
                       }`}
                     >
                       {ch.icon}

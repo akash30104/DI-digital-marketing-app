@@ -20,11 +20,11 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
   const getRoleInfo = () => {
     switch (role) {
       case 'founder':
-        return { title: 'Founder', icon: <Crown className="w-3.5 h-3.5" />, badge: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20' };
+        return { title: 'Founder', icon: <Crown className="w-3.5 h-3.5" />, badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' };
       case 'editor':
-        return { title: 'Video Editor', icon: <Film className="w-3.5 h-3.5" />, badge: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20' };
+        return { title: 'Video Editor', icon: <Film className="w-3.5 h-3.5" />, badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' };
       case 'social_media_manager':
-        return { title: 'Social Media Manager', icon: <Megaphone className="w-3.5 h-3.5" />, badge: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/20' };
+        return { title: 'Social Media Manager', icon: <Megaphone className="w-3.5 h-3.5" />, badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' };
     }
   };
 
@@ -32,24 +32,24 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
+      <header className="sticky top-0 z-30 bg-white/90 dark:bg-[#08080A]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/[0.08]">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 flex items-center justify-center shadow-sm overflow-hidden shrink-0">
+            <div className="w-9 h-9 rounded-2xl bg-white dark:bg-[#141417] border border-slate-200 dark:border-white/[0.08] p-1.5 flex items-center justify-center shadow-sm overflow-hidden shrink-0">
               <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm tracking-wider uppercase text-slate-900 dark:text-white">
+                <span className="font-black text-sm tracking-[0.16em] uppercase text-slate-900 dark:text-white">
                   Digital Inertia
                 </span>
-                <span className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${roleInfo.badge}`}>
+                <span className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border backdrop-blur-md ${roleInfo.badge}`}>
                   {roleInfo.icon}
                   {roleInfo.title}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                Production App
+              <p className="text-[10px] uppercase tracking-wider text-slate-400 hidden sm:block font-semibold">
+                Studio DiskFlow
               </p>
             </div>
           </div>
@@ -136,7 +136,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
   const tabs = getTabs();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#08080A]/90 backdrop-blur-xl border-t border-slate-200/80 dark:border-white/[0.08] pb-safe">
       <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-around">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -144,16 +144,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all relative ${
                 isActive
-                  ? 'text-blue-600 dark:text-blue-400 font-bold'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
+                  ? 'text-white font-black scale-105'
+                  : 'text-slate-400 hover:text-slate-200 font-medium'
               }`}
             >
               {tab.icon}
               <span className="text-[10px] mt-1 tracking-tight">{tab.label}</span>
               {isActive && (
-                <span className="absolute bottom-1 w-1 h-1 rounded-full bg-blue-600 dark:bg-blue-400" />
+                <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]" />
               )}
             </button>
           );

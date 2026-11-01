@@ -3,26 +3,62 @@
 @tailwind utilities;
 
 @layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased selection:bg-white selection:text-black;
+  }
+  .dark body {
+    background-color: #08080a;
+    color: #f4f4f5;
+  }
   * {
     border-color: rgba(226, 232, 240, 0.8);
   }
   .dark * {
-    border-color: rgba(51, 65, 85, 0.8);
+    border-color: rgba(255, 255, 255, 0.08);
   }
 }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
+  background: rgba(148, 163, 184, 0.4);
   border-radius: 9999px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(71, 85, 105, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Stealth Luxury Tech Utility Classes */
+.dark .stealth-card {
+  background-color: #141417;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.7);
+}
+
+.dark .stealth-card-elevated {
+  background-color: #1c1c22;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1.5rem;
+}
+
+.dark .stealth-pill {
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border-radius: 9999px;
+  backdrop-filter: blur(12px);
+}
+
+.dark .stealth-header {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-weight: 900;
+  color: #a1a1aa;
 }
