@@ -143,8 +143,8 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       return;
     }
 
-    if (!publishVideoTitle.trim() && !selectedDeliverableId) {
-      showToast('Please provide a video title or select an edited cut.');
+    if (!publishVideoTitle.trim()) {
+      showToast('Please provide a video title.');
       return;
     }
 
@@ -155,11 +155,14 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
       // 1. Resolve Deliverable & Recording IDs
-      let finalDeliverableId = selectedDeliverableId || null;
+      let finalDeliverableId: string | null = null;
       let finalRecordingId = '';
 
-      const matchedDeliverable = availableDeliverables.find(d => d.id === selectedDeliverableId);
+      const matchedDeliverable = availableDeliverables.find(d => 
+        d.title.trim().toLowerCase() === publishVideoTitle.trim().toLowerCase()
+      );
       if (matchedDeliverable) {
+        finalDeliverableId = matchedDeliverable.id;
         finalRecordingId = matchedDeliverable.recording_id;
       }
 
@@ -706,41 +709,14 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                 </span>
               </div>
 
-              {/* 1. Select Edited Video or Custom Title */}
+              {/* 1. Video / Reel Title */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   1. Video / Reel Title
                 </label>
-                {availableDeliverables.length > 0 && (
-                  <div className="mb-2">
-                    <select
-                      value={selectedDeliverableId}
-                      onChange={(e) => {
-                        setSelectedDeliverableId(e.target.value);
-                        if (e.target.value) {
-                          const d = availableDeliverables.find(item => item.id === e.target.value);
-                          if (d) {
-                            setPublishVideoTitle(d.title);
-                            setSelectedPlatform(d.deliverable_type === 'reel' ? 'youtube_shorts' : 'youtube_full');
-                          }
-                        }
-                      }}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 mb-1.5"
-                    >
-                      <option value="">-- Choose from Recent Edited Videos (or enter custom title below) --</option>
-                      {availableDeliverables.map(del => (
-                        <option key={del.id} value={del.id}>
-                          {del.deliverable_type === 'reel' ? '📱 [Reel] ' : '📺 [Full Video] '}
-                          {del.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
                 <input
                   type="text"
-                  required={!selectedDeliverableId}
+                  required
                   value={publishVideoTitle}
                   onChange={(e) => setPublishVideoTitle(e.target.value)}
                   placeholder="e.g. Ep 12 - Why Consistency Beats Talent (Reel #1)"
