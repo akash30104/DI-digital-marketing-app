@@ -269,6 +269,26 @@ export const SocialMediaPublishing: React.FC = () => {
       }
 
       if (insertRes.data) {
+        // Automatically sync deliverable to approved & 100% complete with final live video link
+        if (finalDeliverableId) {
+          try {
+            await supabase
+              .from('deliverables')
+              .update({
+                editing_status: 'approved',
+                progress_percentage: 100,
+                final_video_link: postUrl.trim(),
+                approval_notes: `Approved & Published to ${channelName.trim()} on ${formatPlatformLabel(selectedPlatform)}`,
+                approved_by: currentUser.id,
+                approved_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', finalDeliverableId);
+          } catch (delSyncErr) {
+            console.error('Failed to update deliverable on publish:', delSyncErr);
+          }
+        }
+
         const newLog: PublishingLog = {
           ...insertRes.data,
           deliverable_title: (insertRes.data as any).deliverables?.title || customVideoTitle.trim() || 'Published Video',

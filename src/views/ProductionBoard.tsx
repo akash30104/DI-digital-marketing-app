@@ -197,13 +197,19 @@ export const ProductionBoard: React.FC = () => {
       const updatedNotes = formatInsightsNote(deliverable.approval_notes, insights);
 
       // 1. Update Deliverable
+      const updatePayload: any = {
+        final_video_link: liveUrl.trim() || null,
+        approval_notes: updatedNotes,
+        updated_at: new Date().toISOString()
+      };
+      if (liveUrl.trim()) {
+        updatePayload.editing_status = 'approved';
+        updatePayload.progress_percentage = 100;
+      }
+
       const { error: delError } = await supabase
         .from('deliverables')
-        .update({
-          final_video_link: liveUrl.trim() || null,
-          approval_notes: updatedNotes,
-          updated_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', deliverable.id);
 
       if (delError) throw delError;
@@ -219,6 +225,24 @@ export const ProductionBoard: React.FC = () => {
             notes: logUpdatedNotes
           })
           .eq('id', matchedLog.id);
+      } else if (liveUrl.trim()) {
+        // Auto-create publishing log so it appears across all real app tabs and daily counters
+        const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+        const platform = deliverable.deliverable_type === 'full_length_video' ? 'youtube_full' : 'instagram_reels';
+        await supabase
+          .from('publishing_logs')
+          .insert([{
+            deliverable_id: deliverable.id,
+            recording_id: deliverable.recording_id,
+            platform,
+            publication_status: 'published',
+            published_by: deliverable.assigned_editor_id || deliverable.approved_by,
+            published_at: new Date().toISOString(),
+            post_url: liveUrl.trim(),
+            channel_name: 'Digital Inertia',
+            notes: `[Channel: Digital Inertia] ${updatedNotes}`,
+            reporting_date: todayStr
+          }]);
       }
 
       showToast('Live link & social insights updated successfully! 🚀');
