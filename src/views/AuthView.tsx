@@ -110,7 +110,7 @@ export const AuthView: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="w-20 h-20 mx-auto rounded-3xl bg-zinc-900 border border-zinc-800 p-2 flex items-center justify-center shadow-2xl mb-3 overflow-hidden">
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-white p-2.5 flex items-center justify-center shadow-2xl mb-3 overflow-hidden border border-zinc-200">
             <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-xl font-black tracking-[0.16em] uppercase text-white">

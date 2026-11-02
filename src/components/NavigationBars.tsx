@@ -35,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
       <header className="sticky top-0 z-30 bg-black/90 backdrop-blur-xl border-b border-zinc-800/80">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-zinc-900 border border-zinc-800 p-1.5 flex items-center justify-center shadow-sm overflow-hidden shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-white p-1 flex items-center justify-center shadow-md overflow-hidden shrink-0">
               <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain" />
             </div>
             <div>
