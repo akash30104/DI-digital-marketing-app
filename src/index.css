@@ -63,3 +63,69 @@
   font-size: 0.7rem;
   color: #a1a1aa;
 }
+
+/* Interactive Custom Stealth Range Slider */
+input[type=range].stealth-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  outline: none;
+  cursor: pointer;
+  touch-action: pan-y;
+  transition: border-color 0.15s ease;
+}
+
+input[type=range].stealth-slider:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+input[type=range].stealth-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+input[type=range].stealth-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #000000;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 2px 5px rgba(0, 0, 0, 0.6);
+  cursor: grab;
+  margin-top: -6px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+input[type=range].stealth-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.2);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 1), 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+input[type=range].stealth-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+input[type=range].stealth-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #000000;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 2px 5px rgba(0, 0, 0, 0.6);
+  cursor: grab;
+  transition: transform 0.12s ease;
+}
+
+input[type=range].stealth-slider:active::-moz-range-thumb {
+  cursor: grabbing;
+  transform: scale(1.2);
+}

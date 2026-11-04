@@ -236,30 +236,23 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     }
   };
 
-  // Quick Progress Update (25%, 50%, 75%)
-  const handleQuickProgress = async (cut: Deliverable, newProgress: number) => {
-    if (!currentUser) return;
-
-    if (newProgress === 100) {
-      // 100% requires Google Drive link prompt
-      openDriveModal(cut);
-      return;
-    }
-
-    const now = new Date().toISOString();
-
-    // Optimistic UI update
+  // Real-time slider mouse movement (60fps optimistic update)
+  const handleSliderChange = (cut: Deliverable, newProgress: number) => {
+    const val = Math.max(0, Math.min(100, Math.round(newProgress)));
     setPodcasts(prev => prev.map(p => {
       if (p.id !== cut.recording_id) return p;
       const updatedDelivs = p.deliverables.map(d => d.id === cut.id ? {
         ...d,
-        progress_percentage: newProgress,
-        editing_status: 'editing_in_progress' as EditingStatus,
-        updated_at: now
+        progress_percentage: val,
+        editing_status: (val === 100 
+          ? (d.editing_status === 'approved' ? 'approved' : d.editing_status) 
+          : (d.editing_status === 'submitted_for_approval' ? 'editing_in_progress' : d.editing_status))
       } : d);
 
       const completedCuts = updatedDelivs.filter(d => (d.progress_percentage || 0) === 100).length;
-      const progressPercentage = Math.round(updatedDelivs.reduce((acc, d) => acc + (d.progress_percentage || 0), 0) / updatedDelivs.length);
+      const progressPercentage = Math.round(
+        updatedDelivs.reduce((acc, d) => acc + (d.progress_percentage || 0), 0) / (updatedDelivs.length || 1)
+      );
 
       return {
         ...p,
@@ -268,24 +261,47 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         progressPercentage
       };
     }));
+  };
 
-    showToast(`Updated "${cut.title}" to ${newProgress}%!`);
+  // Commit slider progress to database on mouse release
+  const handleSliderCommit = async (cut: Deliverable, finalProgress: number) => {
+    if (!currentUser) return;
+    const val = Math.max(0, Math.min(100, Math.round(finalProgress)));
+    const now = new Date().toISOString();
 
     try {
+      const updatePayload: any = {
+        progress_percentage: val,
+        assigned_editor_id: currentUser.id,
+        updated_at: now
+      };
+      if (val < 100 && cut.editing_status === 'submitted_for_approval') {
+        updatePayload.editing_status = 'editing_in_progress';
+      }
+
       const { error } = await supabase
         .from('deliverables')
-        .update({
-          progress_percentage: newProgress,
-          editing_status: 'editing_in_progress',
-          assigned_editor_id: currentUser.id,
-          updated_at: now
-        })
+        .update(updatePayload)
         .eq('id', cut.id);
 
       if (error) throw error;
+
+      if (val === 100) {
+        showToast(`🎉 "${cut.title}" reached 100%! Ready to submit for SMM approval.`);
+        if (!cut.final_video_link) {
+          openDriveModal(cut);
+        }
+      }
     } catch (err: any) {
-      console.error('Failed to update cut progress in DB:', err);
+      console.error('Failed to commit cut progress in DB:', err);
     }
+  };
+
+  // Quick Progress Update (25%, 50%, 75%, 100%)
+  const handleQuickProgress = async (cut: Deliverable, newProgress: number) => {
+    if (!currentUser) return;
+    handleSliderChange(cut, newProgress);
+    await handleSliderCommit(cut, newProgress);
   };
 
   // Open 100% Google Drive Submission Modal
@@ -724,22 +740,38 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   </div>
                 )}
 
-                {/* Title & Progress Indicator */}
+                {/* Title & Interactive Progress Slider */}
                 <div>
                   <h4 className="font-black text-white text-base">
                     {cut.title}
                   </h4>
                   <div className="flex items-center justify-between mt-1 text-xs text-zinc-400">
-                    <span>Current Editing Progress:</span>
-                    <span className="font-bold text-white text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <span>Current Editing Progress:</span>
+                      <span className="text-[10px] text-zinc-500 font-medium hidden sm:inline">(drag slider to set)</span>
+                    </span>
+                    <span className="font-black text-white text-sm tracking-tight">
                       {cut.progress_percentage || 0}% Done
                     </span>
                   </div>
 
-                  <div className="w-full bg-black h-2 rounded-full overflow-hidden mt-1.5 border border-zinc-800">
-                    <div
-                      className="bg-white h-full rounded-full transition-all duration-300"
-                      style={{ width: `${cut.progress_percentage || 0}%` }}
+                  {/* Custom Draggable Progress Slider */}
+                  <div className="relative w-full flex items-center py-2 select-none group">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={cut.progress_percentage || 0}
+                      onChange={(e) => handleSliderChange(cut, Number(e.target.value))}
+                      onPointerUp={(e) => handleSliderCommit(cut, Number((e.target as HTMLInputElement).value))}
+                      onTouchEnd={(e) => handleSliderCommit(cut, Number((e.target as HTMLInputElement).value))}
+                      onKeyUp={(e) => handleSliderCommit(cut, Number((e.target as HTMLInputElement).value))}
+                      className="stealth-slider w-full cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #ffffff 0%, #ffffff ${cut.progress_percentage || 0}%, #18181b ${cut.progress_percentage || 0}%, #18181b 100%)`
+                      }}
+                      title={`Drag to adjust progress (${cut.progress_percentage || 0}%)`}
                     />
                   </div>
                 </div>
@@ -750,13 +782,13 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                     <span className="text-[10px] font-bold text-zinc-500 uppercase mr-1">
                       Quick Set:
                     </span>
-                    {[25, 50, 75].map((pct) => (
+                    {[25, 50, 75, 100].map((pct) => (
                       <button
                         key={pct}
                         type="button"
                         onClick={() => handleQuickProgress(cut, pct)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                          cut.progress_percentage === pct
+                          (cut.progress_percentage || 0) === pct
                             ? 'bg-white text-black font-black shadow-md'
                             : 'bg-black border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
                         }`}
@@ -777,17 +809,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                       <span>{cut.final_video_link ? 'Edit Drive Link' : '+ Drive Link'}</span>
                     </button>
 
-                    {/* Send for SMM Approval button */}
-                    {cut.editing_status === 'changes_requested' ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSendToSMM(cut)}
-                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black bg-white text-black hover:bg-zinc-200 transition-all active:scale-95 shadow-md"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Re-Submit to SMM 🚀</span>
-                      </button>
-                    ) : cut.editing_status === 'submitted_for_approval' ? (
+                    {/* Status badges & SMM Approval button (ONLY visible when 100% complete) */}
+                    {cut.editing_status === 'submitted_for_approval' ? (
                       <span className="text-xs font-bold text-zinc-400 bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-700 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-zinc-300" />
                         <span>{cut.approval_notes?.includes('Sent to Founder') ? 'With Founder' : 'With SMM'}</span>
@@ -797,15 +820,19 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                         <Check className="w-3 h-3 text-white" />
                         <span>Greenlit ✓</span>
                       </span>
-                    ) : (
+                    ) : (cut.progress_percentage || 0) === 100 ? (
                       <button
                         type="button"
                         onClick={() => handleSendToSMM(cut)}
-                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black bg-white text-black hover:bg-zinc-200 transition-all active:scale-95 shadow-md"
+                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black bg-white text-black hover:bg-zinc-200 transition-all active:scale-95 shadow-md animate-in fade-in"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        <span>Send to SMM for Approval 🚀</span>
+                        <span>{cut.editing_status === 'changes_requested' ? 'Re-Submit to SMM 🚀' : 'Send to SMM for Approval 🚀'}</span>
                       </button>
+                    ) : (
+                      <span className="text-[11px] font-medium text-zinc-500 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full">
+                        Reach 100% to submit
+                      </span>
                     )}
                   </div>
                 </div>
