@@ -72,6 +72,10 @@ export const PublishingHistory: React.FC = () => {
         return <Youtube className="w-4 h-4 text-zinc-200" />;
       case 'instagram_reels':
         return <Instagram className="w-4 h-4 text-zinc-200" />;
+      case 'facebook':
+        return <Send className="w-4 h-4 text-zinc-200" />;
+      case 'x':
+        return <span className="font-bold text-xs text-zinc-200">𝕏</span>;
       default:
         return <Send className="w-4 h-4 text-zinc-200" />;
     }
@@ -85,6 +89,10 @@ export const PublishingHistory: React.FC = () => {
         return 'YouTube Full-Length';
       case 'instagram_reels':
         return 'Instagram Reels';
+      case 'facebook':
+        return 'Facebook';
+      case 'x':
+        return 'X (Twitter)';
       default:
         return 'Other Platform';
     }
@@ -222,6 +230,8 @@ export const PublishingHistory: React.FC = () => {
             <option value="youtube_shorts">YouTube Shorts</option>
             <option value="youtube_full">YouTube Full-Length</option>
             <option value="instagram_reels">Instagram Reels</option>
+            <option value="facebook">Facebook</option>
+            <option value="x">X (Twitter)</option>
           </select>
         </div>
       </div>

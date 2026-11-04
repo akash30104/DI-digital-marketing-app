@@ -126,6 +126,25 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         });
       }
 
+      // Fetch custom daily targets for today if available
+      try {
+        const { data: targetRecord } = await supabase
+          .from('daily_targets')
+          .select('*')
+          .eq('target_date', todayStr)
+          .maybeSingle();
+
+        if (targetRecord) {
+          if (targetRecord.youtube_shorts_target) localStorage.setItem('DAILY_TARGET_SHORTS', String(targetRecord.youtube_shorts_target));
+          if (targetRecord.instagram_reels_target) localStorage.setItem('DAILY_TARGET_REELS', String(targetRecord.instagram_reels_target));
+          if (targetRecord.youtube_full_target) localStorage.setItem('DAILY_TARGET_FULL', String(targetRecord.youtube_full_target));
+          if ((targetRecord as any).facebook_target) localStorage.setItem('DAILY_TARGET_FB', String((targetRecord as any).facebook_target));
+          if ((targetRecord as any).x_target) localStorage.setItem('DAILY_TARGET_X', String((targetRecord as any).x_target));
+        }
+      } catch (err) {
+        console.warn('Could not load daily_targets table:', err);
+      }
+
       // 2. Fetch Publishing Logs for Streak & Today's Proofs
       const { data: pubData } = await supabase
         .from('publishing_logs')
@@ -414,6 +433,12 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
   const displayReels = Math.max(summary?.published.instagram_reels ?? 0, todayReels);
   const displayFull = Math.max(summary?.published.youtube_full ?? 0, todayFull);
 
+  const targetShorts = Number(localStorage.getItem('DAILY_TARGET_SHORTS')) || (summary?.targets.youtube_shorts ?? 4);
+  const targetReels = Number(localStorage.getItem('DAILY_TARGET_REELS')) || (summary?.targets.instagram_reels ?? 4);
+  const targetFull = Number(localStorage.getItem('DAILY_TARGET_FULL')) || (summary?.targets.youtube_full ?? 1);
+  const targetFb = Number(localStorage.getItem('DAILY_TARGET_FB')) || 2;
+  const targetX = Number(localStorage.getItem('DAILY_TARGET_X')) || 2;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-16">
       {/* Top Header */}
@@ -525,7 +550,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           <StatCard
             title="YouTube Shorts"
             count={displayShorts}
-            target={summary?.targets.youtube_shorts ?? 4}
+            target={targetShorts}
             icon={<PlaySquare className="w-5 h-5 text-white" />}
             colorClass="bg-zinc-800 text-zinc-200"
             onClick={() => {
@@ -537,7 +562,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           <StatCard
             title="Instagram Reels"
             count={displayReels}
-            target={summary?.targets.instagram_reels ?? 4}
+            target={targetReels}
             icon={<Camera className="w-5 h-5 text-white" />}
             colorClass="bg-zinc-800 text-zinc-200"
             onClick={() => {
@@ -549,7 +574,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           <StatCard
             title="YouTube Full"
             count={displayFull}
-            target={summary?.targets.youtube_full ?? 1}
+            target={targetFull}
             icon={<Tv className="w-5 h-5 text-zinc-300" />}
             colorClass="bg-zinc-800 text-zinc-200"
             onClick={() => {
@@ -561,7 +586,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           <StatCard
             title="Facebook"
             count={todayFb}
-            target={1}
+            target={targetFb}
             icon={<Share2 className="w-5 h-5 text-zinc-300" />}
             colorClass="bg-zinc-800 text-zinc-200"
             onClick={() => {
@@ -573,7 +598,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           <StatCard
             title="X (Twitter)"
             count={todayX}
-            target={1}
+            target={targetX}
             icon={<Share2 className="w-5 h-5 text-zinc-300" />}
             colorClass="bg-zinc-800 text-zinc-200"
             onClick={() => {

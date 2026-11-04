@@ -101,6 +101,8 @@ export interface DailyTarget {
   youtube_shorts_target: number;
   instagram_reels_target: number;
   youtube_full_target: number;
+  facebook_target?: number;
+  x_target?: number;
   other_target: number;
 }
 

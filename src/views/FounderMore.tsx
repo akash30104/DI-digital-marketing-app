@@ -14,6 +14,8 @@ export const FounderMore: React.FC = () => {
   const [shortsTarget, setShortsTarget] = useState(3);
   const [fullTarget, setFullTarget] = useState(1);
   const [reelsTarget, setReelsTarget] = useState(3);
+  const [fbTarget, setFbTarget] = useState(2);
+  const [xTarget, setXTarget] = useState(2);
   const [savingTargets, setSavingTargets] = useState(false);
   const [targetSuccess, setTargetSuccess] = useState(false);
 
@@ -23,7 +25,20 @@ export const FounderMore: React.FC = () => {
   // Fetch current targets
   const fetchTargets = async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      // Load any locally saved targets first
+      const savedFb = localStorage.getItem('DAILY_TARGET_FB');
+      const savedX = localStorage.getItem('DAILY_TARGET_X');
+      const savedShorts = localStorage.getItem('DAILY_TARGET_SHORTS');
+      const savedReels = localStorage.getItem('DAILY_TARGET_REELS');
+      const savedFull = localStorage.getItem('DAILY_TARGET_FULL');
+
+      if (savedFb) setFbTarget(parseInt(savedFb) || 2);
+      if (savedX) setXTarget(parseInt(savedX) || 2);
+      if (savedShorts) setShortsTarget(parseInt(savedShorts) || 3);
+      if (savedReels) setReelsTarget(parseInt(savedReels) || 3);
+      if (savedFull) setFullTarget(parseInt(savedFull) || 1);
+
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
       const { data } = await supabase
         .from('daily_targets')
         .select('*')
@@ -31,9 +46,19 @@ export const FounderMore: React.FC = () => {
         .maybeSingle();
 
       if (data) {
-        setShortsTarget(data.youtube_shorts_target || 3);
-        setFullTarget(data.youtube_full_target || 1);
-        setReelsTarget(data.instagram_reels_target || 3);
+        if (data.youtube_shorts_target !== undefined && data.youtube_shorts_target !== null) setShortsTarget(data.youtube_shorts_target);
+        if (data.youtube_full_target !== undefined && data.youtube_full_target !== null) setFullTarget(data.youtube_full_target);
+        if (data.instagram_reels_target !== undefined && data.instagram_reels_target !== null) setReelsTarget(data.instagram_reels_target);
+        if ((data as any).facebook_target !== undefined && (data as any).facebook_target !== null) {
+          setFbTarget((data as any).facebook_target);
+        } else if (!savedFb && data.other_target) {
+          setFbTarget(Math.ceil(data.other_target / 2));
+        }
+        if ((data as any).x_target !== undefined && (data as any).x_target !== null) {
+          setXTarget((data as any).x_target);
+        } else if (!savedX && data.other_target) {
+          setXTarget(Math.floor(data.other_target / 2));
+        }
       }
     } catch (err) {
       console.error('Failed to fetch targets:', err);
@@ -45,16 +70,37 @@ export const FounderMore: React.FC = () => {
     setSavingTargets(true);
     setTargetSuccess(false);
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const { error } = await supabase
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+      
+      // Persist in localStorage
+      localStorage.setItem('DAILY_TARGET_FB', String(fbTarget));
+      localStorage.setItem('DAILY_TARGET_X', String(xTarget));
+      localStorage.setItem('DAILY_TARGET_SHORTS', String(shortsTarget));
+      localStorage.setItem('DAILY_TARGET_REELS', String(reelsTarget));
+      localStorage.setItem('DAILY_TARGET_FULL', String(fullTarget));
+
+      const payload: any = {
+        target_date: todayStr,
+        youtube_shorts_target: Number(shortsTarget),
+        youtube_full_target: Number(fullTarget),
+        instagram_reels_target: Number(reelsTarget),
+        other_target: Number(fbTarget) + Number(xTarget)
+      };
+
+      let { error } = await supabase
         .from('daily_targets')
         .upsert({
-          target_date: todayStr,
-          youtube_shorts_target: Number(shortsTarget),
-          youtube_full_target: Number(fullTarget),
-          instagram_reels_target: Number(reelsTarget),
-          other_target: 0
+          ...payload,
+          facebook_target: Number(fbTarget),
+          x_target: Number(xTarget)
         }, { onConflict: 'target_date' });
+
+      if (error && error.code === '42703') {
+        const fallbackRes = await supabase
+          .from('daily_targets')
+          .upsert(payload, { onConflict: 'target_date' });
+        error = fallbackRes.error;
+      }
 
       if (error) throw error;
       setTargetSuccess(true);
@@ -174,6 +220,34 @@ export const FounderMore: React.FC = () => {
                 max="20"
                 value={fullTarget}
                 onChange={(e) => setFullTarget(parseInt(e.target.value) || 0)}
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">
+                Facebook Daily Goal (posts/day)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="50"
+                value={fbTarget}
+                onChange={(e) => setFbTarget(parseInt(e.target.value) || 0)}
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">
+                X (Twitter) Daily Goal (posts/day)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="50"
+                value={xTarget}
+                onChange={(e) => setXTarget(parseInt(e.target.value) || 0)}
                 className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500"
               />
             </div>

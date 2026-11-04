@@ -127,6 +127,10 @@ export const SocialMediaPublishing: React.FC = () => {
       setChannelName('@digitalinertia');
     } else if (platform === 'youtube_shorts') {
       setChannelName('DI Shorts & Clips');
+    } else if (platform === 'facebook') {
+      setChannelName('Digital Inertia FB');
+    } else if (platform === 'x') {
+      setChannelName('@DigitalInertia');
     } else {
       setChannelName('Digital Inertia Main');
     }
@@ -327,6 +331,8 @@ export const SocialMediaPublishing: React.FC = () => {
   const ytShortsCount = publishedToday.filter(l => l.platform === 'youtube_shorts').length;
   const ytFullCount = publishedToday.filter(l => l.platform === 'youtube_full').length;
   const igReelsCount = publishedToday.filter(l => l.platform === 'instagram_reels').length;
+  const fbCount = publishedToday.filter(l => l.platform === 'facebook').length;
+  const xCount = publishedToday.filter(l => l.platform === 'x').length;
   const otherCount = publishedToday.filter(l => l.platform === 'other').length;
 
   const filteredDeliverables = formatFilter === 'all'
@@ -397,7 +403,7 @@ export const SocialMediaPublishing: React.FC = () => {
           </div>
 
           {/* Platform Breakdown Pills */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             <div className="p-3.5 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-zinc-700/60 text-zinc-200 flex items-center justify-center shrink-0">
                 <PlaySquare className="w-5 h-5" />
@@ -418,13 +424,33 @@ export const SocialMediaPublishing: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center gap-3 col-span-2 sm:col-span-1">
+            <div className="p-3.5 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-zinc-700/60 text-zinc-200 flex items-center justify-center shrink-0">
                 <Tv className="w-5 h-5" />
               </div>
               <div>
                 <span className="text-lg font-black text-white">{ytFullCount}</span>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">YT Full</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-zinc-700/60 text-zinc-200 flex items-center justify-center shrink-0">
+                <Send className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-lg font-black text-white">{fbCount}</span>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Facebook</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-zinc-700/60 text-zinc-200 flex items-center justify-center shrink-0">
+                <span className="font-black text-base text-zinc-200">𝕏</span>
+              </div>
+              <div>
+                <span className="text-lg font-black text-white">{xCount}</span>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">X (Twitter)</p>
               </div>
             </div>
           </div>
@@ -608,6 +634,12 @@ export const SocialMediaPublishing: React.FC = () => {
               const igPublished = publishedToday.find(
                 l => l.deliverable_id === item.id && l.platform === 'instagram_reels'
               );
+              const fbPublished = publishedToday.find(
+                l => l.deliverable_id === item.id && l.platform === 'facebook'
+              );
+              const xPublished = publishedToday.find(
+                l => l.deliverable_id === item.id && l.platform === 'x'
+              );
 
               return (
                 <div
@@ -715,6 +747,82 @@ export const SocialMediaPublishing: React.FC = () => {
                       ) : (
                         <button
                           onClick={() => openPublishModalForDeliverable(item, 'instagram_reels')}
+                          className="px-3.5 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700/60 active:scale-95"
+                        >
+                          Mark Published
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Facebook Platform Row */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                      <div className="flex items-center gap-2">
+                        <Send className="w-4 h-4 text-zinc-300" />
+                        <span className="text-xs font-bold text-white">Facebook</span>
+                        {fbPublished ? (
+                          <span className="text-[11px] font-bold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-white" /> Published on {getLogChannelName(fbPublished)}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500">Not Published Today</span>
+                        )}
+                      </div>
+
+                      {fbPublished ? (
+                        fbPublished.post_url ? (
+                          <a
+                            href={fbPublished.post_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1"
+                          >
+                            <span>View Post</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-zinc-500 font-medium">Logged</span>
+                        )
+                      ) : (
+                        <button
+                          onClick={() => openPublishModalForDeliverable(item, 'facebook')}
+                          className="px-3.5 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700/60 active:scale-95"
+                        >
+                          Mark Published
+                        </button>
+                      )}
+                    </div>
+
+                    {/* X (Twitter) Platform Row */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-zinc-300 w-4 text-center">𝕏</span>
+                        <span className="text-xs font-bold text-white">X (Twitter)</span>
+                        {xPublished ? (
+                          <span className="text-[11px] font-bold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-white" /> Published on {getLogChannelName(xPublished)}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500">Not Published Today</span>
+                        )}
+                      </div>
+
+                      {xPublished ? (
+                        xPublished.post_url ? (
+                          <a
+                            href={xPublished.post_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1"
+                          >
+                            <span>View Post</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-zinc-500 font-medium">Logged</span>
+                        )
+                      ) : (
+                        <button
+                          onClick={() => openPublishModalForDeliverable(item, 'x')}
                           className="px-3.5 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700/60 active:scale-95"
                         >
                           Mark Published
