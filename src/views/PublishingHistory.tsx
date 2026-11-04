@@ -6,6 +6,9 @@ import {
   History, Search, ExternalLink, Calendar, Download, 
   Youtube, Instagram, Send, RefreshCw, CheckCircle2, Radio, Trash2 
 } from 'lucide-react';
+import { 
+  filterPublishingLogs, purgeAllPublishingHistory, deleteSinglePublishingLog 
+} from '../lib/deletionFilter';
 
 export const PublishingHistory: React.FC = () => {
   const [logs, setLogs] = useState<PublishingLog[]>([]);
@@ -52,7 +55,7 @@ export const PublishingHistory: React.FC = () => {
           publisher_name: item.profiles?.full_name || 'Team Member',
           channel_name: getLogChannelName(item)
         }));
-        setLogs(mapped);
+        setLogs(filterPublishingLogs(mapped));
       }
     } catch (err) {
       console.error('Failed to load publishing history:', err);
@@ -165,16 +168,7 @@ export const PublishingHistory: React.FC = () => {
 
     setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('publishing_logs')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      if (error) throw error;
-
-      localStorage.removeItem('di_last_published_log');
-      localStorage.removeItem('di_published_history_cache');
-
+      await purgeAllPublishingHistory();
       setLogs([]);
       alert('All publishing history records have been deleted.');
     } catch (err: any) {
@@ -183,6 +177,12 @@ export const PublishingHistory: React.FC = () => {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleDeleteSingleLog = async (id: string, title?: string) => {
+    if (!window.confirm(`Delete publication record "${title || 'post'}"?`)) return;
+    setLogs(prev => prev.filter(l => l.id !== id));
+    await deleteSinglePublishingLog(id);
   };
 
   return (
@@ -330,17 +330,28 @@ export const PublishingHistory: React.FC = () => {
                 </div>
               </div>
 
-              {log.post_url && (
-                <a
-                  href={log.post_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-black bg-white hover:bg-zinc-200 text-black transition-colors shrink-0 shadow-sm"
+              <div className="flex items-center gap-2 shrink-0">
+                {log.post_url && (
+                  <a
+                    href={log.post_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-black bg-white hover:bg-zinc-200 text-black transition-colors shrink-0 shadow-sm"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    View Live Post
+                  </a>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSingleLog(log.id, log.deliverable_title)}
+                  className="p-2 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-colors"
+                  title="Delete record"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  View Live Post
-                </a>
-              )}
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           ))}
         </div>

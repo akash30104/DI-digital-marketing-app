@@ -5,6 +5,7 @@ import {
   User, Film, CheckCircle2, Clock, Send, LogOut, 
   Sparkles, ShieldCheck, HardDrive, Smartphone, RefreshCw 
 } from 'lucide-react';
+import { filterDeliverables } from '../lib/deletionFilter';
 
 export const EditorProfile: React.FC = () => {
   const { currentUser, signOut } = useAuth();
@@ -22,18 +23,19 @@ export const EditorProfile: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('deliverables')
-        .select('editing_status')
+        .select('id, editing_status, created_at')
         .eq('assigned_editor_id', currentUser.id);
 
       if (!error && data) {
-        const active = data.filter(d => ['editing_in_progress', 'assigned'].includes(d.editing_status)).length;
-        const awaitingReview = data.filter(d => ['submitted_for_approval', 'internal_review'].includes(d.editing_status)).length;
-        const approved = data.filter(d => ['approved', 'published'].includes(d.editing_status)).length;
+        const cleanData = filterDeliverables(data);
+        const active = cleanData.filter(d => ['editing_in_progress', 'assigned'].includes(d.editing_status)).length;
+        const awaitingReview = cleanData.filter(d => ['submitted_for_approval', 'internal_review'].includes(d.editing_status)).length;
+        const approved = cleanData.filter(d => ['approved', 'published'].includes(d.editing_status)).length;
         setStats({
           active,
           awaitingReview,
           approved,
-          total: data.length
+          total: cleanData.length
         });
       }
     } catch (e) {

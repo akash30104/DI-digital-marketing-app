@@ -11,8 +11,12 @@ import {
   PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
   Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight, 
   Share2, Plus, X, Check, Sparkles, Layers, Calendar, Clock,
-  Play, Video
+  Play, Video, Trash2
 } from 'lucide-react';
+import { 
+  filterDeliverables, filterPublishingLogs, deleteSingleDeliverable, 
+  purgeAllDeliverables, deleteSinglePublishingLog 
+} from '../lib/deletionFilter';
 
 // Video embed and format helpers
 const getYouTubeEmbedUrl = (url?: string): string | null => {
@@ -157,7 +161,8 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         .limit(100);
 
       if (pubData) {
-        const mappedLogs: PublishingLog[] = pubData.map((l: any) => ({
+        const cleanPubData = filterPublishingLogs(pubData);
+        const mappedLogs: PublishingLog[] = cleanPubData.map((l: any) => ({
           ...l,
           deliverable_title: getLogCleanTitle(l),
           channel_name: getLogChannelName(l)
@@ -192,15 +197,16 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         `)
         .in('editing_status', ['assigned', 'editing_in_progress', 'submitted_for_approval', 'changes_requested'])
         .order('updated_at', { ascending: false })
-        .limit(8);
+        .limit(16);
 
       if (edData) {
-        setActiveEditingTasks(edData.map((d: any) => ({
+        const mappedTasks = edData.map((d: any) => ({
           ...d,
           recording_title: d.recordings?.title,
           hard_disk_name: d.recordings?.hard_disk_name,
           editor_name: d.profiles?.full_name || 'Unassigned'
-        })));
+        }));
+        setActiveEditingTasks(filterDeliverables(mappedTasks));
       }
 
       // 4. Fetch deliverables available for linking
@@ -211,13 +217,37 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         .limit(30);
 
       if (delivList) {
-        setAvailableDeliverables(delivList);
+        setAvailableDeliverables(filterDeliverables(delivList));
       }
     } catch (e) {
       console.error('Error loading dashboard data:', e);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeleteSingleTask = async (id: string, title?: string) => {
+    if (!window.confirm(`Delete editing task "${title || 'task'}"?`)) return;
+    setActiveEditingTasks(prev => prev.filter(t => t.id !== id));
+    await deleteSingleDeliverable(id);
+    showToast(`Task deleted successfully.`);
+  };
+
+  const handleDeleteAllEditingTasks = async () => {
+    if (activeEditingTasks.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ALL (${activeEditingTasks.length}) active editing tasks?`)) return;
+    const ids = activeEditingTasks.map(t => t.id);
+    setActiveEditingTasks([]);
+    await purgeAllDeliverables(ids);
+    showToast('All editing tasks deleted successfully.');
+  };
+
+  const handleDeleteSingleLog = async (id: string, title?: string) => {
+    if (!window.confirm(`Delete published proof "${title || 'video'}"?`)) return;
+    setTodayPublishedLogs(prev => prev.filter(l => l.id !== id));
+    setWeekPublishedLogs(prev => prev.filter(l => l.id !== id));
+    await deleteSinglePublishingLog(id);
+    showToast('Published post deleted successfully.');
   };
 
   const showToast = (msg: string) => {
@@ -611,7 +641,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
       {/* Live Video Editing Status by Editors */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
               Live Video Editing Progress
@@ -621,13 +651,27 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             </span>
           </div>
 
-          <button
-            onClick={() => onNavigateTab?.('production')}
-            className="text-xs font-bold text-zinc-400 hover:text-white transition-colors flex items-center gap-1 group"
-          >
-            <span>Production Board</span>
-            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-          </button>
+          <div className="flex items-center gap-2">
+            {activeEditingTasks.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteAllEditingTasks}
+                className="px-3 py-1 rounded-full text-[11px] font-bold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-colors flex items-center gap-1.5"
+                title="Delete all active editing tasks"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Delete All Tasks</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => onNavigateTab?.('production')}
+              className="text-xs font-bold text-zinc-400 hover:text-white transition-colors flex items-center gap-1 group"
+            >
+              <span>Production Board</span>
+              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </button>
+          </div>
         </div>
 
         {activeEditingTasks.length === 0 ? (
@@ -639,13 +683,27 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             {activeEditingTasks.map((task) => (
               <div 
                 key={task.id} 
-                className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-sm hover:border-zinc-700 transition-all space-y-3"
+                className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-sm hover:border-zinc-700 transition-all space-y-3 relative group"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300">
                     {task.deliverable_type === 'reel' ? '📱 Short / Reel' : '📺 Full Video'}
                   </span>
-                  <StatusBadge status={task.editing_status} />
+                  
+                  <div className="flex items-center gap-1.5">
+                    <StatusBadge status={task.editing_status} />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSingleTask(task.id, task.title);
+                      }}
+                      className="p-1 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-colors"
+                      title="Delete this task"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -725,20 +783,31 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                     </span>
                   </div>
 
-                  {log.post_url ? (
-                    <a
-                      href={log.post_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-4 py-2 rounded-full bg-white text-black hover:bg-zinc-200 text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors shadow-sm"
-                      title="Open Verified Proof"
+                  <div className="flex items-center gap-2 shrink-0">
+                    {log.post_url ? (
+                      <a
+                        href={log.post_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2 rounded-full bg-white text-black hover:bg-zinc-200 text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors shadow-sm"
+                        title="Open Verified Proof"
+                      >
+                        <span>Proof</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-zinc-500 shrink-0">Recorded</span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSingleLog(log.id, log.deliverable_title)}
+                      className="p-2 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-colors"
+                      title="Delete this published record"
                     >
-                      <span>Proof</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  ) : (
-                    <span className="text-[11px] text-zinc-500 shrink-0">Recorded</span>
-                  )}
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               );
             })}

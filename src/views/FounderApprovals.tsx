@@ -5,6 +5,7 @@ import { Deliverable } from '../types';
 import { 
   CheckCircle2, RotateCcw, ExternalLink, Play, Check, X, ShieldCheck, RefreshCw 
 } from 'lucide-react';
+import { filterDeliverables } from '../lib/deletionFilter';
 
 export const FounderApprovals: React.FC = () => {
   const { currentUser } = useAuth();
@@ -33,7 +34,7 @@ export const FounderApprovals: React.FC = () => {
           episode_number: d.recordings?.episode_number,
           editor_name: d.profiles?.full_name
         }));
-        setDeliverables(mapped);
+        setDeliverables(filterDeliverables(mapped));
       }
     } catch (e) {
       console.error('Error loading approvals:', e);

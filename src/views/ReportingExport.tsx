@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { 
   FileSpreadsheet, Download, RefreshCw, AlertCircle, Share2
 } from 'lucide-react';
+import { filterDeliverables, filterPublishingLogs } from '../lib/deletionFilter';
 
 export const ReportingExport: React.FC = () => {
   const [exporting, setExporting] = useState<string | null>(null);
@@ -31,8 +32,8 @@ export const ReportingExport: React.FC = () => {
         supabase.from('publishing_logs').select('*, deliverables(title), profiles:published_by(full_name)')
       ]);
 
-      const deliverables = delivRes.data || [];
-      const logs = pubRes.data || [];
+      const deliverables = filterDeliverables(delivRes.data || []);
+      const logs = filterPublishingLogs(pubRes.data || []);
 
       // Generate SpreadsheetML (Native XML openable in Excel, Numbers, and Google Sheets)
       const xml = `<?xml version="1.0"?>

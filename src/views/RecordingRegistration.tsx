@@ -5,8 +5,9 @@ import { Deliverable, Profile } from '../types';
 import { 
   Share2, Plus, HardDrive, Smartphone, Cloud, Usb, 
   Folder, Check, AlertCircle, X, Film, CheckCircle2, 
-  Clock, ArrowRight, Sparkles, Layers, ExternalLink, User
+  Clock, ArrowRight, Sparkles, Layers, ExternalLink, User, Trash2
 } from 'lucide-react';
+import { filterDeliverables, filterRecordings, purgeAllRecordings } from '../lib/deletionFilter';
 
 interface RecordingWithDeliverables {
   id: string;
@@ -79,7 +80,12 @@ export const RecordingRegistration: React.FC = () => {
       ]);
 
       if (!recRes.error && recRes.data) {
-        setRecordings(recRes.data as RecordingWithDeliverables[]);
+        const cleanRecs = filterRecordings(recRes.data as RecordingWithDeliverables[]);
+        const mapped: RecordingWithDeliverables[] = cleanRecs.map(r => ({
+          ...r,
+          deliverables: filterDeliverables(r.deliverables || [])
+        }));
+        setRecordings(mapped);
       }
 
       if (!editorsRes.error && editorsRes.data) {
@@ -90,6 +96,13 @@ export const RecordingRegistration: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeleteRecording = async (recId: string, recTitle: string) => {
+    if (!window.confirm(`Delete podcast shoot "${recTitle}" and all its deliverables?`)) return;
+    setRecordings(prev => prev.filter(r => r.id !== recId));
+    await purgeAllRecordings([recId]);
+    showToast('success', 'Podcast shoot deleted successfully.');
   };
 
   useEffect(() => {
@@ -361,8 +374,18 @@ export const RecordingRegistration: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* How Shared Badge */}
-                    {getSharingBadge(rec.hard_disk_name)}
+                    {/* How Shared Badge & Delete */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {getSharingBadge(rec.hard_disk_name)}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRecording(rec.id, rec.title)}
+                        className="p-1.5 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition"
+                        title="Delete Shoot"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Transfer Details / Location */}

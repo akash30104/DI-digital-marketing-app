@@ -4,8 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { Deliverable } from '../types';
 import { 
   CheckCheck, CheckCircle2, RotateCcw, 
-  ExternalLink, Film, RefreshCw, Send, X, Clock
+  ExternalLink, Film, RefreshCw, Send, X, Clock 
 } from 'lucide-react';
+import { filterDeliverables } from '../lib/deletionFilter';
 
 export const ManagerApprovals: React.FC = () => {
   const { currentUser } = useAuth();
@@ -52,13 +53,14 @@ export const ManagerApprovals: React.FC = () => {
           editor_name: d.profiles?.full_name || 'Assigned Editor'
         }));
 
+        const cleanMapped = filterDeliverables(mapped);
         if (filterMode === 'approval') {
           // Keep only cuts awaiting SMM review (not yet sent to Founder)
-          setDeliverables(mapped.filter(d => 
+          setDeliverables(cleanMapped.filter(d => 
             !d.approval_notes || !d.approval_notes.includes('Sent to Founder for Final Approval')
           ));
         } else {
-          setDeliverables(mapped);
+          setDeliverables(cleanMapped);
         }
       }
     } catch (err) {

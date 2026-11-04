@@ -6,8 +6,12 @@ import {
   Film, Search, ExternalLink, Calendar, HardDrive, Folder, 
   RefreshCw, User, CheckCircle2, Clock, AlertCircle, Edit3, 
   Eye, MessageSquare, Share2, Heart, Play, Youtube, Instagram, 
-  Send, Layers, ChevronDown, Plus, Sparkles, X
+  Send, Layers, ChevronDown, Plus, Sparkles, X, Trash2
 } from 'lucide-react';
+import { 
+  filterDeliverables, filterRecordings, filterPublishingLogs, 
+  deleteSingleDeliverable, purgeAllDeliverables 
+} from '../lib/deletionFilter';
 
 interface PodcastGroup {
   recording: Recording;
@@ -76,11 +80,11 @@ export const ProductionBoard: React.FC = () => {
       ]);
 
       if (recsRes.data) {
-        setRecordings(recsRes.data);
+        setRecordings(filterRecordings(recsRes.data));
       }
 
       if (logsRes.data) {
-        setPublishingLogs(logsRes.data);
+        setPublishingLogs(filterPublishingLogs(logsRes.data));
       }
 
       if (delivRes.data) {
@@ -92,7 +96,7 @@ export const ProductionBoard: React.FC = () => {
           folder_path: d.recordings?.folder_path,
           editor_name: d.profiles?.full_name || 'Unassigned'
         }));
-        setDeliverables(mapped);
+        setDeliverables(filterDeliverables(mapped));
       }
 
       if (profilesRes.data) {
@@ -104,6 +108,24 @@ export const ProductionBoard: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleDeleteDeliverable = async (id: string, title?: string) => {
+    if (!window.confirm(`Delete task "${title || 'item'}"?`)) return;
+    setDeliverables(prev => prev.filter(d => d.id !== id));
+    await deleteSingleDeliverable(id);
+    setToastMessage(`Task deleted successfully.`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleDeleteAllTasks = async () => {
+    if (deliverables.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ALL (${deliverables.length}) deliverables?`)) return;
+    const ids = deliverables.map(d => d.id);
+    setDeliverables([]);
+    await purgeAllDeliverables(ids);
+    setToastMessage(`All deliverables deleted successfully.`);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   useEffect(() => {
@@ -465,13 +487,26 @@ export const ProductionBoard: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => { setRefreshing(true); fetchBoardData(); }}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#18181B] border border-zinc-800 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-700 transition shadow-sm"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh Board
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {deliverables.length > 0 && (
+            <button
+              onClick={handleDeleteAllTasks}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#18181B] border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 transition shadow-sm"
+              title="Delete all deliverables from board"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Delete All Tasks</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => { setRefreshing(true); fetchBoardData(); }}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#18181B] border border-zinc-800 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-700 transition shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh Board
+          </button>
+        </div>
       </div>
 
       {/* Executive Performance Summary Strip (Black & Charcoal) */}
@@ -697,26 +732,37 @@ export const ProductionBoard: React.FC = () => {
                                 <h4 className="font-bold text-sm text-white">{fullVideo.title}</h4>
                               </div>
 
-                              {/* Live Link Button (provided by SMM) */}
-                              {liveUrl ? (
-                                <a
-                                  href={liveUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow"
-                                >
-                                  <Play className="w-3.5 h-3.5 fill-black" />
-                                  Watch Live Post ↗
-                                </a>
-                              ) : (
+                              {/* Live Link Button (provided by SMM) & Delete */}
+                              <div className="flex items-center gap-2">
+                                {liveUrl ? (
+                                  <a
+                                    href={liveUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow"
+                                  >
+                                    <Play className="w-3.5 h-3.5 fill-black" />
+                                    Watch Live Post ↗
+                                  </a>
+                                ) : (
+                                  <button
+                                    onClick={() => openEditInsightsModal(fullVideo)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-700 transition"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Add Live Post Link
+                                  </button>
+                                )}
+
                                 <button
-                                  onClick={() => openEditInsightsModal(fullVideo)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-700 transition"
+                                  type="button"
+                                  onClick={() => handleDeleteDeliverable(fullVideo.id, fullVideo.title)}
+                                  className="p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition"
+                                  title="Delete Master Cut"
                                 >
-                                  <Plus className="w-3.5 h-3.5" />
-                                  Add Live Post Link
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
-                              )}
+                              </div>
                             </div>
 
                             {/* Assigned Editor & Progress */}
@@ -867,9 +913,19 @@ export const ProductionBoard: React.FC = () => {
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
                                     📱 Reel (9:16)
                                   </span>
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.bg}`}>
-                                    {statusBadge.label}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.bg}`}>
+                                      {statusBadge.label}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDeliverable(reel.id, reel.title)}
+                                      className="p-1 rounded text-zinc-500 hover:text-white hover:bg-zinc-800 transition"
+                                      title="Delete Reel"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 <h4 className="font-bold text-xs text-white line-clamp-2 leading-snug">

@@ -6,6 +6,7 @@ import {
   MessageSquare, AlertCircle, RefreshCw, Send, CheckCircle2, 
   ExternalLink, Film, ArrowRight, HardDrive, Clock
 } from 'lucide-react';
+import { filterDeliverables } from '../lib/deletionFilter';
 
 export const EditorFeedback: React.FC = () => {
   const { currentUser } = useAuth();
@@ -39,7 +40,7 @@ export const EditorFeedback: React.FC = () => {
           recording_title: d.recordings?.title,
           episode_number: d.recordings?.episode_number
         }));
-        setItems(mapped);
+        setItems(filterDeliverables(mapped));
       }
     } catch (err) {
       console.error('Failed to load feedback items:', err);

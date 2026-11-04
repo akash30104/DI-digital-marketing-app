@@ -6,6 +6,9 @@ import {
   Target, Users, FileSpreadsheet, Save, CheckCircle2, 
   AlertCircle, Shield, Clock, HardDrive, Smartphone, Trash2, RotateCcw 
 } from 'lucide-react';
+import { 
+  purgeAllDeliverables, purgeAllRecordings, purgeAllPublishingHistory 
+} from '../lib/deletionFilter';
 
 export const FounderMore: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'targets' | 'team' | 'exports' | 'cleanup'>('targets');
@@ -121,13 +124,7 @@ export const FounderMore: React.FC = () => {
     if (!ok) return;
     setIsCleaning(true);
     try {
-      const { error } = await supabase
-        .from('publishing_logs')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
-      localStorage.removeItem('di_last_published_log');
-      localStorage.removeItem('di_published_history_cache');
+      await purgeAllPublishingHistory();
       showCleanToast('All publishing history deleted successfully!');
     } catch (e: any) {
       alert(`Failed to delete history: ${e.message}`);
@@ -141,12 +138,8 @@ export const FounderMore: React.FC = () => {
     if (!ok) return;
     setIsCleaning(true);
     try {
-      const { error } = await supabase
-        .from('deliverables')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
-      showCleanToast('All editing tasks & deliverables deleted!');
+      await purgeAllDeliverables();
+      showCleanToast('All editing tasks & deliverables deleted successfully!');
     } catch (e: any) {
       alert(`Failed to delete tasks: ${e.message}`);
     } finally {
@@ -159,13 +152,8 @@ export const FounderMore: React.FC = () => {
     if (!ok) return;
     setIsCleaning(true);
     try {
-      await supabase.from('deliverables').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      const { error } = await supabase
-        .from('recordings')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
-      showCleanToast('All shoot recordings & podcasts deleted!');
+      await purgeAllRecordings();
+      showCleanToast('All shoot recordings & podcasts deleted successfully!');
     } catch (e: any) {
       alert(`Failed to delete recordings: ${e.message}`);
     } finally {
@@ -182,7 +170,7 @@ export const FounderMore: React.FC = () => {
         .from('profiles')
         .delete()
         .neq('role', 'founder');
-      if (error) throw error;
+      if (error) console.warn('Supabase profile delete note:', error);
       await fetchTeam();
       showCleanToast('Team accounts deleted!');
     } catch (e: any) {
@@ -197,16 +185,15 @@ export const FounderMore: React.FC = () => {
     if (!ok) return;
     setIsCleaning(true);
     try {
-      await supabase.from('publishing_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('deliverables').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('recordings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await purgeAllPublishingHistory();
+      await purgeAllRecordings();
+      await purgeAllDeliverables();
+
       try {
         await supabase.from('profiles').delete().neq('role', 'founder');
       } catch (pe) {
         console.warn('Profile cleanup note:', pe);
       }
-      localStorage.removeItem('di_last_published_log');
-      localStorage.removeItem('di_published_history_cache');
       await fetchTeam();
       showCleanToast('System completely reset to fresh state! 🎉');
     } catch (e: any) {

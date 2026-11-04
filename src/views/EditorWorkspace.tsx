@@ -7,8 +7,9 @@ import {
   Sliders, HardDrive, Folder, AlertCircle, Send, Check, 
   CheckCircle2, PlaySquare, Tv, Clock, ExternalLink, Sparkles, 
   UserCheck, X, ChevronRight, ChevronLeft, ArrowRight, ListTodo, 
-  CheckSquare, Plus, ArrowLeft, Cloud, Film, Calendar, RefreshCw, User
+  CheckSquare, Plus, ArrowLeft, Cloud, Film, Calendar, RefreshCw, User, Trash2
 } from 'lucide-react';
+import { filterDeliverables, filterRecordings, deleteSingleDeliverable } from '../lib/deletionFilter';
 
 interface EditorWorkspaceProps {
   mode?: 'all' | 'my';
@@ -110,8 +111,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           .order('created_at', { ascending: true })
       ]);
 
-      const recs = recsRes.data || [];
-      const dels: Deliverable[] = (delivRes.data || []).map((d: any) => ({
+      const recs = filterRecordings(recsRes.data || []);
+      const rawDels: Deliverable[] = (delivRes.data || []).map((d: any) => ({
         ...d,
         recording_title: d.recordings?.title,
         episode_number: d.recordings?.episode_number,
@@ -119,6 +120,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         folder_path: d.recordings?.folder_path,
         editor_name: d.profiles?.full_name || 'Unassigned'
       }));
+      const dels = filterDeliverables(rawDels);
 
       const acceptedSet = getAcceptedPodcastIds(currentUser.id);
 
@@ -459,6 +461,14 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     }
   };
 
+  const handleDeleteCut = async (cutId: string, cutTitle: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete cut "${cutTitle}"?`)) return;
+    await deleteSingleDeliverable(cutId);
+    showToast(`Cut deleted.`);
+    loadData(false);
+  };
+
   // ==========================================
   // VIEW 2: INSIDE PODCAST CUTS WORKSPACE
   // ==========================================
@@ -677,19 +687,30 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                     )}
                   </div>
 
-                  {/* Google Drive Link if provided */}
-                  {cut.final_video_link && (
-                    <a
-                      href={cut.final_video_link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white hover:bg-zinc-700 transition-all"
+                  <div className="flex items-center gap-2">
+                    {/* Google Drive Link if provided */}
+                    {cut.final_video_link && (
+                      <a
+                        href={cut.final_video_link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white hover:bg-zinc-700 transition-all"
+                      >
+                        <Cloud className="w-3.5 h-3.5 text-zinc-300" />
+                        <span>Google Drive Cut</span>
+                        <ExternalLink className="w-3 h-3 text-zinc-400" />
+                      </a>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteCut(cut.id, cut.title, e)}
+                      className="p-1.5 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-colors"
+                      title="Delete this cut"
                     >
-                      <Cloud className="w-3.5 h-3.5 text-zinc-300" />
-                      <span>Google Drive Cut</span>
-                      <ExternalLink className="w-3 h-3 text-zinc-400" />
-                    </a>
-                  )}
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Revision Feedback box if changes were requested */}

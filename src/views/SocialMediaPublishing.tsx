@@ -14,6 +14,10 @@ import {
   CheckCircle2, Flame, AlertCircle, Plus, Tv, Radio, 
   Sparkles, Copy, Clock, Layers, ArrowUpRight, CheckCheck, Trash2
 } from 'lucide-react';
+import { 
+  filterDeliverables, filterPublishingLogs, 
+  purgeAllPublishingHistory, deleteSinglePublishingLog 
+} from '../lib/deletionFilter';
 
 export const SocialMediaPublishing: React.FC = () => {
   const { currentUser } = useAuth();
@@ -61,7 +65,7 @@ export const SocialMediaPublishing: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (dels) {
-        setDeliverables(dels as Deliverable[]);
+        setDeliverables(filterDeliverables(dels as Deliverable[]));
       }
 
       // Also get all recent deliverables to link direct posts if needed
@@ -72,7 +76,7 @@ export const SocialMediaPublishing: React.FC = () => {
         .limit(20);
 
       if (allDels) {
-        setAllRecentDeliverables(allDels as Deliverable[]);
+        setAllRecentDeliverables(filterDeliverables(allDels as Deliverable[]));
       }
 
       // 2. Fetch Publishing Logs with Deliverable Titles
@@ -86,7 +90,8 @@ export const SocialMediaPublishing: React.FC = () => {
         .limit(100);
 
       if (logs) {
-        const mappedLogs: PublishingLog[] = logs.map((l: any) => ({
+        const cleanLogs = filterPublishingLogs(logs);
+        const mappedLogs: PublishingLog[] = cleanLogs.map((l: any) => ({
           ...l,
           deliverable_title: l.deliverables?.title || l.notes?.split('\n')[0] || 'Published Video',
           channel_name: getLogChannelName(l)
@@ -332,21 +337,20 @@ export const SocialMediaPublishing: React.FC = () => {
     if (!ok) return;
 
     try {
-      const { error } = await supabase
-        .from('publishing_logs')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      if (error) throw error;
-
-      localStorage.removeItem('di_last_published_log');
-      localStorage.removeItem('di_published_history_cache');
+      await purgeAllPublishingHistory();
       setPublishedToday([]);
       showToast('All publishing history deleted.');
       await loadData();
     } catch (err: any) {
       alert(`Could not delete history: ${err.message}`);
     }
+  };
+
+  const handleDeleteSingleLog = async (id: string, title?: string) => {
+    if (!window.confirm(`Delete publication record "${title || 'post'}"?`)) return;
+    setPublishedToday(prev => prev.filter(l => l.id !== id));
+    await deleteSinglePublishingLog(id);
+    showToast('Publication record deleted.');
   };
 
   // Group today's counts by platform
@@ -592,9 +596,19 @@ export const SocialMediaPublishing: React.FC = () => {
                       <span className="text-xs text-zinc-500 italic">No proof link recorded</span>
                     )}
 
-                    <span className="text-[10px] font-semibold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full shrink-0">
-                      Verified Active
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] font-semibold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full">
+                        Verified Active
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSingleLog(log.id, log.deliverable_title)}
+                        className="p-1 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+                        title="Delete log"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
