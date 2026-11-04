@@ -545,24 +545,24 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* Footage & Storage Transfer Info */}
-          <div className="p-3.5 rounded-2xl bg-black border border-zinc-800 flex items-center justify-between gap-3 flex-wrap text-xs">
-            <div className="flex items-center gap-2">
-              <HardDrive className="w-4 h-4 text-zinc-400" />
-              <span className="font-bold text-zinc-400">Footage Access:</span>
-              <span className="font-bold text-white bg-zinc-800 px-2 py-0.5 rounded-md border border-zinc-700">
-                {activePodcast.hard_disk_name}
-              </span>
-              <span className="text-zinc-300">
-                {activePodcast.folder_path}
-              </span>
-            </div>
+          {/* Storage & Editor Info */}
+          {(activePodcast.hard_disk_name || activePodcast.folder_path) && (
+            <div className="p-3 rounded-2xl bg-black border border-zinc-800 flex items-center justify-between gap-3 flex-wrap text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white bg-zinc-800 px-2 py-0.5 rounded-md border border-zinc-700">
+                  {activePodcast.hard_disk_name}
+                </span>
+                <span className="text-zinc-300">
+                  {activePodcast.folder_path}
+                </span>
+              </div>
 
-            <div className="flex items-center gap-1.5 text-zinc-400">
-              <User className="w-3.5 h-3.5 text-zinc-300" />
-              <span>Editor: <strong className="text-white">{currentUser?.full_name}</strong></span>
+              <div className="flex items-center gap-1.5 text-zinc-400">
+                <User className="w-3.5 h-3.5 text-zinc-300" />
+                <span>Editor: <strong className="text-white">{currentUser?.full_name}</strong></span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Overall Podcast Progress Bar */}
           <div className="space-y-2 pt-2 border-t border-zinc-800">
@@ -994,6 +994,11 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                           <span>Deadline: {podcast.deadline}</span>
                         </span>
                       )}
+
+                      <span className="text-[10px] font-semibold text-zinc-400 flex items-center gap-1">
+                        <User className="w-3 h-3 text-zinc-500" />
+                        <span>Editor: <strong className="text-zinc-200">{podcast.editor_name}</strong></span>
+                      </span>
                     </div>
                   </div>
 
@@ -1010,24 +1015,6 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                       🎬 Claim Podcast
                     </button>
                   )}
-                </div>
-
-                {/* Footage Transfer Method & Access */}
-                <div className="p-3 rounded-2xl bg-black border border-zinc-800 text-xs flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
-                    <span className="font-bold text-zinc-400">Footage:</span>
-                    <span className="font-bold text-white bg-zinc-800 px-2 py-0.5 rounded-md border border-zinc-700">
-                      {podcast.hard_disk_name}
-                    </span>
-                    <span className="text-zinc-300 truncate max-w-[180px]">
-                      {podcast.folder_path}
-                    </span>
-                  </div>
-
-                  <span className="text-[10px] font-semibold text-zinc-400">
-                    Editor: <strong className="text-zinc-200">{podcast.editor_name}</strong>
-                  </span>
                 </div>
 
                 {/* Overall Podcast Progress Bar */}
