@@ -62,6 +62,8 @@ export const App: React.FC = () => {
       switch (activeTab) {
         case 'dashboard':
           return <FounderDashboard onNavigateTab={setActiveTab} />;
+        case 'approvals':
+          return <FounderApprovals />;
         case 'production':
           return <ProductionBoard />;
         case 'more':

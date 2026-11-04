@@ -12,7 +12,7 @@ import {
 import { 
   Send, PlaySquare, Camera, ExternalLink, Check, X, 
   CheckCircle2, Flame, AlertCircle, Plus, Tv, Radio, 
-  Sparkles, Copy, Clock, Layers, ArrowUpRight, CheckCheck
+  Sparkles, Copy, Clock, Layers, ArrowUpRight, CheckCheck, Trash2
 } from 'lucide-react';
 
 export const SocialMediaPublishing: React.FC = () => {
@@ -327,6 +327,28 @@ export const SocialMediaPublishing: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const handleDeleteAllHistory = async () => {
+    const ok = window.confirm('⚠️ Are you sure you want to delete ALL publishing history? This will permanently remove all published posts, proofs, and reset today\'s count.');
+    if (!ok) return;
+
+    try {
+      const { error } = await supabase
+        .from('publishing_logs')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (error) throw error;
+
+      localStorage.removeItem('di_last_published_log');
+      localStorage.removeItem('di_published_history_cache');
+      setPublishedToday([]);
+      showToast('All publishing history deleted.');
+      await loadData();
+    } catch (err: any) {
+      alert(`Could not delete history: ${err.message}`);
+    }
+  };
+
   // Group today's counts by platform
   const ytShortsCount = publishedToday.filter(l => l.platform === 'youtube_shorts').length;
   const ytFullCount = publishedToday.filter(l => l.platform === 'youtube_full').length;
@@ -459,16 +481,22 @@ export const SocialMediaPublishing: React.FC = () => {
 
       {/* TODAY'S PUBLISHED PROOF AUDIT LOG */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-white" />
               <span>Today's Verified Publications ({publishedToday.length})</span>
             </h3>
           </div>
-          <span className="text-[11px] font-medium text-zinc-500">
-            Recorded with live URL proofs & channel names
-          </span>
+
+          <button
+            type="button"
+            onClick={handleDeleteAllHistory}
+            className="text-[11px] font-bold text-zinc-400 hover:text-white px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 hover:border-zinc-500 transition-all flex items-center gap-1 active:scale-95"
+          >
+            <Trash2 className="w-3 h-3 text-zinc-400" />
+            <span>Delete All History</span>
+          </button>
         </div>
 
         {publishedToday.length === 0 ? (

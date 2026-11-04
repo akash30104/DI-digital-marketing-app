@@ -4,13 +4,14 @@ import { PlatformType, PublishingLog } from '../types';
 import { getLogChannelName } from '../lib/streak';
 import { 
   History, Search, ExternalLink, Calendar, Download, 
-  Youtube, Instagram, Send, RefreshCw, CheckCircle2, Radio 
+  Youtube, Instagram, Send, RefreshCw, CheckCircle2, Radio, Trash2 
 } from 'lucide-react';
 
 export const PublishingHistory: React.FC = () => {
   const [logs, setLogs] = useState<PublishingLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,6 +156,35 @@ export const PublishingHistory: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const handleDeleteAllHistory = async () => {
+    if (logs.length === 0) return;
+    const confirmDelete = window.confirm(
+      '⚠️ Are you sure you want to DELETE ALL publishing history? This will permanently remove all published posts, proofs, and reset daily publication output.'
+    );
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('publishing_logs')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (error) throw error;
+
+      localStorage.removeItem('di_last_published_log');
+      localStorage.removeItem('di_published_history_cache');
+
+      setLogs([]);
+      alert('All publishing history records have been deleted.');
+    } catch (err: any) {
+      console.error('Failed to delete history:', err);
+      alert(`Could not delete history: ${err.message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20">
       {/* Header */}
@@ -169,7 +199,17 @@ export const PublishingHistory: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleDeleteAllHistory}
+            disabled={logs.length === 0 || isDeleting}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-all disabled:opacity-40"
+            title="Delete All Publishing History"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+            <span>{isDeleting ? 'Deleting...' : 'Delete All History'}</span>
+          </button>
+
           <button
             onClick={exportToCSV}
             disabled={filteredLogs.length === 0}

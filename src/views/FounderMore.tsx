@@ -4,11 +4,13 @@ import { Profile } from '../types';
 import { ReportingExport } from './ReportingExport';
 import { 
   Target, Users, FileSpreadsheet, Save, CheckCircle2, 
-  AlertCircle, Shield, Clock, HardDrive, Smartphone
+  AlertCircle, Shield, Clock, HardDrive, Smartphone, Trash2, RotateCcw 
 } from 'lucide-react';
 
 export const FounderMore: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'targets' | 'team' | 'exports'>('targets');
+  const [activeSubTab, setActiveSubTab] = useState<'targets' | 'team' | 'exports' | 'cleanup'>('targets');
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [cleanMessage, setCleanMessage] = useState<string | null>(null);
 
   // Targets state
   const [shortsTarget, setShortsTarget] = useState(3);
@@ -109,6 +111,111 @@ export const FounderMore: React.FC = () => {
     }
   };
 
+  const showCleanToast = (msg: string) => {
+    setCleanMessage(msg);
+    setTimeout(() => setCleanMessage(null), 3500);
+  };
+
+  const handleDeletePublishingHistory = async () => {
+    const ok = window.confirm('⚠️ Are you sure you want to delete ALL publishing history (posted reels & proof links)? This will reset daily counts.');
+    if (!ok) return;
+    setIsCleaning(true);
+    try {
+      const { error } = await supabase
+        .from('publishing_logs')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      localStorage.removeItem('di_last_published_log');
+      localStorage.removeItem('di_published_history_cache');
+      showCleanToast('All publishing history deleted successfully!');
+    } catch (e: any) {
+      alert(`Failed to delete history: ${e.message}`);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
+  const handleDeleteTasks = async () => {
+    const ok = window.confirm('⚠️ Are you sure you want to delete ALL tasks and deliverables?');
+    if (!ok) return;
+    setIsCleaning(true);
+    try {
+      const { error } = await supabase
+        .from('deliverables')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      showCleanToast('All editing tasks & deliverables deleted!');
+    } catch (e: any) {
+      alert(`Failed to delete tasks: ${e.message}`);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
+  const handleDeleteRecordings = async () => {
+    const ok = window.confirm('⚠️ Are you sure you want to delete ALL podcasts and shoot recordings?');
+    if (!ok) return;
+    setIsCleaning(true);
+    try {
+      await supabase.from('deliverables').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      const { error } = await supabase
+        .from('recordings')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      showCleanToast('All shoot recordings & podcasts deleted!');
+    } catch (e: any) {
+      alert(`Failed to delete recordings: ${e.message}`);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
+  const handleDeleteNonFounderUsers = async () => {
+    const ok = window.confirm('⚠️ Are you sure you want to delete all team members (except founder)?');
+    if (!ok) return;
+    setIsCleaning(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .neq('role', 'founder');
+      if (error) throw error;
+      await fetchTeam();
+      showCleanToast('Team accounts deleted!');
+    } catch (e: any) {
+      alert(`Failed to delete users: ${e.message}`);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
+  const handleFullReset = async () => {
+    const ok = window.confirm('🚨 FULL SYSTEM RESET: This will permanently delete ALL tasks, posted reels, recordings, and non-founder users. Are you absolutely sure?');
+    if (!ok) return;
+    setIsCleaning(true);
+    try {
+      await supabase.from('publishing_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('deliverables').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('recordings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      try {
+        await supabase.from('profiles').delete().neq('role', 'founder');
+      } catch (pe) {
+        console.warn('Profile cleanup note:', pe);
+      }
+      localStorage.removeItem('di_last_published_log');
+      localStorage.removeItem('di_published_history_cache');
+      await fetchTeam();
+      showCleanToast('System completely reset to fresh state! 🎉');
+    } catch (e: any) {
+      alert(`Reset failed: ${e.message}`);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   useEffect(() => {
     fetchTargets();
     fetchTeam();
@@ -152,6 +259,18 @@ export const FounderMore: React.FC = () => {
         >
           <FileSpreadsheet className="w-4 h-4" />
           Data Exports
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('cleanup')}
+          className={`flex-1 min-w-[120px] py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+            activeSubTab === 'cleanup'
+              ? 'bg-white text-black font-black shadow-md'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Trash2 className="w-4 h-4" />
+          Data &amp; History Reset
         </button>
       </div>
 
@@ -297,6 +416,121 @@ export const FounderMore: React.FC = () => {
       {/* Exports Screen */}
       {activeSubTab === 'exports' && (
         <ReportingExport />
+      )}
+
+      {/* 4. Data & History Reset Screen */}
+      {activeSubTab === 'cleanup' && (
+        <div className="space-y-4">
+          <div className="bg-zinc-900 rounded-3xl border border-zinc-800 p-6 shadow-xl space-y-6">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-zinc-300" />
+                Data &amp; History Reset Control
+              </h2>
+              <p className="text-xs text-zinc-400 mt-1">
+                Safely delete all tasks, published reels history, and test records to start fresh.
+              </p>
+            </div>
+
+            {cleanMessage && (
+              <div className="p-3.5 rounded-2xl bg-white text-black font-black text-xs flex items-center gap-2 shadow-md">
+                <CheckCircle2 className="w-4 h-4 text-black" />
+                <span>{cleanMessage}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {/* Reset History */}
+              <div className="p-4 rounded-2xl bg-black border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-white text-sm">Delete All Publishing History</h4>
+                  <p className="text-xs text-zinc-400">Permanently deletes all posted reels, live proofs, and resets today's output count and streak.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isCleaning}
+                  onClick={handleDeletePublishingHistory}
+                  className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700 active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                  Delete All History
+                </button>
+              </div>
+
+              {/* Reset Tasks & Deliverables */}
+              <div className="p-4 rounded-2xl bg-black border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-white text-sm">Delete All Tasks &amp; Deliverables</h4>
+                  <p className="text-xs text-zinc-400">Deletes all assigned reels and full-length video cuts across all editors.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isCleaning}
+                  onClick={handleDeleteTasks}
+                  className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700 active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                  Delete All Tasks
+                </button>
+              </div>
+
+              {/* Reset Shoot Recordings */}
+              <div className="p-4 rounded-2xl bg-black border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-white text-sm">Delete All Shoot Recordings (Podcasts)</h4>
+                  <p className="text-xs text-zinc-400">Deletes all registered podcasts and footage transfers.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isCleaning}
+                  onClick={handleDeleteRecordings}
+                  className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700 active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                  Delete All Shoots
+                </button>
+              </div>
+
+              {/* Delete Test Non-Founder Users */}
+              <div className="p-4 rounded-2xl bg-black border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-white text-sm">Delete Team Accounts (Except Founder)</h4>
+                  <p className="text-xs text-zinc-400">Cleans up test editors and social media manager accounts.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isCleaning}
+                  onClick={handleDeleteNonFounderUsers}
+                  className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all border border-zinc-700 active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                  Delete Team Users
+                </button>
+              </div>
+
+              {/* Full Factory Clean Start */}
+              <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-4">
+                <div>
+                  <h4 className="font-black text-white text-sm flex items-center gap-1.5">
+                    <span>🚨 Full System Reset</span>
+                  </h4>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Purges all tasks, posted reels, shoots, and caches in a single action for a completely clean fresh start.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isCleaning}
+                  onClick={handleFullReset}
+                  className="px-6 py-2.5 rounded-full bg-white text-black font-black text-xs hover:bg-zinc-200 shadow-md active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 inline mr-1.5" />
+                  {isCleaning ? 'Resetting...' : 'Full System Reset'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -314,7 +314,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           progress_percentage: 100,
           final_video_link: finalLink,
           preview_link: finalLink,
-          editing_status: 'submitted_for_approval', // Ready for SMM & Founder review
+          editing_status: 'submitted_for_approval', // Automatically sends for SMM review
+          approval_notes: `Submitted by Editor (${currentUser.full_name || 'Editor'}) with Google Drive link for Social Media Manager Review`,
           assigned_editor_id: currentUser.id,
           updated_at: now
         })
@@ -322,7 +323,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
       if (error) throw error;
 
-      showToast(`🎉 "${driveModalCut.title}" marked 100% completed with Google Drive link!`);
+      showToast(`🚀 "${driveModalCut.title}" saved & sent to Social Media Manager for approval!`);
       setDriveModalCut(null);
       setDriveUrl('');
       loadData(false);
@@ -330,6 +331,74 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       alert(`Failed to save final cut: ${err.message}`);
     } finally {
       setIsSubmittingDrive(false);
+    }
+  };
+
+  // Explicit Send cut to Social Media Manager for Review
+  const handleSendToSMM = async (cut: Deliverable) => {
+    if (!currentUser) return;
+    if (!cut.final_video_link && (cut.progress_percentage || 0) < 100) {
+      openDriveModal(cut);
+      return;
+    }
+
+    try {
+      const now = new Date().toISOString();
+      const editorName = currentUser.full_name || 'Editor';
+      const { error } = await supabase
+        .from('deliverables')
+        .update({
+          editing_status: 'submitted_for_approval',
+          progress_percentage: 100,
+          approval_notes: `Submitted by Editor (${editorName}) for Social Media Manager Review`,
+          assigned_editor_id: currentUser.id,
+          updated_at: now
+        })
+        .eq('id', cut.id);
+
+      if (error) throw error;
+
+      showToast(`🚀 "${cut.title}" sent to Social Media Manager for approval!`);
+      loadData(false);
+    } catch (err: any) {
+      alert(`Failed to send for approval: ${err.message}`);
+    }
+  };
+
+  // Send all ready cuts for this podcast to SMM
+  const handleSendAllToSMM = async () => {
+    if (!activePodcast || !currentUser) return;
+    const readyCuts = activePodcast.deliverables.filter(d => 
+      (d.final_video_link || (d.progress_percentage || 0) === 100) &&
+      d.editing_status !== 'submitted_for_approval' &&
+      d.editing_status !== 'approved'
+    );
+
+    if (readyCuts.length === 0) {
+      showToast('No ready cuts to submit. Provide a Google Drive link or mark 100% first.');
+      return;
+    }
+
+    try {
+      const now = new Date().toISOString();
+      const editorName = currentUser.full_name || 'Editor';
+      for (const cut of readyCuts) {
+        await supabase
+          .from('deliverables')
+          .update({
+            editing_status: 'submitted_for_approval',
+            progress_percentage: 100,
+            approval_notes: `Submitted by Editor (${editorName}) for Social Media Manager Review`,
+            assigned_editor_id: currentUser.id,
+            updated_at: now
+          })
+          .eq('id', cut.id);
+      }
+
+      showToast(`🚀 Sent ${readyCuts.length} cuts to Social Media Manager for approval!`);
+      loadData(false);
+    } catch (err: any) {
+      alert(`Failed to send cuts: ${err.message}`);
     }
   };
 
@@ -523,10 +592,18 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleSendAllToSMM}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all shadow-md active:scale-95"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Send Ready Cuts to SMM 🚀</span>
+            </button>
+
             <button
               onClick={handleAddReel}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all shadow-md active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-white text-xs font-bold hover:bg-zinc-700 transition-all shadow-sm active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ Add Reel</span>
@@ -534,7 +611,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
             <button
               onClick={handleAddFullVideo}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-white text-xs font-bold hover:bg-zinc-700 transition-all active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-white text-xs font-bold hover:bg-zinc-700 transition-all shadow-sm active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ Add Full Video</span>
@@ -569,8 +646,29 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                       )}
                     </span>
 
-                    {isCompleted ? (
+                    {cut.editing_status === 'approved' ? (
                       <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-white text-black border border-white flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        <span>✓ Approved by Founder (Greenlit)</span>
+                      </span>
+                    ) : cut.editing_status === 'submitted_for_approval' ? (
+                      cut.approval_notes?.includes('Sent to Founder') ? (
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center gap-1">
+                          <span>👑 Approved by SMM • In Founder Review</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-white" />
+                          <span>⏳ Awaiting SMM Approval</span>
+                        </span>
+                      )
+                    ) : cut.editing_status === 'changes_requested' ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-800 text-white border border-zinc-700 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 text-white" />
+                        <span>⚠️ Changes Requested</span>
+                      </span>
+                    ) : isCompleted ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-800 text-white border border-zinc-700 flex items-center gap-1">
                         <Check className="w-3 h-3" />
                         <span>100% Completed</span>
                       </span>
@@ -594,6 +692,17 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   )}
                 </div>
 
+                {/* Revision Feedback box if changes were requested */}
+                {cut.editing_status === 'changes_requested' && cut.approval_notes && (
+                  <div className="p-3.5 rounded-2xl bg-black border border-zinc-700 text-xs space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-white" />
+                      Feedback from Reviewer:
+                    </span>
+                    <p className="text-white font-medium">{cut.approval_notes}</p>
+                  </div>
+                )}
+
                 {/* Title & Progress Indicator */}
                 <div>
                   <h4 className="font-black text-white text-base">
@@ -614,7 +723,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                   </div>
                 </div>
 
-                {/* Quick Progress Buttons & 100% Completion Action */}
+                {/* Quick Progress Buttons & Actions */}
                 <div className="pt-2 border-t border-zinc-800 flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-bold text-zinc-500 uppercase mr-1">
@@ -636,19 +745,48 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                     ))}
                   </div>
 
-                  {/* 100% Google Drive Submit Button */}
-                  <button
-                    type="button"
-                    onClick={() => openDriveModal(cut)}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black transition-all active:scale-95 shadow-md ${
-                      isCompleted
-                        ? 'bg-zinc-800 border border-zinc-700 text-zinc-200 hover:bg-zinc-700'
-                        : 'bg-white text-black hover:bg-zinc-200'
-                    }`}
-                  >
-                    <Cloud className="w-3.5 h-3.5" />
-                    <span>{isCompleted ? 'Update Google Drive Link' : 'Mark 100% Completed (Provide Drive Link) 🚀'}</span>
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Google Drive Link Modal Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => openDriveModal(cut)}
+                      className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-all active:scale-95"
+                    >
+                      <Cloud className="w-3.5 h-3.5" />
+                      <span>{cut.final_video_link ? 'Edit Drive Link' : '+ Drive Link'}</span>
+                    </button>
+
+                    {/* Send for SMM Approval button */}
+                    {cut.editing_status === 'changes_requested' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSendToSMM(cut)}
+                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black bg-white text-black hover:bg-zinc-200 transition-all active:scale-95 shadow-md"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Re-Submit to SMM 🚀</span>
+                      </button>
+                    ) : cut.editing_status === 'submitted_for_approval' ? (
+                      <span className="text-xs font-bold text-zinc-400 bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-700 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-zinc-300" />
+                        <span>{cut.approval_notes?.includes('Sent to Founder') ? 'With Founder' : 'With SMM'}</span>
+                      </span>
+                    ) : cut.editing_status === 'approved' ? (
+                      <span className="text-xs font-bold text-white bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-700 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-white" />
+                        <span>Greenlit ✓</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendToSMM(cut)}
+                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black bg-white text-black hover:bg-zinc-200 transition-all active:scale-95 shadow-md"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Send to SMM for Approval 🚀</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
