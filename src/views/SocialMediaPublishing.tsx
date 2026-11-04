@@ -376,7 +376,7 @@ export const SocialMediaPublishing: React.FC = () => {
                 Daily Output Report
               </span>
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-200 border border-zinc-700/60">
-                <Flame className="w-3.5 h-3.5 text-orange-400" />
+                <Flame className="w-3.5 h-3.5 text-zinc-300" />
                 <span>{streak.currentStreak} {streak.currentStreak === 1 ? 'Day' : 'Days'} Streak</span>
               </div>
             </div>
@@ -436,7 +436,7 @@ export const SocialMediaPublishing: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-white" />
               <span>Today's Verified Publications ({publishedToday.length})</span>
             </h3>
           </div>
@@ -478,9 +478,9 @@ export const SocialMediaPublishing: React.FC = () => {
 
                       {/* Platform Badge */}
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 bg-zinc-800 text-zinc-200 border border-zinc-700/60">
-                        {log.platform === 'youtube_shorts' && <PlaySquare className="w-3 h-3 text-red-400" />}
+                        {log.platform === 'youtube_shorts' && <PlaySquare className="w-3 h-3 text-zinc-300" />}
                         {log.platform === 'youtube_full' && <Tv className="w-3 h-3 text-zinc-300" />}
-                        {log.platform === 'instagram_reels' && <Camera className="w-3 h-3 text-pink-400" />}
+                        {log.platform === 'instagram_reels' && <Camera className="w-3 h-3 text-zinc-300" />}
                         <span>{formatPlatformLabel(log.platform)}</span>
                       </span>
 
@@ -528,7 +528,7 @@ export const SocialMediaPublishing: React.FC = () => {
                           title="Copy Link"
                         >
                           {copiedId === log.id ? (
-                            <CheckCheck className="w-4 h-4 text-emerald-400" />
+                            <CheckCheck className="w-4 h-4 text-white" />
                           ) : (
                             <Copy className="w-4 h-4" />
                           )}
@@ -619,8 +619,8 @@ export const SocialMediaPublishing: React.FC = () => {
                       <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700/60">
                         {item.deliverable_type === 'full_length_video' ? '📺 Full Video' : '📱 Reel / Short'}
                       </span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-emerald-400 border border-zinc-700/60 flex items-center gap-1">
-                        <Check className="w-3 h-3 text-emerald-400" /> Approved for Release
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700/60 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-white" /> Approved for Release
                       </span>
                     </div>
 
@@ -646,11 +646,11 @@ export const SocialMediaPublishing: React.FC = () => {
                     {/* YouTube Platform Row */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
                       <div className="flex items-center gap-2">
-                        <PlaySquare className="w-4 h-4 text-red-500" />
+                        <PlaySquare className="w-4 h-4 text-zinc-300" />
                         <span className="text-xs font-bold text-white">YouTube</span>
                         {ytPublished ? (
                           <span className="text-[11px] font-bold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Check className="w-3 h-3 text-emerald-400" /> Published on {getLogChannelName(ytPublished)}
+                            <Check className="w-3 h-3 text-white" /> Published on {getLogChannelName(ytPublished)}
                           </span>
                         ) : (
                           <span className="text-[11px] text-zinc-500">Not Published Today</span>
@@ -687,11 +687,11 @@ export const SocialMediaPublishing: React.FC = () => {
                     {/* Instagram Platform Row */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
                       <div className="flex items-center gap-2">
-                        <Camera className="w-4 h-4 text-pink-500" />
+                        <Camera className="w-4 h-4 text-zinc-300" />
                         <span className="text-xs font-bold text-white">Instagram</span>
                         {igPublished ? (
                           <span className="text-[11px] font-bold text-zinc-300 bg-zinc-800 border border-zinc-700/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Check className="w-3 h-3 text-emerald-400" /> Published on {getLogChannelName(igPublished)}
+                            <Check className="w-3 h-3 text-white" /> Published on {getLogChannelName(igPublished)}
                           </span>
                         ) : (
                           <span className="text-[11px] text-zinc-500">Not Published Today</span>
@@ -800,7 +800,7 @@ export const SocialMediaPublishing: React.FC = () => {
                         : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    <PlaySquare className="w-4 h-4 mx-auto text-red-500 mb-1" />
+                    <PlaySquare className="w-4 h-4 mx-auto text-zinc-300 mb-1" />
                     <span className="text-[11px] block">YT Shorts</span>
                   </button>
 
@@ -813,7 +813,7 @@ export const SocialMediaPublishing: React.FC = () => {
                         : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    <Camera className="w-4 h-4 mx-auto text-pink-500 mb-1" />
+                    <Camera className="w-4 h-4 mx-auto text-zinc-300 mb-1" />
                     <span className="text-[11px] block">Instagram</span>
                   </button>
 
@@ -914,7 +914,7 @@ export const SocialMediaPublishing: React.FC = () => {
       {/* Floating Toast Notice */}
       {toastMessage && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-zinc-900 text-white text-xs font-bold shadow-xl border border-zinc-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

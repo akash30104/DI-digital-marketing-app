@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ServerConfigModal } from '../components/ServerConfigModal';
-import { getStoredSupabaseConfig } from '../lib/supabase';
-import { Lock, Users, Crown, ShieldAlert, ArrowRight, Video, Server, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Lock, Users, Crown, ShieldAlert, ArrowRight, Video, CheckCircle2 } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const AuthView: React.FC = () => {
@@ -18,10 +16,6 @@ export const AuthView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showConfig, setShowConfig] = useState(false);
-
-  const currentConfig = getStoredSupabaseConfig();
-  const isDefaultConfig = currentConfig.url.includes('xyzcompany.supabase.co') || currentConfig.key.includes('dummy_anon_key');
 
   const handleTabChange = (mode: 'signIn' | 'teamRegister' | 'founderSetup') => {
     setAuthMode(mode);
@@ -35,7 +29,7 @@ export const AuthView: React.FC = () => {
   const sanitizeError = (err: string | undefined): string => {
     if (!err) return 'An error occurred';
     if (err.includes('Failed to fetch') || err.includes('NetworkError')) {
-      return 'Cannot reach Supabase database ("Failed to fetch"). Tap "Configure Supabase Connection" below to enter your real Supabase Project URL & Anon Key.';
+      return 'Cannot reach database ("Failed to fetch"). Please check your internet connection.';
     }
     if (err.includes('rate limit') || err.includes('over_email_send_rate_limit')) {
       return 'Supabase email rate limit reached. To allow instant team signups without waiting for emails, please turn OFF "Confirm email" in Supabase Dashboard (Authentication -> Providers -> Email).';
@@ -106,7 +100,7 @@ export const AuthView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-[#0B1120] flex flex-col justify-center items-center p-4">
+    <div className="min-h-screen bg-black flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-6">
@@ -160,33 +154,18 @@ export const AuthView: React.FC = () => {
           </button>
         </div>
 
-        {isDefaultConfig && (
-          <div 
-            onClick={() => setShowConfig(true)}
-            className="mb-4 p-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs flex items-start gap-2.5 cursor-pointer hover:bg-zinc-800 transition-colors shadow-sm"
-          >
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-zinc-400" />
-            <div>
-              <p className="font-bold text-white">Supabase Not Connected Yet</p>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Click here to enter your Supabase Project URL & Anon Key to connect this app to your database.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Form Card */}
         <div className="bg-zinc-900 rounded-3xl shadow-xl border border-zinc-800 p-6">
           {errorMessage && (
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-800 border border-rose-900/40 text-rose-300 text-xs mb-4">
-              <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-400" />
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs mb-4">
+              <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-white" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {successMessage && (
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-800 border border-emerald-900/40 text-emerald-300 text-xs mb-4">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-400" />
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs mb-4">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-white" />
               <span>{successMessage}</span>
             </div>
           )}
@@ -328,14 +307,14 @@ export const AuthView: React.FC = () => {
               {founderExists ? (
                 /* LOCKED STATE */
                 <div className="text-center py-4 space-y-3">
-                  <div className="w-14 h-14 mx-auto rounded-full bg-rose-500/15 text-rose-500 flex items-center justify-center">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center">
                     <ShieldAlert className="w-7 h-7" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    <h3 className="text-base font-bold text-white">
                       Founder Account Claimed
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 px-4 leading-relaxed">
+                    <p className="text-xs text-zinc-400 mt-1 px-4 leading-relaxed">
                       A primary founder account has already been registered for this workspace. Only <strong>ONE founder account</strong> is permitted per organization.
                     </p>
                   </div>
@@ -428,20 +407,7 @@ export const AuthView: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Server Config Trigger Footer */}
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => setShowConfig(true)}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          >
-            <Server className="w-3.5 h-3.5" />
-            <span>Configure Supabase Connection</span>
-          </button>
-        </div>
       </div>
-
-      <ServerConfigModal isOpen={showConfig} onClose={() => setShowConfig(false)} />
     </div>
   );
 };

@@ -418,17 +418,17 @@ export const ProductionBoard: React.FC = () => {
       case 'assigned':
         return { label: 'Assigned', bg: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
       case 'editing_in_progress':
-        return { label: 'Editing In Progress', bg: 'bg-zinc-800 text-amber-300 border-amber-900/50' };
+        return { label: 'Editing In Progress', bg: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
       case 'internal_review':
-        return { label: 'In Review', bg: 'bg-zinc-800 text-indigo-300 border-indigo-900/50' };
+        return { label: 'In Review', bg: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
       case 'submitted_for_approval':
-        return { label: 'Awaiting Approval', bg: 'bg-zinc-800 text-purple-300 border-purple-900/50' };
+        return { label: 'Awaiting Approval', bg: 'bg-zinc-800 text-white border-zinc-600' };
       case 'changes_requested':
-        return { label: 'Changes Requested', bg: 'bg-zinc-800 text-rose-300 border-rose-900/50' };
+        return { label: 'Changes Requested', bg: 'bg-zinc-800 text-zinc-300 border-zinc-700' };
       case 'approved':
-        return { label: 'Approved & Live', bg: 'bg-zinc-800 text-emerald-300 border-emerald-900/50' };
+        return { label: 'Approved & Live', bg: 'bg-white text-black border-white' };
       case 'blocked':
-        return { label: 'Blocked', bg: 'bg-red-950/80 text-red-300 border-red-800' };
+        return { label: 'Blocked', bg: 'bg-zinc-900 text-zinc-400 border-zinc-800' };
       default:
         return { label: status, bg: 'bg-zinc-800 text-zinc-300 border-zinc-700' };
     }
@@ -439,7 +439,7 @@ export const ProductionBoard: React.FC = () => {
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-[#18181B] text-white px-5 py-3 rounded-2xl border border-zinc-700 shadow-2xl flex items-center gap-3 text-xs font-bold animate-in fade-in slide-in-from-top-4 duration-200">
-          <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+          <Sparkles className="w-4 h-4 text-white shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

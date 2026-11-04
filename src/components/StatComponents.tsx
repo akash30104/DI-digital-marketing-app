@@ -12,35 +12,35 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ''
       case 'published':
       case 'completed':
         return {
-          pill: 'bg-zinc-800/90 text-zinc-100 border-zinc-700',
-          dot: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
+          pill: 'bg-zinc-850 text-white border-zinc-600',
+          dot: 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]'
         };
       case 'submitted_for_approval':
       case 'in_review':
       case 'internal_review':
         return {
-          pill: 'bg-zinc-800/90 text-zinc-200 border-zinc-700',
-          dot: 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
+          pill: 'bg-zinc-900 text-zinc-200 border-zinc-700',
+          dot: 'bg-zinc-300'
         };
       case 'editing_in_progress':
       case 'assigned':
         return {
-          pill: 'bg-zinc-800/90 text-zinc-200 border-zinc-700',
-          dot: 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]'
+          pill: 'bg-zinc-900 text-zinc-200 border-zinc-700',
+          dot: 'bg-zinc-400'
         };
       case 'changes_requested':
       case 'blocked':
       case 'failed':
         return {
-          pill: 'bg-zinc-800/90 text-zinc-200 border-zinc-700',
-          dot: 'bg-rose-400 shadow-[0_0_6px_rgba(251,113,133,0.8)]'
+          pill: 'bg-zinc-900 text-zinc-300 border-zinc-700',
+          dot: 'border border-zinc-400 bg-transparent'
         };
       case 'not_started':
       case 'not_published':
       default:
         return {
-          pill: 'bg-zinc-800/50 text-zinc-400 border-zinc-700/50',
-          dot: 'bg-zinc-500'
+          pill: 'bg-zinc-900/60 text-zinc-400 border-zinc-800',
+          dot: 'bg-zinc-600'
         };
     }
   };

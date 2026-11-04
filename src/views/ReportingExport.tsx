@@ -128,27 +128,27 @@ export const ReportingExport: React.FC = () => {
   return (
     <div className="space-y-6 pb-20">
       <div>
-        <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-          <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
+        <h1 className="text-2xl font-black text-white flex items-center gap-2">
+          <FileSpreadsheet className="w-6 h-6 text-white" />
           Reporting & Data Exports
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-zinc-400">
           Generate clean, formatted spreadsheets for Google Sheets, Microsoft Excel, and offline audits
         </p>
       </div>
 
       {/* Cloud Sync Card */}
-      <div className="bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent border border-emerald-500/20 rounded-2xl p-5">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="p-3 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0">
+            <div className="p-3 bg-zinc-800 border border-zinc-700 text-white rounded-2xl shrink-0">
               <Share2 className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h2 className="text-sm font-bold text-white">
                 Google Sheets Automated Sync
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-zinc-400 mt-0.5">
                 Pushes latest video counts, editor completions, and publication URLs to your master Google Sheet
               </p>
             </div>
@@ -157,7 +157,7 @@ export const ReportingExport: React.FC = () => {
           <button
             onClick={handleSyncGoogleSheets}
             disabled={syncingGoogleSheets}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-black bg-white hover:bg-zinc-200 text-black shadow-md transition-all active:scale-95 disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncingGoogleSheets ? 'animate-spin' : ''}`} />
             {syncingGoogleSheets ? 'Syncing...' : 'Sync to Google Sheets Now'}
@@ -165,8 +165,8 @@ export const ReportingExport: React.FC = () => {
         </div>
 
         {syncMessage && (
-          <div className="mt-4 p-3 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-emerald-500/30 text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="mt-4 p-3 rounded-2xl bg-black/60 border border-zinc-800 text-xs text-zinc-300 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
             <span>{syncMessage}</span>
           </div>
         )}
@@ -175,15 +175,15 @@ export const ReportingExport: React.FC = () => {
       {/* Direct Export Cards */}
       <div className="max-w-xl">
         {/* Multi-Tab Excel Workbook */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-5 shadow-sm flex flex-col justify-between">
+        <div className="bg-zinc-900 rounded-3xl border border-zinc-800 p-6 shadow-xl flex flex-col justify-between">
           <div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center mb-3">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-white">
               Full Excel Workbook (XLS)
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-zinc-400 mt-1">
               Multi-tab spreadsheet with both Deliverables and Publishing Logs formatted for Excel and Numbers.
             </p>
           </div>
@@ -191,7 +191,7 @@ export const ReportingExport: React.FC = () => {
           <button
             onClick={handleExportExcelXML}
             disabled={exporting !== null}
-            className="mt-6 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm"
+            className="mt-6 w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-xs font-black bg-white hover:bg-zinc-200 text-black transition-all shadow-md active:scale-95"
           >
             <Download className="w-3.5 h-3.5" />
             {exporting === 'excel' ? 'Generating...' : 'Download Excel'}

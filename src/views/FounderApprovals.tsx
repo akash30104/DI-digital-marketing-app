@@ -299,7 +299,7 @@ export const FounderApprovals: React.FC = () => {
       {/* Floating Toast Notice */}
       {toastMessage && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-full bg-zinc-900 text-white text-xs font-bold shadow-2xl border border-zinc-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

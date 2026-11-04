@@ -537,7 +537,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-slate-900 dark:text-zinc-100 text-base">
+                  <h4 className="font-bold text-white text-base">
                     {task.title}
                   </h4>
                   {task.recording_title && (
@@ -871,8 +871,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
       {/* Floating Toast Notice */}
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-bold shadow-xl border border-slate-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-zinc-900 text-white text-xs font-bold shadow-xl border border-zinc-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+          <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

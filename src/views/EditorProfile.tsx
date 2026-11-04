@@ -84,8 +84,8 @@ export const EditorProfile: React.FC = () => {
                 {currentUser?.email}
               </p>
               <div className="flex items-center gap-2 mt-2">
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-300">
+                  <span className="w-2 h-2 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
                   Active Team Member
                 </span>
               </div>
@@ -94,7 +94,7 @@ export const EditorProfile: React.FC = () => {
 
           <button
             onClick={() => signOut()}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-rose-400 border border-zinc-700 transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Sign Out
@@ -197,7 +197,7 @@ export const EditorProfile: React.FC = () => {
           <p className="text-[11px] text-zinc-500">Official Video Editor Portal &bull; v1.0.0</p>
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-semibold text-[11px]">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <ShieldCheck className="w-3.5 h-3.5 text-white" />
           Connected
         </div>
       </div>

@@ -106,7 +106,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-white selection:text-black">
-      <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
+      <Navbar />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">
         {renderActiveScreen()}

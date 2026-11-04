@@ -92,7 +92,7 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ isOpen, on
             >
               {isSaved ? (
                 <>
-                  <Check className="w-4 h-4 text-emerald-600" />
+                  <Check className="w-4 h-4 text-black" />
                   <span>Saved!</span>
                 </>
               ) : (

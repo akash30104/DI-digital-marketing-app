@@ -526,7 +526,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             title="YouTube Shorts"
             count={displayShorts}
             target={summary?.targets.youtube_shorts ?? 4}
-            icon={<PlaySquare className="w-5 h-5 text-red-500" />}
+            icon={<PlaySquare className="w-5 h-5 text-white" />}
             colorClass="bg-zinc-800 text-zinc-200"
             onClick={() => {
               setSelectedChannelFilter('youtube_shorts');
@@ -538,7 +538,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             title="Instagram Reels"
             count={displayReels}
             target={summary?.targets.instagram_reels ?? 4}
-            icon={<Camera className="w-5 h-5 text-pink-500" />}
+            icon={<Camera className="w-5 h-5 text-white" />}
             colorClass="bg-zinc-800 text-zinc-200"
             onClick={() => {
               setSelectedChannelFilter('instagram_reels');
@@ -591,7 +591,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
               Live Video Editing Progress
             </h3>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-200">
               {activeEditingTasks.length} Active Cuts
             </span>
           </div>
@@ -738,16 +738,16 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           <StatCard
             title="Changes Requested"
             count={summary?.pipeline.changes_requested ?? 0}
-            icon={<RotateCcw className="w-5 h-5 text-rose-400" />}
-            colorClass="bg-rose-500/10 text-rose-400"
+            icon={<RotateCcw className="w-5 h-5 text-zinc-300" />}
+            colorClass="bg-zinc-800 text-zinc-200"
             onClick={() => onNavigateTab?.('production')}
           />
 
           <StatCard
             title="Ready to Publish"
             count={summary?.pipeline.ready_to_publish ?? 0}
-            icon={<Send className="w-5 h-5 text-emerald-400" />}
-            colorClass="bg-emerald-500/10 text-emerald-400"
+            icon={<Send className="w-5 h-5 text-white" />}
+            colorClass="bg-zinc-800 text-zinc-200"
           />
         </div>
       </div>
@@ -920,11 +920,11 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
         const channelTabs = [
           { id: 'all', label: 'All Channels', icon: <Layers className="w-3.5 h-3.5" /> },
-          { id: 'youtube_shorts', label: 'YouTube Shorts', icon: <PlaySquare className="w-3.5 h-3.5 text-red-500" /> },
-          { id: 'instagram_reels', label: 'Instagram Reels', icon: <Camera className="w-3.5 h-3.5 text-pink-500" /> },
-          { id: 'youtube_full', label: 'YouTube Full', icon: <Tv className="w-3.5 h-3.5 text-blue-500" /> },
-          { id: 'facebook', label: 'Facebook', icon: <Share2 className="w-3.5 h-3.5 text-blue-600" /> },
-          { id: 'x', label: 'X (Twitter)', icon: <Share2 className="w-3.5 h-3.5 text-slate-500" /> }
+          { id: 'youtube_shorts', label: 'YouTube Shorts', icon: <PlaySquare className="w-3.5 h-3.5 text-zinc-300" /> },
+          { id: 'instagram_reels', label: 'Instagram Reels', icon: <Camera className="w-3.5 h-3.5 text-zinc-300" /> },
+          { id: 'youtube_full', label: 'YouTube Full', icon: <Tv className="w-3.5 h-3.5 text-zinc-300" /> },
+          { id: 'facebook', label: 'Facebook', icon: <Share2 className="w-3.5 h-3.5 text-zinc-300" /> },
+          { id: 'x', label: 'X (Twitter)', icon: <Share2 className="w-3.5 h-3.5 text-zinc-300" /> }
         ];
 
         const renderPostCard = (log: PublishingLog, isToday = false) => {
@@ -1136,8 +1136,8 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
       {/* Floating Toast Notice */}
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-bold shadow-xl border border-slate-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-zinc-900 text-white text-xs font-bold shadow-xl border border-zinc-700 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+          <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

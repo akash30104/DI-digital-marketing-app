@@ -205,41 +205,20 @@ export const RecordingRegistration: React.FC = () => {
 
   const getSharingBadge = (method: string) => {
     const lower = method.toLowerCase();
+    let icon = <Folder className="w-3 h-3 text-zinc-300" />;
     if (lower.includes('airdrop')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400">
-          <Smartphone className="w-3 h-3" />
-          <span>{method}</span>
-        </span>
-      );
+      icon = <Smartphone className="w-3 h-3 text-zinc-300" />;
+    } else if (lower.includes('hard') || lower.includes('disk') || lower.includes('ssd') || lower.includes('drive')) {
+      icon = <HardDrive className="w-3 h-3 text-zinc-300" />;
+    } else if (lower.includes('cloud') || lower.includes('google') || lower.includes('link')) {
+      icon = <Cloud className="w-3 h-3 text-zinc-300" />;
+    } else if (lower.includes('usb') || lower.includes('pen')) {
+      icon = <Usb className="w-3 h-3 text-zinc-300" />;
     }
-    if (lower.includes('hard') || lower.includes('disk') || lower.includes('ssd') || lower.includes('drive')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
-          <HardDrive className="w-3 h-3" />
-          <span>{method}</span>
-        </span>
-      );
-    }
-    if (lower.includes('cloud') || lower.includes('google') || lower.includes('link')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400">
-          <Cloud className="w-3 h-3" />
-          <span>{method}</span>
-        </span>
-      );
-    }
-    if (lower.includes('usb') || lower.includes('pen')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-          <Usb className="w-3 h-3" />
-          <span>{method}</span>
-        </span>
-      );
-    }
+
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/15 text-slate-600 dark:text-slate-300">
-        <Folder className="w-3 h-3" />
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-200">
+        {icon}
         <span>{method}</span>
       </span>
     );
@@ -250,10 +229,10 @@ export const RecordingRegistration: React.FC = () => {
       {/* Top Header & One Simple CTA Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-2xl font-black text-white tracking-tight">
             Footage Sharing Hub
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-zinc-400 mt-0.5">
             Share raw video files to your video editor (AirDrop, Hard Disk, Drive) and generate cuts.
           </p>
         </div>
@@ -261,7 +240,7 @@ export const RecordingRegistration: React.FC = () => {
         {/* ONE CTA BUTTON TO SHARE FOOTAGE */}
         <button
           onClick={openShareModal}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black shadow-lg shadow-blue-500/25 active:scale-95 transition-all self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-black shadow-md active:scale-95 transition-all self-start sm:self-auto"
         >
           <Share2 className="w-4 h-4" />
           <span>Share Footage to Editor</span>
@@ -270,32 +249,28 @@ export const RecordingRegistration: React.FC = () => {
 
       {/* Floating Status Notification */}
       {statusMessage && (
-        <div className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-md animate-in slide-in-from-top duration-200 ${
-          statusMessage.type === 'success'
-            ? 'bg-emerald-600 text-white'
-            : 'bg-rose-600 text-white'
-        }`}>
+        <div className="p-4 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-md bg-zinc-800 border border-zinc-700 text-white animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2">
-            {statusMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+            {statusMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-white shrink-0" /> : <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0" />}
             <span className="font-bold">{statusMessage.text}</span>
           </div>
-          <button onClick={() => setStatusMessage(null)} className="p-1 text-white/80 hover:text-white">
+          <button onClick={() => setStatusMessage(null)} className="p-1 text-zinc-400 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
       {/* QUICK SUMMARY BANNER */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent border border-blue-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center shrink-0">
             <Film className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-bold text-slate-900 dark:text-white text-xs">
+            <h4 className="font-bold text-white text-xs">
               Footage Transferred to Editors
             </h4>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] text-zinc-400">
               {recordings.length} Raw {recordings.length === 1 ? 'Shoot' : 'Shoots'} registered across AirDrop, Hard Disks, and Cloud.
             </p>
           </div>
@@ -303,7 +278,7 @@ export const RecordingRegistration: React.FC = () => {
 
         <button
           onClick={openShareModal}
-          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 self-start sm:self-auto"
+          className="text-xs font-bold text-white hover:underline flex items-center gap-1 self-start sm:self-auto"
         >
           <span>+ New Share</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -313,28 +288,28 @@ export const RecordingRegistration: React.FC = () => {
       {/* LIST OF FOOTAGE SHARED TO EDITORS */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
             Shared Footage History ({recordings.length})
           </h3>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-[11px] text-zinc-500">
             Real-time delivery & task status
           </span>
         </div>
 
         {isLoading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">Loading shared footage...</div>
+          <div className="p-12 text-center text-zinc-500 text-xs">Loading shared footage...</div>
         ) : recordings.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
-            <Share2 className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
+          <div className="p-12 text-center rounded-3xl bg-zinc-900 border border-zinc-800 space-y-3">
+            <Share2 className="w-10 h-10 text-zinc-600 mx-auto" />
             <div>
-              <p className="font-bold text-slate-900 dark:text-white text-sm">No footage shared yet</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                Got a new shoot or podcast recording? Click "Share Footage to Editor" above to notify your editors how it was shared (AirDrop, Hard Disk, etc.).
+              <p className="font-bold text-white text-sm">No footage shared yet</p>
+              <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
+                Got a new shoot or podcast recording? Click &quot;Share Footage to Editor&quot; above to notify your editors how it was shared (AirDrop, Hard Disk, etc.).
               </p>
             </div>
             <button
               onClick={openShareModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-black transition-all shadow-md"
             >
               <Plus className="w-4 h-4" />
               <span>Share Footage to Editor</span>
@@ -353,14 +328,14 @@ export const RecordingRegistration: React.FC = () => {
               return (
                 <div
                   key={rec.id}
-                  className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3"
+                  className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-sm hover:border-zinc-700 transition-all space-y-3"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                      <h4 className="font-bold text-white text-sm">
                         {rec.title}
                       </h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
                         Shared on {rec.recording_date}
                       </p>
                     </div>
@@ -370,29 +345,29 @@ export const RecordingRegistration: React.FC = () => {
                   </div>
 
                   {/* Transfer Details / Location */}
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-xs">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                  <div className="p-2.5 rounded-xl bg-black/60 border border-zinc-800 text-xs">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-0.5">
                       How Editor Accesses It:
                     </span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                    <span className="font-medium text-zinc-200">
                       {rec.folder_path || rec.hard_disk_name}
                     </span>
                   </div>
 
                   {/* Generated Cuts & Progress Bar */}
-                  <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                  <div className="space-y-1.5 pt-1 border-t border-zinc-800">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">
+                      <span className="text-zinc-400 font-medium text-[11px]">
                         {reels.length} Reels {fullVideo ? '+ 1 Full Video' : ''}
                       </span>
-                      <span className="font-bold text-blue-600 dark:text-blue-400 text-[11px]">
+                      <span className="font-bold text-white text-[11px] bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
                         {avgProgress}% Done
                       </span>
                     </div>
 
-                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                        className="bg-white h-full rounded-full transition-all duration-300"
                         style={{ width: `${avgProgress}%` }}
                       />
                     </div>
@@ -406,19 +381,19 @@ export const RecordingRegistration: React.FC = () => {
 
       {/* SIMPLE SHARE FOOTAGE MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-800 overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+            <div className="flex items-center justify-between p-5 border-b border-zinc-800 bg-zinc-900/50">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center">
                   <Share2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 dark:text-white text-base">
+                  <h3 className="font-black text-white text-base">
                     Share Footage to Editor
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-zinc-400">
                     Notify your editing team how raw files were sent.
                   </p>
                 </div>
@@ -426,7 +401,7 @@ export const RecordingRegistration: React.FC = () => {
 
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -436,7 +411,7 @@ export const RecordingRegistration: React.FC = () => {
             <form onSubmit={handleShareToEditor} className="p-5 space-y-4">
               {/* 1. Footage Title */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Footage / Shoot Title *
                 </label>
                 <input
@@ -445,15 +420,15 @@ export const RecordingRegistration: React.FC = () => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Ep 45 — AI Scaling Laws Podcast"
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               {/* 2. HOW DID YOU SHARE IT? (AirDrop, Hard Disk, etc.) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
                   <span>How did you share it with the editor? *</span>
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Type or Tap</span>
+                  <span className="text-[10px] text-zinc-400 font-bold">Type or Tap</span>
                 </label>
 
                 {/* Quick Selection Chips */}
@@ -468,8 +443,8 @@ export const RecordingRegistration: React.FC = () => {
                       }}
                       className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left ${
                         howShared === item.label
-                          ? 'border-blue-600 bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500/20'
-                          : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                          ? 'border-white bg-white text-black shadow-sm'
+                          : 'border-zinc-800 bg-zinc-800/60 hover:bg-zinc-800 text-zinc-300'
                       }`}
                     >
                       {item.icon}
@@ -485,13 +460,13 @@ export const RecordingRegistration: React.FC = () => {
                   value={howShared}
                   onChange={(e) => setHowShared(e.target.value)}
                   placeholder="Type like AirDrop, Hard Disk, SSD, etc."
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               {/* 3. Where / Details (Optional) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
                   Location / Details for Editor (optional)
                 </label>
                 <input
@@ -499,20 +474,20 @@ export const RecordingRegistration: React.FC = () => {
                   value={locationDetails}
                   onChange={(e) => setLocationDetails(e.target.value)}
                   placeholder="e.g. AirDropped to Downloads folder, or Drive link"
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               {/* 4. Assign to Editor */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
                   <span>Assign to Video Editor</span>
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Direct Task Assignment</span>
+                  <span className="text-[10px] text-zinc-400 font-bold">Direct Task Assignment</span>
                 </label>
                 <select
                   value={selectedEditorId}
                   onChange={(e) => setSelectedEditorId(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
                 >
                   <option value="">Unassigned (Any editor can accept)</option>
                   {editors.map((ed) => (
@@ -521,62 +496,62 @@ export const RecordingRegistration: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  The assigned editor will receive these tasks and can click "Accept Task" to begin editing.
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  The assigned editor will receive these tasks and can click &quot;Accept Task&quot; to begin editing.
                 </p>
               </div>
 
               {/* 5. Cuts to Generate */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="p-3.5 rounded-2xl bg-black/60 border border-zinc-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                  <span className="text-xs font-bold text-white">
                     Reels / Shorts to Create:
                   </span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setReelsCount(Math.max(0, reelsCount - 1))}
-                      className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 font-bold flex items-center justify-center text-xs"
+                      className="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold flex items-center justify-center text-xs"
                     >
                       -
                     </button>
-                    <span className="w-6 text-center font-bold text-xs">{reelsCount}</span>
+                    <span className="w-6 text-center font-bold text-xs text-white">{reelsCount}</span>
                     <button
                       type="button"
                       onClick={() => setReelsCount(reelsCount + 1)}
-                      className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 font-bold flex items-center justify-center text-xs"
+                      className="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold flex items-center justify-center text-xs"
                     >
                       +
                     </button>
                   </div>
                 </div>
 
-                <label className="flex items-center justify-between cursor-pointer pt-2 border-t border-slate-200/60 dark:border-slate-800">
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                <label className="flex items-center justify-between cursor-pointer pt-2 border-t border-zinc-800">
+                  <span className="text-xs font-medium text-zinc-300">
                     Include Full Episode Video
                   </span>
                   <input
                     type="checkbox"
                     checked={includeFullVideo}
                     onChange={(e) => setIncludeFullVideo(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                    className="w-4 h-4 rounded text-black bg-zinc-800 border-zinc-700 focus:ring-zinc-400"
                   />
                 </label>
               </div>
 
               {/* ONE FINAL CTA BUTTON */}
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl transition-colors"
+                  className="px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 rounded-xl transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50 active:scale-95"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-white hover:bg-zinc-200 text-black rounded-full text-xs font-black shadow-md transition-all disabled:opacity-50 active:scale-95"
                 >
                   <Share2 className="w-4 h-4" />
                   <span>{isSubmitting ? 'Sharing...' : 'Share to Editor'}</span>

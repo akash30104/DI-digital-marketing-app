@@ -100,18 +100,18 @@ export const EditorFeedback: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <MessageSquare className="w-6 h-6 text-rose-500" />
+          <h1 className="text-2xl font-black text-white flex items-center gap-2">
+            <MessageSquare className="w-6 h-6 text-white" />
             Founder Feedback & Corrections
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-zinc-400">
             Review notes from the founder on videos requiring corrections before final approval
           </p>
         </div>
 
         <button
           onClick={() => { setRefreshing(true); fetchFeedbackItems(); }}
-          className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 shadow-sm"
+          className="self-start sm:self-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-colors"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
@@ -121,14 +121,14 @@ export const EditorFeedback: React.FC = () => {
       {/* List */}
       {loading ? (
         <div className="py-20 text-center">
-          <div className="animate-spin w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full mx-auto" />
-          <p className="mt-3 text-xs text-slate-500">Checking for founder revisions...</p>
+          <div className="animate-spin w-8 h-8 border-4 border-zinc-600 border-t-white rounded-full mx-auto" />
+          <p className="mt-3 text-xs text-zinc-500">Checking for founder revisions...</p>
         </div>
       ) : items.length === 0 ? (
-        <div className="py-16 text-center bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-8">
-          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">No revisions requested!</h3>
-          <p className="text-xs text-slate-400 mt-1">
+        <div className="py-16 text-center bg-zinc-900 rounded-3xl border border-dashed border-zinc-800 p-8">
+          <CheckCircle2 className="w-10 h-10 text-white mx-auto mb-2" />
+          <h3 className="text-sm font-bold text-white">No revisions requested!</h3>
+          <p className="text-xs text-zinc-400 mt-1">
             All your submitted videos are either approved or in regular progress. Great job!
           </p>
         </div>
@@ -137,20 +137,20 @@ export const EditorFeedback: React.FC = () => {
           {items.map(item => (
             <div
               key={item.id}
-              className="bg-white dark:bg-slate-800 rounded-2xl border border-rose-200/80 dark:border-rose-900/60 p-5 shadow-sm"
+              className="bg-zinc-900 rounded-3xl border border-zinc-800 p-5 shadow-sm"
             >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-200">
                       Changes Requested
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-zinc-400">
                       {item.recording_title} {item.episode_number ? `(Ep #${item.episode_number})` : ''}
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-bold text-white">
                     {item.title}
                   </h3>
                 </div>
@@ -158,7 +158,7 @@ export const EditorFeedback: React.FC = () => {
                 <div className="flex items-center gap-2 self-start">
                   <button
                     onClick={() => handleStartWork(item)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors"
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
                   >
                     Start Working
                   </button>
@@ -177,9 +177,9 @@ export const EditorFeedback: React.FC = () => {
               </div>
 
               {/* Founder Note Callout */}
-              <div className="mt-4 p-4 rounded-2xl bg-zinc-800/80 border border-rose-900/40">
-                <div className="text-xs font-bold text-rose-300 flex items-center gap-1.5 mb-1">
-                  <AlertCircle className="w-4 h-4 text-rose-400" />
+              <div className="mt-4 p-4 rounded-2xl bg-black/60 border border-zinc-800">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                  <AlertCircle className="w-4 h-4 text-zinc-300" />
                   Founder's Revision Notes:
                 </div>
                 <p className="text-xs text-zinc-300 whitespace-pre-wrap">

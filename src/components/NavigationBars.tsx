@@ -1,21 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ServerConfigModal } from './ServerConfigModal';
 import { 
-  Crown, Film, Megaphone, Settings, LogOut, Moon, Sun, 
+  Crown, Film, Megaphone, LogOut, 
   BarChart3, LayoutGrid, CheckCheck, Send, MoreHorizontal, 
   CheckSquare, HardDrive, MessageSquare, User, PlusCircle, 
   CheckCircle, History, ListTodo 
 } from 'lucide-react';
 
 interface NavbarProps {
-  darkMode: boolean;
-  setDarkMode: (val: boolean) => void;
+  darkMode?: boolean;
+  setDarkMode?: (val: boolean) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
+export const Navbar: React.FC<NavbarProps> = () => {
   const { currentUser, role, signOut } = useAuth();
-  const [showConfig, setShowConfig] = useState(false);
 
   const getRoleInfo = () => {
     switch (role) {
@@ -55,24 +53,6 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-xl text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
-              title="Toggle Theme"
-            >
-              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            <button
-              onClick={() => setShowConfig(true)}
-              className="p-2 rounded-xl text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
-              title="Supabase Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-
-            <div className="h-4 w-px bg-zinc-800 mx-1 hidden sm:block" />
-
             <div className="hidden sm:flex items-center gap-2 pl-1">
               <div className="text-right">
                 <div className="text-xs font-bold text-zinc-200 truncate max-w-[120px]">
@@ -86,7 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
 
             <button
               onClick={() => signOut()}
-              className="p-2 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-1"
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors ml-1"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />
@@ -94,8 +74,6 @@ export const Navbar: React.FC<NavbarProps> = ({ darkMode, setDarkMode }) => {
           </div>
         </div>
       </header>
-
-      <ServerConfigModal isOpen={showConfig} onClose={() => setShowConfig(false)} />
     </>
   );
 };
@@ -136,7 +114,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
   const tabs = getTabs();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-black/95 backdrop-blur-xl border-t border-zinc-800/80 pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-black/95 backdrop-blur-xl border-t border-zinc-800 pb-safe">
       <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-around">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -144,17 +122,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all relative ${
+              className={`flex flex-col items-center justify-center flex-1 py-1.5 transition-all ${
                 isActive
-                  ? 'text-white font-black scale-105'
-                  : 'text-zinc-500 hover:text-zinc-300 font-medium'
+                  ? 'text-white'
+                  : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              {tab.icon}
-              <span className="text-[10px] mt-1 tracking-tight">{tab.label}</span>
-              {isActive && (
-                <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]" />
-              )}
+              <div className={`p-1.5 rounded-xl transition-all ${isActive ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500'}`}>
+                {tab.icon}
+              </div>
+              <span className={`text-[10px] mt-1 tracking-tight ${isActive ? 'font-bold text-white' : 'font-medium text-zinc-500'}`}>
+                {tab.label}
+              </span>
             </button>
           );
         })}
