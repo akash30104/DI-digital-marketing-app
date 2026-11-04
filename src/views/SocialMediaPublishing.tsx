@@ -18,9 +18,11 @@ import {
   filterDeliverables, filterPublishingLogs, 
   purgeAllPublishingHistory, deleteSinglePublishingLog 
 } from '../lib/deletionFilter';
+import { fetchDailyTargets, getCachedTargets, TargetConfig } from '../lib/targets';
 
 export const SocialMediaPublishing: React.FC = () => {
   const { currentUser } = useAuth();
+  const [targets, setTargets] = useState<TargetConfig>(getCachedTargets());
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [allRecentDeliverables, setAllRecentDeliverables] = useState<Deliverable[]>([]);
   const [publishedToday, setPublishedToday] = useState<PublishingLog[]>([]);
@@ -57,6 +59,14 @@ export const SocialMediaPublishing: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      // 0. Fetch Synced Daily Targets
+      try {
+        const syncedTargets = await fetchDailyTargets();
+        setTargets(syncedTargets);
+      } catch (err) {
+        console.warn('Error fetching daily targets in publishing hub:', err);
+      }
+
       // 1. Fetch Approved & Ready Deliverables for Publishing
       const { data: dels } = await supabase
         .from('deliverables')
@@ -111,16 +121,31 @@ export const SocialMediaPublishing: React.FC = () => {
   useEffect(() => {
     loadData();
 
-    // Subscribe to realtime updates on publishing_logs
+    // Subscribe to realtime updates on publishing_logs, daily_targets, and profiles
     const sub = supabase
       .channel('publishing-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'publishing_logs' }, () => {
         loadData();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_targets' }, async () => {
+        const t = await fetchDailyTargets();
+        setTargets(t);
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
+        const t = await fetchDailyTargets();
+        setTargets(t);
+      })
       .subscribe();
+
+    const handleStorage = () => {
+      setTargets(getCachedTargets());
+    };
+    window.addEventListener('storage', handleStorage);
 
     return () => {
       supabase.removeChannel(sub);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
@@ -435,7 +460,7 @@ export const SocialMediaPublishing: React.FC = () => {
                 <PlaySquare className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-lg font-black text-white">{ytShortsCount}</span>
+                <span className="text-lg font-black text-white">{ytShortsCount} / {targets.shorts}</span>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">YT Shorts</p>
               </div>
             </div>
@@ -445,7 +470,7 @@ export const SocialMediaPublishing: React.FC = () => {
                 <Camera className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-lg font-black text-white">{igReelsCount}</span>
+                <span className="text-lg font-black text-white">{igReelsCount} / {targets.reels}</span>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">IG Reels</p>
               </div>
             </div>
@@ -455,7 +480,7 @@ export const SocialMediaPublishing: React.FC = () => {
                 <Tv className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-lg font-black text-white">{ytFullCount}</span>
+                <span className="text-lg font-black text-white">{ytFullCount} / {targets.full}</span>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">YT Full</p>
               </div>
             </div>
@@ -465,7 +490,7 @@ export const SocialMediaPublishing: React.FC = () => {
                 <Send className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-lg font-black text-white">{fbCount}</span>
+                <span className="text-lg font-black text-white">{fbCount} / {targets.fb}</span>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Facebook</p>
               </div>
             </div>
@@ -475,7 +500,7 @@ export const SocialMediaPublishing: React.FC = () => {
                 <span className="font-black text-base text-zinc-200">𝕏</span>
               </div>
               <div>
-                <span className="text-lg font-black text-white">{xCount}</span>
+                <span className="text-lg font-black text-white">{xCount} / {targets.x}</span>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">X (Twitter)</p>
               </div>
             </div>

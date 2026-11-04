@@ -30,3 +30,20 @@ CREATE POLICY "Founders can delete profiles"
     ON public.profiles FOR DELETE
     TO authenticated
     USING (public.is_founder() AND id != auth.uid());
+
+-- 5. Add facebook_target and x_target columns if missing
+ALTER TABLE public.daily_targets ADD COLUMN IF NOT EXISTS facebook_target integer DEFAULT 4;
+ALTER TABLE public.daily_targets ADD COLUMN IF NOT EXISTS x_target integer DEFAULT 4;
+
+-- 6. Ensure all authenticated users (including SMM and Editors) can read and save daily_targets
+DROP POLICY IF EXISTS "Anyone authenticated can read daily_targets" ON public.daily_targets;
+CREATE POLICY "Anyone authenticated can read daily_targets"
+    ON public.daily_targets FOR SELECT
+    TO authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Founders and SMM can upsert daily_targets" ON public.daily_targets;
+CREATE POLICY "Founders and SMM can upsert daily_targets"
+    ON public.daily_targets FOR ALL
+    TO authenticated
+    USING (public.is_founder() OR public.is_social_media_manager());

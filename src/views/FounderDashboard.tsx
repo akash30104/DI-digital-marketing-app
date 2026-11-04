@@ -17,6 +17,7 @@ import {
   filterDeliverables, filterPublishingLogs, deleteSingleDeliverable, 
   purgeAllDeliverables, deleteSinglePublishingLog 
 } from '../lib/deletionFilter';
+import { fetchDailyTargets, getCachedTargets, TargetConfig } from '../lib/targets';
 
 // Video embed and format helpers
 const getYouTubeEmbedUrl = (url?: string): string | null => {
@@ -81,6 +82,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
   const { currentUser, role } = useAuth();
   const isManager = role === 'social_media_manager';
 
+  const [targets, setTargets] = useState<TargetConfig>(getCachedTargets());
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [todayPublishedLogs, setTodayPublishedLogs] = useState<PublishingLog[]>([]);
   const [weekPublishedLogs, setWeekPublishedLogs] = useState<PublishingLog[]>([]);
@@ -114,7 +116,15 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
     const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
     try {
-      // 1. Fetch Daily Summary RPC
+      // 1. Fetch Latest Targets (Synced across Founder and Social Media Manager)
+      try {
+        const syncedTargets = await fetchDailyTargets();
+        setTargets(syncedTargets);
+      } catch (err) {
+        console.warn('Could not sync daily targets:', err);
+      }
+
+      // 2. Fetch Daily Summary RPC
       const { data: summaryData, error: summaryErr } = await supabase.rpc('get_daily_summary', {
         p_query_date: todayStr
       });
@@ -128,25 +138,6 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           targets: { youtube_shorts: 4, youtube_full: 1, instagram_reels: 4, other: 0, total: 9 },
           pipeline: { in_editing: 0, pending_approval: 0, changes_requested: 0, ready_to_publish: 0, overdue_tasks: 0 }
         });
-      }
-
-      // Fetch custom daily targets for today if available
-      try {
-        const { data: targetRecord } = await supabase
-          .from('daily_targets')
-          .select('*')
-          .eq('target_date', todayStr)
-          .maybeSingle();
-
-        if (targetRecord) {
-          if (targetRecord.youtube_shorts_target) localStorage.setItem('DAILY_TARGET_SHORTS', String(targetRecord.youtube_shorts_target));
-          if (targetRecord.instagram_reels_target) localStorage.setItem('DAILY_TARGET_REELS', String(targetRecord.instagram_reels_target));
-          if (targetRecord.youtube_full_target) localStorage.setItem('DAILY_TARGET_FULL', String(targetRecord.youtube_full_target));
-          if ((targetRecord as any).facebook_target) localStorage.setItem('DAILY_TARGET_FB', String((targetRecord as any).facebook_target));
-          if ((targetRecord as any).x_target) localStorage.setItem('DAILY_TARGET_X', String((targetRecord as any).x_target));
-        }
-      } catch (err) {
-        console.warn('Could not load daily_targets table:', err);
       }
 
       // 2. Fetch Publishing Logs for Streak & Today's Proofs
@@ -433,15 +424,30 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
   useEffect(() => {
     loadData();
 
-    // Subscribe to Realtime updates on publishing and deliverables
+    // Subscribe to Realtime updates on publishing, deliverables, daily_targets, and profiles
     const channel = supabase
       .channel('dashboard-realtime-feed')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'publishing_logs' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_targets' }, async () => {
+        const t = await fetchDailyTargets();
+        setTargets(t);
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
+        const t = await fetchDailyTargets();
+        setTargets(t);
+      })
       .subscribe();
+
+    const handleStorage = () => {
+      setTargets(getCachedTargets());
+    };
+    window.addEventListener('storage', handleStorage);
 
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
@@ -463,11 +469,11 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
   const displayReels = Math.max(summary?.published.instagram_reels ?? 0, todayReels);
   const displayFull = Math.max(summary?.published.youtube_full ?? 0, todayFull);
 
-  const targetShorts = Number(localStorage.getItem('DAILY_TARGET_SHORTS')) || (summary?.targets.youtube_shorts ?? 4);
-  const targetReels = Number(localStorage.getItem('DAILY_TARGET_REELS')) || (summary?.targets.instagram_reels ?? 4);
-  const targetFull = Number(localStorage.getItem('DAILY_TARGET_FULL')) || (summary?.targets.youtube_full ?? 1);
-  const targetFb = Number(localStorage.getItem('DAILY_TARGET_FB')) || 2;
-  const targetX = Number(localStorage.getItem('DAILY_TARGET_X')) || 2;
+  const targetShorts = targets.shorts;
+  const targetReels = targets.reels;
+  const targetFull = targets.full;
+  const targetFb = targets.fb;
+  const targetX = targets.x;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-16">

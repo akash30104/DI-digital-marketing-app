@@ -9,6 +9,7 @@ import {
 import { 
   purgeAllDeliverables, purgeAllRecordings, purgeAllPublishingHistory 
 } from '../lib/deletionFilter';
+import { fetchDailyTargets, saveDailyTargets } from '../lib/targets';
 
 export const FounderMore: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'targets' | 'team' | 'exports' | 'cleanup'>('targets');
@@ -30,41 +31,12 @@ export const FounderMore: React.FC = () => {
   // Fetch current targets
   const fetchTargets = async () => {
     try {
-      // Load any locally saved targets first
-      const savedFb = localStorage.getItem('DAILY_TARGET_FB');
-      const savedX = localStorage.getItem('DAILY_TARGET_X');
-      const savedShorts = localStorage.getItem('DAILY_TARGET_SHORTS');
-      const savedReels = localStorage.getItem('DAILY_TARGET_REELS');
-      const savedFull = localStorage.getItem('DAILY_TARGET_FULL');
-
-      if (savedFb) setFbTarget(parseInt(savedFb) || 2);
-      if (savedX) setXTarget(parseInt(savedX) || 2);
-      if (savedShorts) setShortsTarget(parseInt(savedShorts) || 3);
-      if (savedReels) setReelsTarget(parseInt(savedReels) || 3);
-      if (savedFull) setFullTarget(parseInt(savedFull) || 1);
-
-      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-      const { data } = await supabase
-        .from('daily_targets')
-        .select('*')
-        .eq('target_date', todayStr)
-        .maybeSingle();
-
-      if (data) {
-        if (data.youtube_shorts_target !== undefined && data.youtube_shorts_target !== null) setShortsTarget(data.youtube_shorts_target);
-        if (data.youtube_full_target !== undefined && data.youtube_full_target !== null) setFullTarget(data.youtube_full_target);
-        if (data.instagram_reels_target !== undefined && data.instagram_reels_target !== null) setReelsTarget(data.instagram_reels_target);
-        if ((data as any).facebook_target !== undefined && (data as any).facebook_target !== null) {
-          setFbTarget((data as any).facebook_target);
-        } else if (!savedFb && data.other_target) {
-          setFbTarget(Math.ceil(data.other_target / 2));
-        }
-        if ((data as any).x_target !== undefined && (data as any).x_target !== null) {
-          setXTarget((data as any).x_target);
-        } else if (!savedX && data.other_target) {
-          setXTarget(Math.floor(data.other_target / 2));
-        }
-      }
+      const t = await fetchDailyTargets();
+      setShortsTarget(t.shorts);
+      setReelsTarget(t.reels);
+      setFullTarget(t.full);
+      setFbTarget(t.fb);
+      setXTarget(t.x);
     } catch (err) {
       console.error('Failed to fetch targets:', err);
     }
@@ -75,26 +47,14 @@ export const FounderMore: React.FC = () => {
     setSavingTargets(true);
     setTargetSuccess(false);
     try {
-      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-      
-      // Persist in localStorage
-      localStorage.setItem('DAILY_TARGET_FB', String(fbTarget));
-      localStorage.setItem('DAILY_TARGET_X', String(xTarget));
-      localStorage.setItem('DAILY_TARGET_SHORTS', String(shortsTarget));
-      localStorage.setItem('DAILY_TARGET_REELS', String(reelsTarget));
-      localStorage.setItem('DAILY_TARGET_FULL', String(fullTarget));
+      await saveDailyTargets({
+        shorts: Number(shortsTarget),
+        reels: Number(reelsTarget),
+        full: Number(fullTarget),
+        fb: Number(fbTarget),
+        x: Number(xTarget)
+      });
 
-      const { error } = await supabase
-        .from('daily_targets')
-        .upsert({
-          target_date: todayStr,
-          youtube_shorts_target: Number(shortsTarget),
-          youtube_full_target: Number(fullTarget),
-          instagram_reels_target: Number(reelsTarget),
-          other_target: Number(fbTarget) + Number(xTarget)
-        }, { onConflict: 'target_date' });
-
-      if (error) throw error;
       setTargetSuccess(true);
       setTimeout(() => setTargetSuccess(false), 3000);
     } catch (err: any) {
