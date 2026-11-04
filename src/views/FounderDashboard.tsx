@@ -671,10 +671,10 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             )}
 
             <button
-              onClick={() => onNavigateTab?.('production')}
+              onClick={() => onNavigateTab?.('approvals')}
               className="text-xs font-bold text-zinc-400 hover:text-white transition-colors flex items-center gap-1 group"
             >
-              <span>Production Board</span>
+              <span>Review Approvals</span>
               <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </button>
           </div>
@@ -832,7 +832,6 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             count={summary?.pipeline.in_editing ?? 0}
             icon={<Film className="w-5 h-5 text-zinc-300" />}
             colorClass="bg-white/5 text-zinc-300"
-            onClick={() => onNavigateTab?.('production')}
           />
 
           <StatCard
@@ -840,7 +839,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             count={summary?.pipeline.changes_requested ?? 0}
             icon={<RotateCcw className="w-5 h-5 text-zinc-300" />}
             colorClass="bg-zinc-800 text-zinc-200"
-            onClick={() => onNavigateTab?.('production')}
+            onClick={() => onNavigateTab?.('approvals')}
           />
 
           <StatCard

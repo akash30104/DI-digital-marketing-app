@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
-  FileSpreadsheet, Download, RefreshCw, AlertCircle, Share2
+  FileSpreadsheet, Download
 } from 'lucide-react';
 import { filterDeliverables, filterPublishingLogs } from '../lib/deletionFilter';
 
 export const ReportingExport: React.FC = () => {
   const [exporting, setExporting] = useState<string | null>(null);
-  const [syncingGoogleSheets, setSyncingGoogleSheets] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Helper to trigger browser file download
   const triggerDownload = (content: string, filename: string, mimeType: string) => {
@@ -104,28 +102,6 @@ export const ReportingExport: React.FC = () => {
       .replace(/'/g, '&apos;');
   };
 
-  // 4. Trigger Google Sheets Sync
-  const handleSyncGoogleSheets = async () => {
-    setSyncingGoogleSheets(true);
-    setSyncMessage(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { date: new Date().toISOString().split('T')[0] }
-      });
-
-      if (error) {
-        // If Edge Function isn't deployed yet, offer helpful guidance
-        setSyncMessage('Google Sheets Edge Function returned: ' + error.message + '. Tip: Use the direct CSV/Excel export buttons below for immediate reporting!');
-      } else {
-        setSyncMessage('Google Sheets successfully updated! Synced ' + (data?.syncedCount || 0) + ' records.');
-      }
-    } catch (err: any) {
-      setSyncMessage('Direct export ready: ' + err.message);
-    } finally {
-      setSyncingGoogleSheets(false);
-    }
-  };
-
   return (
     <div className="space-y-6 pb-20">
       <div>
@@ -136,41 +112,6 @@ export const ReportingExport: React.FC = () => {
         <p className="text-xs text-zinc-400">
           Generate clean, formatted spreadsheets for Google Sheets, Microsoft Excel, and offline audits
         </p>
-      </div>
-
-      {/* Cloud Sync Card */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-3 bg-zinc-800 border border-zinc-700 text-white rounded-2xl shrink-0">
-              <Share2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">
-                Google Sheets Automated Sync
-              </h2>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Pushes latest video counts, editor completions, and publication URLs to your master Google Sheet
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSyncGoogleSheets}
-            disabled={syncingGoogleSheets}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-black bg-white hover:bg-zinc-200 text-black shadow-md transition-all active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${syncingGoogleSheets ? 'animate-spin' : ''}`} />
-            {syncingGoogleSheets ? 'Syncing...' : 'Sync to Google Sheets Now'}
-          </button>
-        </div>
-
-        {syncMessage && (
-          <div className="mt-4 p-3 rounded-2xl bg-black/60 border border-zinc-800 text-xs text-zinc-300 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
-            <span>{syncMessage}</span>
-          </div>
-        )}
       </div>
 
       {/* Direct Export Cards */}

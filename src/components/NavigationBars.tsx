@@ -92,7 +92,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
         return [
           { id: 'dashboard', label: 'Overview', icon: <BarChart3 className="w-5 h-5" /> },
           { id: 'approvals', label: 'Approvals', icon: <CheckCheck className="w-5 h-5" /> },
-          { id: 'production', label: 'Production', icon: <LayoutGrid className="w-5 h-5" /> },
           { id: 'more', label: 'Settings', icon: <MoreHorizontal className="w-5 h-5" /> },
         ];
       case 'editor':
