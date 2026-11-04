@@ -24,6 +24,7 @@ interface RecordingWithDeliverables {
     editing_status: string;
     progress_percentage: number;
     assigned_editor_id?: string;
+    deadline?: string;
   }[];
 }
 
@@ -41,6 +42,11 @@ export const RecordingRegistration: React.FC = () => {
   const [locationDetails, setLocationDetails] = useState('');
   const [reelsCount, setReelsCount] = useState(3);
   const [includeFullVideo, setIncludeFullVideo] = useState(true);
+  const [deadline, setDeadline] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().split('T')[0];
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -128,6 +134,7 @@ export const RecordingRegistration: React.FC = () => {
     try {
       const finalMethod = howShared.trim();
       const finalLocation = locationDetails.trim() || `Transferred via ${finalMethod}`;
+      const finalDeadline = deadline.trim() || todayStr;
 
       // 1. Insert Recording
       const { data: recData, error: recError } = await supabase
@@ -139,7 +146,7 @@ export const RecordingRegistration: React.FC = () => {
             date_received: todayStr,
             hard_disk_name: finalMethod, // Stores 'AirDrop', 'Hard Disk', etc.
             folder_path: finalLocation,  // Stores location / notes
-            notes: `Shared to Editor via: ${finalMethod}. Details: ${finalLocation}`,
+            notes: `[Deadline: ${finalDeadline}] Shared to Editor via: ${finalMethod}. Details: ${finalLocation}`,
             registered_by: currentUser?.id
           }
         ])
@@ -160,6 +167,7 @@ export const RecordingRegistration: React.FC = () => {
           assigned_editor_id: selectedEditorId || null,
           editing_status: 'assigned',
           priority: 'medium',
+          deadline: finalDeadline,
           progress_percentage: 0
         });
       }
@@ -172,6 +180,7 @@ export const RecordingRegistration: React.FC = () => {
           assigned_editor_id: selectedEditorId || null,
           editing_status: 'assigned',
           priority: 'high',
+          deadline: finalDeadline,
           progress_percentage: 0
         });
       }
@@ -335,9 +344,21 @@ export const RecordingRegistration: React.FC = () => {
                       <h4 className="font-bold text-white text-sm">
                         {rec.title}
                       </h4>
-                      <p className="text-[11px] text-zinc-400 mt-0.5">
-                        Shared on {rec.recording_date}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-[11px] text-zinc-400">
+                          Shared: {rec.recording_date}
+                        </span>
+                        {(() => {
+                          const deadlineMatch = rec.notes?.match(/\[Deadline:\s*([^\]]+)\]/i)?.[1] || deliverablesList.find((d: any) => d.deadline)?.deadline;
+                          if (!deadlineMatch) return null;
+                          return (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-zinc-300" />
+                              Due: {deadlineMatch}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
 
                     {/* How Shared Badge */}
@@ -499,6 +520,48 @@ export const RecordingRegistration: React.FC = () => {
                 <p className="text-[10px] text-zinc-500 mt-1">
                   The assigned editor will receive these tasks and can click &quot;Accept Task&quot; to begin editing.
                 </p>
+              </div>
+
+              {/* Editing Deadline by Social Media Manager */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                  <span>Editing Deadline (Set by SMM) *</span>
+                  <span className="text-[10px] text-zinc-400 font-bold">Due Date</span>
+                </label>
+                <div className="flex gap-1.5 mb-2 overflow-x-auto pb-1">
+                  {[
+                    { label: 'Tomorrow', days: 1 },
+                    { label: '2 Days', days: 2 },
+                    { label: '3 Days', days: 3 },
+                    { label: '5 Days', days: 5 },
+                    { label: '1 Week', days: 7 }
+                  ].map(p => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + p.days);
+                    const ds = d.toISOString().split('T')[0];
+                    return (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => setDeadline(ds)}
+                        className={`px-2.5 py-1 text-[11px] rounded-lg border font-bold shrink-0 transition-all ${
+                          deadline === ds
+                            ? 'bg-white text-black border-white'
+                            : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:text-white'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <input
+                  type="date"
+                  required
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
+                />
               </div>
 
               {/* 5. Cuts to Generate */}

@@ -53,11 +53,11 @@ export const SocialMediaPublishing: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch Approved Deliverables for Publishing
+      // 1. Fetch Approved & Ready Deliverables for Publishing
       const { data: dels } = await supabase
         .from('deliverables')
         .select('*')
-        .eq('editing_status', 'approved')
+        .or('editing_status.eq.approved,editing_status.eq.submitted_for_approval,progress_percentage.eq.100')
         .order('created_at', { ascending: false });
 
       if (dels) {

@@ -79,28 +79,15 @@ export const FounderMore: React.FC = () => {
       localStorage.setItem('DAILY_TARGET_REELS', String(reelsTarget));
       localStorage.setItem('DAILY_TARGET_FULL', String(fullTarget));
 
-      const payload: any = {
-        target_date: todayStr,
-        youtube_shorts_target: Number(shortsTarget),
-        youtube_full_target: Number(fullTarget),
-        instagram_reels_target: Number(reelsTarget),
-        other_target: Number(fbTarget) + Number(xTarget)
-      };
-
-      let { error } = await supabase
+      const { error } = await supabase
         .from('daily_targets')
         .upsert({
-          ...payload,
-          facebook_target: Number(fbTarget),
-          x_target: Number(xTarget)
+          target_date: todayStr,
+          youtube_shorts_target: Number(shortsTarget),
+          youtube_full_target: Number(fullTarget),
+          instagram_reels_target: Number(reelsTarget),
+          other_target: Number(fbTarget) + Number(xTarget)
         }, { onConflict: 'target_date' });
-
-      if (error && error.code === '42703') {
-        const fallbackRes = await supabase
-          .from('daily_targets')
-          .upsert(payload, { onConflict: 'target_date' });
-        error = fallbackRes.error;
-      }
 
       if (error) throw error;
       setTargetSuccess(true);
