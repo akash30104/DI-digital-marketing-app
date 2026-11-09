@@ -95,6 +95,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
       case 'founder':
         return [
           { id: 'dashboard', label: 'Overview', icon: <BarChart3 className="w-5 h-5" /> },
+          { id: 'clients', label: 'Clients', icon: <Briefcase className="w-5 h-5" /> },
           { id: 'approvals', label: 'Approvals', icon: <CheckCheck className="w-5 h-5" /> },
           { id: 'more', label: 'Settings', icon: <MoreHorizontal className="w-5 h-5" /> },
         ];
@@ -108,6 +109,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
       case 'social_media_manager':
         return [
           { id: 'dashboard', label: 'Hub', icon: <BarChart3 className="w-5 h-5" /> },
+          { id: 'clients', label: 'Clients', icon: <Briefcase className="w-5 h-5" /> },
           { id: 'footage', label: 'Footage', icon: <PlusCircle className="w-5 h-5" /> },
           { id: 'pipeline', label: 'Editing', icon: <Film className="w-5 h-5" /> },
           { id: 'approvals', label: 'Approvals', icon: <CheckCheck className="w-5 h-5" /> },

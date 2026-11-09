@@ -14,6 +14,7 @@ import { PublishingHistory } from './views/PublishingHistory';
 import { FounderMore } from './views/FounderMore';
 import { ManagerApprovals } from './views/ManagerApprovals';
 import { ClientPortal } from './views/ClientPortal';
+import { ClientsView } from './views/ClientsView';
 
 export const App: React.FC = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
@@ -65,6 +66,8 @@ export const App: React.FC = () => {
       switch (activeTab) {
         case 'dashboard':
           return <FounderDashboard onNavigateTab={setActiveTab} />;
+        case 'clients':
+          return <ClientsView />;
         case 'approvals':
           return <FounderApprovals />;
         case 'production':
@@ -91,6 +94,8 @@ export const App: React.FC = () => {
       switch (activeTab) {
         case 'dashboard':
           return <FounderDashboard onNavigateTab={setActiveTab} />;
+        case 'clients':
+          return <ClientsView />;
         case 'footage':
           return <RecordingRegistration />;
         case 'pipeline':

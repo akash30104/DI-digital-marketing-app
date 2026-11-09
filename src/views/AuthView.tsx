@@ -49,7 +49,8 @@ export const AuthView: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     resetMessages();
-    const res = await signIn(email, password);
+    const targetRole = portalType === 'client' ? 'client' : undefined;
+    const res = await signIn(email, password, targetRole);
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));

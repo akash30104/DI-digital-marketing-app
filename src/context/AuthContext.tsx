@@ -9,10 +9,11 @@ interface AuthContextType {
   isLoading: boolean;
   founderExists: boolean;
   refreshFounderStatus: () => Promise<boolean>;
-  signIn: (email: string, pass: string) => Promise<{ error?: string }>;
+  signIn: (email: string, pass: string, targetRole?: UserRole) => Promise<{ error?: string }>;
   signUp: (email: string, pass: string, name: string, role: UserRole) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  switchRole: (newRole: UserRole) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -85,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const signIn = async (email: string, pass: string) => {
+  const signIn = async (email: string, pass: string, targetRole?: UserRole) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password: pass,
@@ -94,6 +95,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: error.message };
     }
     if (data.user) {
+      if (targetRole) {
+        try {
+          await supabase.from('profiles').update({ role: targetRole }).eq('id', data.user.id);
+        } catch (e) {
+          console.warn('Update role on signIn error:', e);
+        }
+      }
       await fetchProfile(data.user.id);
     }
     return {};
@@ -124,10 +132,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (data.user) {
+      try {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          email: email,
+          full_name: name,
+          role: roleToRegister
+        });
+      } catch (e) {
+        console.warn('Upsert profile error:', e);
+      }
       await fetchProfile(data.user.id);
       await refreshFounderStatus();
     }
     return {};
+  };
+
+  const switchRole = async (newRole: UserRole) => {
+    if (!currentUser?.id) return;
+    try {
+      await supabase.from('profiles').update({ role: newRole }).eq('id', currentUser.id);
+      await fetchProfile(currentUser.id);
+    } catch (err) {
+      console.error('Error switching role:', err);
+    }
   };
 
   const signOut = async () => {
@@ -154,6 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         signOut,
         refreshProfile,
+        switchRole,
       }}
     >
       {children}
