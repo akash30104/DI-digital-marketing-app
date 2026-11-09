@@ -16,6 +16,7 @@ import { ManagerApprovals } from './views/ManagerApprovals';
 import { ClientPortal } from './views/ClientPortal';
 import { ClientsView } from './views/ClientsView';
 import { PublishedVideosView } from './views/PublishedVideosView';
+import { PrivacyPolicyView } from './views/PrivacyPolicyView';
 
 export const App: React.FC = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
@@ -24,6 +25,13 @@ export const App: React.FC = () => {
   });
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const path = (window.location.pathname || '').toLowerCase();
+    const hash = (window.location.hash || '').toLowerCase();
+    const search = (window.location.search || '').toLowerCase();
+    return path.includes('privacy') || hash.includes('privacy') || search.includes('privacy');
+  });
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -47,6 +55,19 @@ export const App: React.FC = () => {
     }
   }, [role]);
 
+  if (showPrivacyPolicy) {
+    return (
+      <PrivacyPolicyView
+        onBack={() => {
+          setShowPrivacyPolicy(false);
+          if (window.history && window.history.pushState) {
+            window.history.pushState(null, '', '/');
+          }
+        }}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -59,7 +80,7 @@ export const App: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <AuthView />;
+    return <AuthView onShowPrivacy={() => setShowPrivacyPolicy(true)} />;
   }
 
   const renderActiveScreen = () => {

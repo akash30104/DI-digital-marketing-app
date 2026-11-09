@@ -63,3 +63,14 @@ This project remains 100% compatible with static web hosting (e.g. Render, Verce
 npm run build
 ```
 Output directory: `dist/`
+
+---
+
+## 🔒 Privacy Policy & Google Play Store Compliance
+
+This application complies with Google Play Developer Policies and data protection standards:
+- **GitHub Policy File:** [PRIVACY_POLICY.md](./PRIVACY_POLICY.md)
+- **Live Render Web Policy:** [https://studio-diskflow-web.onrender.com/privacy-policy.html](https://studio-diskflow-web.onrender.com/privacy-policy.html)
+- **In-App Direct Route:** Accessible directly at `/privacy-policy` and from the app login screen.
+- **Data Deletion:** Requests can be sent directly to `support@digitalinertia.com` or managed by Founders in-app.
+

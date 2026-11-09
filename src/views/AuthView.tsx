@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Users, Crown, ShieldAlert, ArrowRight, CheckCircle2, Briefcase, Film } from 'lucide-react';
 
-export const AuthView: React.FC = () => {
+interface AuthViewProps {
+  onShowPrivacy?: () => void;
+}
+
+export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
   const { signIn, signUp, refreshFounderStatus } = useAuth();
 
   // All-in-one Hosting: Toggle between Studio Team and Client Portal
@@ -458,6 +462,39 @@ export const AuthView: React.FC = () => {
               )}
             </>
           )}
+        </div>
+
+        {/* Footer with Privacy Policy & Web Info */}
+        <div className="mt-8 text-center text-xs text-zinc-500 flex items-center justify-center gap-3 flex-wrap">
+          <span>Digital Inertia v1.0.0</span>
+          <span>&bull;</span>
+          {onShowPrivacy ? (
+            <button
+              type="button"
+              onClick={onShowPrivacy}
+              className="text-zinc-400 hover:text-white underline underline-offset-4 font-semibold transition-colors"
+            >
+              Privacy Policy
+            </button>
+          ) : (
+            <a
+              href="/privacy-policy.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-400 hover:text-white underline underline-offset-4 font-semibold transition-colors"
+            >
+              Privacy Policy
+            </a>
+          )}
+          <span>&bull;</span>
+          <a
+            href="/privacy-policy.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-400 hover:text-white underline underline-offset-4 font-semibold transition-colors"
+          >
+            Web Policy &nearr;
+          </a>
         </div>
       </div>
     </div>

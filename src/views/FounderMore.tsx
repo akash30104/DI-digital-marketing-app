@@ -6,7 +6,7 @@ import { ReportingExport } from './ReportingExport';
 import { 
   Target, Users, FileSpreadsheet, Save, CheckCircle2, 
   AlertCircle, Shield, Clock, HardDrive, Smartphone, Trash2, RotateCcw,
-  Radio, Plus, Briefcase, Sparkles, Building, Film, Check, ExternalLink
+  Radio, Plus, Briefcase, Sparkles, Building, Film, Check, ExternalLink, ShieldCheck
 } from 'lucide-react';
 import { 
   purgeAllDeliverables, purgeAllRecordings, purgeAllPublishingHistory 
@@ -734,6 +734,23 @@ export const FounderMore: React.FC = () => {
                   <RotateCcw className="w-3.5 h-3.5 inline mr-1.5" />
                   {isCleaning ? 'Resetting...' : 'Full System Reset'}
                 </button>
+              </div>
+
+              {/* App Info & Privacy Policy Card */}
+              <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs mt-4">
+                <div>
+                  <p className="font-bold text-white">Digital Inertia Production &amp; Marketing</p>
+                  <p className="text-[11px] text-zinc-500">Official Android App &bull; Google Play Compliant Privacy Policy</p>
+                </div>
+                <a
+                  href="/privacy-policy.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-bold text-white transition-all shadow-sm self-start sm:self-auto"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-white" />
+                  <span>Privacy Policy &nearr;</span>
+                </a>
               </div>
             </div>
           </div>
