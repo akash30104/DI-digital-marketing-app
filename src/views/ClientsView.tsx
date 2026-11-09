@@ -9,7 +9,11 @@ import {
   MessageSquare, ChevronRight, X, Sparkles, AlertCircle, Share2
 } from 'lucide-react';
 
-export const ClientsView: React.FC = () => {
+interface ClientsViewProps {
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
   const { currentUser, role } = useAuth();
   const isFounder = role === 'founder';
   const isSMM = role === 'social_media_manager';
@@ -24,7 +28,7 @@ export const ClientsView: React.FC = () => {
   // Selected Client Filter ('all' or clientId)
   const [selectedClientId, setSelectedClientId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [workTypeFilter, setWorkTypeFilter] = useState<'all' | 'shoots' | 'reels' | 'full' | 'published'>('all');
+  const [workTypeFilter, setWorkTypeFilter] = useState<'all' | 'shoots' | 'published'>('all');
 
   // Modal to add/link work to a client
   const [showAddWorkModal, setShowAddWorkModal] = useState(false);
@@ -427,7 +431,7 @@ export const ClientsView: React.FC = () => {
                 workTypeFilter === 'all' ? 'bg-white text-black font-black' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              All Works
+              All Assets
             </button>
             <button
               onClick={() => setWorkTypeFilter('shoots')}
@@ -436,22 +440,6 @@ export const ClientsView: React.FC = () => {
               }`}
             >
               Shoots
-            </button>
-            <button
-              onClick={() => setWorkTypeFilter('reels')}
-              className={`px-3 py-1 rounded-lg font-bold transition ${
-                workTypeFilter === 'reels' ? 'bg-white text-black font-black' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Reels
-            </button>
-            <button
-              onClick={() => setWorkTypeFilter('full')}
-              className={`px-3 py-1 rounded-lg font-bold transition ${
-                workTypeFilter === 'full' ? 'bg-white text-black font-black' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Full Videos
             </button>
             <button
               onClick={() => setWorkTypeFilter('published')}
@@ -464,18 +452,30 @@ export const ClientsView: React.FC = () => {
           </div>
         </div>
 
+        {/* Editing Tab Redirection Notice */}
+        <div className="p-3.5 rounded-2xl bg-[#121214] border border-[#27272A] flex items-center justify-between text-xs flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Film className="w-4 h-4 text-zinc-400 shrink-0" />
+            <span className="text-zinc-300">
+              Active video editing deliverables and review progress are managed exclusively in the <strong className="text-white">Editing</strong> tab.
+            </span>
+          </div>
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => onNavigateTab(isFounder ? 'production' : 'pipeline')}
+              className="text-xs font-bold text-black bg-white hover:bg-zinc-200 px-3 py-1.5 rounded-xl transition shadow-sm"
+            >
+              Open Editing Tab ↗
+            </button>
+          )}
+        </div>
+
         {/* WORK ITEMS DISPLAY */}
         {(() => {
           // Resolve current scope items
           const targetRecs = selectedSummary ? selectedSummary.recordings : recordings;
-          const targetDelivs = selectedSummary ? selectedSummary.deliverables : deliverables;
           const targetLogs = selectedSummary ? selectedSummary.publishingLogs : publishingLogs;
-
-          const filteredDelivs = targetDelivs.filter(d => {
-            if (workTypeFilter === 'reels') return d.deliverable_type === 'reel';
-            if (workTypeFilter === 'full') return d.deliverable_type === 'full_length_video';
-            return true;
-          });
 
           return (
             <div className="space-y-4">
@@ -504,88 +504,6 @@ export const ClientsView: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* DELIVERABLES / CUTS */}
-              {(workTypeFilter === 'all' || workTypeFilter === 'reels' || workTypeFilter === 'full') && (
-                <div className="space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                    <span>Editing Deliverables &amp; Review Progress ({filteredDelivs.length})</span>
-                  </div>
-
-                  {filteredDelivs.length === 0 ? (
-                    <div className="p-6 rounded-2xl bg-[#121214] border border-[#27272A] text-center text-xs text-zinc-500">
-                      No deliverables created yet for this client view. Click "+ Add Work for Client" above to create one.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {filteredDelivs.map(cut => {
-                        const isDone = (cut.progress_percentage || 0) === 100 || cut.editing_status === 'approved';
-                        return (
-                          <div key={cut.id} className="p-4 rounded-2xl bg-[#121214] border border-[#27272A] space-y-2.5">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <div className="text-xs font-bold text-white flex items-center gap-2">
-                                  <span>{cut.title}</span>
-                                  <span className="text-[9px] font-bold bg-black text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800">
-                                    {cut.deliverable_type === 'full_length_video' ? 'Full 16:9' : 'Reel 9:16'}
-                                  </span>
-                                </div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5">
-                                  Shoot: {cut.recording_title || 'Podcast'} • Editor: <strong className="text-zinc-300">{cut.editor_name || 'Unassigned'}</strong>
-                                </div>
-                              </div>
-
-                              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
-                                isDone
-                                  ? 'bg-zinc-800 text-white border-zinc-700'
-                                  : 'bg-zinc-900 text-zinc-300 border-zinc-800'
-                              }`}>
-                                {cut.progress_percentage || 0}% Done
-                              </span>
-                            </div>
-
-                            {/* Progress bar */}
-                            <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-                              <div
-                                className="bg-white h-full transition-all duration-300"
-                                style={{ width: `${cut.progress_percentage || 0}%` }}
-                              />
-                            </div>
-
-                            {/* Links & Client Revision Notes */}
-                            <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[11px]">
-                              <span className="text-zinc-500 uppercase tracking-tight text-[10px] font-semibold">
-                                Status: {cut.editing_status.replace(/_/g, ' ')}
-                              </span>
-
-                              {(cut.final_video_link || cut.preview_link) && (
-                                <a
-                                  href={cut.final_video_link || cut.preview_link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-white hover:underline font-bold"
-                                >
-                                  <span>View Drive</span>
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              )}
-                            </div>
-
-                            {/* Client Feedback / Revision Request notes */}
-                            {cut.approval_notes && (
-                              <div className="p-2 rounded-xl bg-black border border-zinc-800 text-[11px] text-zinc-300">
-                                <span className="font-bold text-zinc-400 block text-[10px] uppercase">Notes / Client Feedback:</span>
-                                <span>{cut.approval_notes}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               )}
 

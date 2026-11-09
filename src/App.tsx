@@ -67,7 +67,7 @@ export const App: React.FC = () => {
         case 'dashboard':
           return <FounderDashboard onNavigateTab={setActiveTab} />;
         case 'clients':
-          return <ClientsView />;
+          return <ClientsView onNavigateTab={setActiveTab} />;
         case 'approvals':
           return <FounderApprovals />;
         case 'production':
@@ -95,7 +95,7 @@ export const App: React.FC = () => {
         case 'dashboard':
           return <FounderDashboard onNavigateTab={setActiveTab} />;
         case 'clients':
-          return <ClientsView />;
+          return <ClientsView onNavigateTab={setActiveTab} />;
         case 'footage':
           return <RecordingRegistration />;
         case 'pipeline':

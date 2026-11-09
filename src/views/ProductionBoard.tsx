@@ -452,116 +452,112 @@ export const ProductionBoard: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {displayedVideos.map((item) => {
-            const statusBadge = getStatusBadge(item.editing_status);
-            const progress = item.progress_percentage || 0;
+        <div className="space-y-3">
+          {/* Exact Section Header requested: EDITING DELIVERABLES & REVIEW PROGRESS */}
+          <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+              <span>Editing Deliverables &amp; Review Progress ({displayedVideos.length})</span>
+            </div>
+            <span className="text-[11px] text-zinc-500 font-normal">
+              Showing {activeTab === 'today' ? 'today\'s active cuts' : activeTab === 'pending' ? 'pending pipeline' : 'all deliverables'}
+            </span>
+          </div>
 
-            return (
-              <div
-                key={item.id}
-                className="bg-[#121214] border border-[#27272A] rounded-2xl p-4 sm:p-5 hover:border-zinc-600 transition shadow-sm space-y-4 flex flex-col justify-between"
-              >
-                <div className="space-y-3">
-                  {/* Top Row: Format Tag, Status Badge, Due Date, and Delete Button */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {displayedVideos.map((cut) => {
+              const progress = cut.progress_percentage || 0;
+              const isDone = progress === 100 || cut.editing_status === 'approved';
+
+              return (
+                <div
+                  key={cut.id}
+                  className="p-4 rounded-2xl bg-[#121214] border border-[#27272A] space-y-2.5 hover:border-zinc-700 transition"
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
-                        {item.deliverable_type === 'full_length_video' ? '📺 Full Video (16:9)' : '📱 Reel (9:16)'}
+                    <div className="min-w-0 flex-1 pr-1">
+                      <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
+                        <span className="truncate">{cut.title}</span>
+                        <span className="text-[9px] font-bold bg-black text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 shrink-0">
+                          {cut.deliverable_type === 'full_length_video' ? 'Full 16:9' : 'Reel 9:16'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-zinc-500 mt-0.5 truncate">
+                        Shoot: {cut.recording_title || 'Podcast'} &bull; Editor: <strong className="text-zinc-300">{cut.editor_name || 'Unassigned'}</strong>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
+                        isDone
+                          ? 'bg-zinc-800 text-white border-zinc-700'
+                          : 'bg-zinc-900 text-zinc-300 border-zinc-800'
+                      }`}>
+                        {progress}% Done
                       </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.bg}`}>
-                        {statusBadge.label}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDeliverable(cut.id, cut.title)}
+                        className="p-1 rounded text-zinc-500 hover:text-white hover:bg-zinc-800 transition"
+                        title="Delete Task"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-white h-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+
+                  {/* Bottom Row: Status and actions */}
+                  <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[11px] gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-zinc-500 uppercase tracking-tight text-[10px] font-semibold">
+                        STATUS: {cut.editing_status.toUpperCase().replace(/_/g, ' ')}
                       </span>
-                      {item.deadline && (
-                        <span className="text-[10px] font-semibold text-zinc-400 bg-black/60 px-2 py-0.5 rounded-full border border-zinc-800 flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5 text-zinc-500" />
-                          Due: {item.deadline}
+                      {cut.deadline && (
+                        <span className="text-[10px] text-zinc-500">
+                          &bull; Due: {cut.deadline}
                         </span>
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteDeliverable(item.id, item.title)}
-                      className="p-1 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition"
-                      title="Delete Video Task"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Video Title & Shoot */}
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-white tracking-tight leading-snug">
-                      {item.title}
-                    </h3>
-                    {item.recording_title && (
-                      <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
-                        Shoot / Podcast: <span className="text-zinc-300 font-semibold">{item.recording_title}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Editor Assignment */}
-                  <div className="flex items-center justify-between text-xs bg-black/50 p-2.5 rounded-xl border border-[#27272A]">
-                    <div className="flex items-center gap-2 min-w-0 pr-2">
-                      <User className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                      <span className="text-zinc-300 truncate">
-                        Editor: <strong className="text-white">{item.editor_name || 'Unassigned'}</strong>
-                      </span>
-                    </div>
-                    <select
-                      value={item.assigned_editor_id || ''}
-                      onChange={(e) => handleAssignEditor(item.id, e.target.value)}
-                      className="text-[10px] font-bold rounded-lg px-2 py-1 bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-zinc-500 shrink-0"
-                    >
-                      <option value="">{item.assigned_editor_id ? 'Change' : '+ Assign'}</option>
-                      {editors.map((ed) => (
-                        <option key={ed.id} value={ed.id}>{ed.full_name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* PROMINENT EDITING PROGRESS BAR */}
-                <div className="space-y-2 pt-2 border-t border-[#27272A]/70">
-                  <div className="space-y-1.5 bg-black/70 p-3 rounded-xl border border-[#27272A]">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-[10px] uppercase tracking-wider text-zinc-400">
-                        Editing Progress
-                      </span>
-                      <span className={`text-sm font-black ${progress === 100 ? 'text-white' : 'text-zinc-200'}`}>
-                        {progress}%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden p-0.5">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          progress === 100 ? 'bg-white shadow-sm' : 'bg-zinc-200'
-                        }`}
-                        style={{ width: `${Math.max(progress, 0)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Action Link (if video link or preview link exists) */}
-                  {(item.final_video_link || item.preview_link) && (
-                    <div className="flex items-center justify-end pt-1">
-                      <a
-                        href={item.final_video_link || item.preview_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow-sm"
+                    <div className="flex items-center gap-2">
+                      {/* Editor assignment quick select */}
+                      <select
+                        value={cut.assigned_editor_id || ''}
+                        onChange={(e) => handleAssignEditor(cut.id, e.target.value)}
+                        className="text-[10px] font-bold rounded px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 text-zinc-300 focus:outline-none"
                       >
-                        <Play className="w-3 h-3 fill-black" />
-                        <span>Watch Video ↗</span>
-                      </a>
+                        <option value="">{cut.assigned_editor_id ? 'Change Editor' : '+ Assign'}</option>
+                        {editors.map((ed) => (
+                          <option key={ed.id} value={ed.id}>{ed.full_name}</option>
+                        ))}
+                      </select>
+
+                      {(cut.final_video_link || cut.preview_link) && (
+                        <a
+                          href={cut.final_video_link || cut.preview_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-white hover:underline font-bold text-[11px]"
+                        >
+                          <span>Watch</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
