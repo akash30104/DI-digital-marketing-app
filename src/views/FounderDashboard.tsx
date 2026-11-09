@@ -41,6 +41,44 @@ const getYouTubeEmbedUrl = (url?: string): string | null => {
   }
 };
 
+const getInstagramEmbedUrl = (url?: string): string | null => {
+  if (!url) return null;
+  try {
+    const match = url.match(/instagram\.com\/(?:reel|reels|p)\/([a-zA-Z0-9_-]+)/i);
+    if (match && match[1]) {
+      return `https://www.instagram.com/reel/${match[1]}/embed`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const getFacebookEmbedUrl = (url?: string): string | null => {
+  if (!url) return null;
+  try {
+    if (url.includes('facebook.com') || url.includes('fb.watch')) {
+      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&autoplay=false`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const getTwitterEmbedUrl = (url?: string): string | null => {
+  if (!url) return null;
+  try {
+    const match = url.match(/(?:twitter\.com|x\.com)\/[^/]+\/status\/(\d+)/i);
+    if (match && match[1]) {
+      return `https://platform.twitter.com/embed/Tweet.html?id=${match[1]}&theme=dark`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const getDriveEmbedUrl = (url?: string): string | null => {
   if (!url) return null;
   try {
@@ -1089,6 +1127,9 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
         const renderPostCard = (log: PublishingLog, isToday = false) => {
           const ytEmbed = getYouTubeEmbedUrl(log.post_url);
+          const igEmbed = getInstagramEmbedUrl(log.post_url);
+          const fbEmbed = getFacebookEmbedUrl(log.post_url);
+          const twEmbed = getTwitterEmbedUrl(log.post_url);
           const driveEmbed = getDriveEmbedUrl(log.post_url);
           const directVideo = isDirectVideoUrl(log.post_url);
 
@@ -1127,15 +1168,48 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                 {log.deliverable_title || log.notes || 'Published Video'}
               </h4>
 
-              {/* In-App Video Player */}
-              {ytEmbed ? (
+              {/* In-App Multi-Platform Video Player (Instagram, YouTube, Facebook, X, Drive, MP4) */}
+              {igEmbed ? (
+                <div className="w-full flex justify-center bg-black rounded-2xl p-2 border border-zinc-800 shadow-md">
+                  <iframe
+                    src={igEmbed}
+                    title={log.deliverable_title || 'Instagram Reel Player'}
+                    className="w-full max-w-sm h-[520px] rounded-2xl border-0 overflow-hidden bg-black shadow-lg"
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                    allowFullScreen
+                    scrolling="no"
+                  />
+                </div>
+              ) : ytEmbed ? (
                 <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-md border border-zinc-800">
                   <iframe
                     src={ytEmbed}
-                    title={log.deliverable_title || 'Video Player'}
+                    title={log.deliverable_title || 'YouTube Player'}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                     className="absolute inset-0 w-full h-full border-0"
+                  />
+                </div>
+              ) : fbEmbed ? (
+                <div className="relative w-full aspect-video min-h-[340px] rounded-2xl overflow-hidden bg-black shadow-md border border-zinc-800">
+                  <iframe
+                    src={fbEmbed}
+                    title={log.deliverable_title || 'Facebook Video Player'}
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full border-0"
+                    scrolling="no"
+                  />
+                </div>
+              ) : twEmbed ? (
+                <div className="w-full flex justify-center bg-black rounded-2xl p-2 border border-zinc-800 shadow-md">
+                  <iframe
+                    src={twEmbed}
+                    title={log.deliverable_title || 'X Tweet Video Player'}
+                    className="w-full max-w-md h-[460px] rounded-2xl border-0 overflow-hidden bg-black"
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    scrolling="no"
                   />
                 </div>
               ) : driveEmbed ? (
