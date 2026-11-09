@@ -7,3 +7,13 @@ dist-ssr/
 .env.production
 .npm
 *.log
+
+# Android Build & IDE Cache
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/*.iml
+android/app/*.iml
+android/local.properties
+android/.cxx/
