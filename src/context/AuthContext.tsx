@@ -10,7 +10,7 @@ interface AuthContextType {
   founderExists: boolean;
   refreshFounderStatus: () => Promise<boolean>;
   signIn: (email: string, pass: string, targetRole?: UserRole) => Promise<{ error?: string }>;
-  signUp: (email: string, pass: string, name: string, role: UserRole) => Promise<{ error?: string }>;
+  signUp: (email: string, pass: string, name: string, role: UserRole, allowMultipleFounders?: boolean) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   switchRole: (newRole: UserRole) => Promise<void>;
@@ -107,12 +107,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {};
   };
 
-  const signUp = async (email: string, pass: string, name: string, roleToRegister: UserRole) => {
-    // Strict single founder verification on client before request
-    if (roleToRegister === 'founder') {
+  const signUp = async (email: string, pass: string, name: string, roleToRegister: UserRole, allowMultipleFounders = false) => {
+    // Check if founder already claimed unless bypassed via developer founder option
+    if (roleToRegister === 'founder' && !allowMultipleFounders) {
       const alreadyClaimed = await checkFounderExists();
       if (alreadyClaimed) {
-        return { error: 'A founder account already exists for this organization. Only one founder account is permitted.' };
+        return { error: 'A primary founder account already exists. Tap the logo above for the Developer Option to add another founder.' };
       }
     }
 
