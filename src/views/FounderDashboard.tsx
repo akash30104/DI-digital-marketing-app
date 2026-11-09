@@ -23,6 +23,7 @@ import {
   parseInsights, formatCompactNumber, formatInsightsNote, SocialInsights,
   extractYouTubeVideoId, isYouTubeUrl, fetchYouTubeLiveStats
 } from '../lib/insights';
+import { fetchAllChannels, ChannelItem } from '../lib/channels';
 
 // Video embed and format helpers
 const getYouTubeEmbedUrl = (url?: string): string | null => {
@@ -146,6 +147,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [publishVideoTitle, setPublishVideoTitle] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<string>('Digital Inertia');
+  const [channelsList, setChannelsList] = useState<ChannelItem[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('youtube_shorts');
   const [livePostUrl, setLivePostUrl] = useState('');
   const [publishNotes, setPublishNotes] = useState('');
@@ -274,7 +276,15 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
     const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
     try {
-      // 1. Fetch Latest Targets (Synced across Founder and Social Media Manager)
+      // 1. Fetch Dynamic Channels (Studio Defaults + Client Brands + Custom)
+      try {
+        const loadedChs = await fetchAllChannels();
+        setChannelsList(loadedChs);
+      } catch (err) {
+        console.warn('Could not load channels:', err);
+      }
+
+      // 2. Fetch Latest Targets (Synced across Founder and Social Media Manager)
       try {
         const syncedTargets = await fetchDailyTargets();
         setTargets(syncedTargets);
@@ -651,12 +661,19 @@ interface ProjectTaskGroup {
 
     const handleStorage = () => {
       setTargets(getCachedTargets());
+      fetchAllChannels().then(setChannelsList).catch(() => {});
     };
+    const handleChannelsUpdated = () => {
+      fetchAllChannels().then(setChannelsList).catch(() => {});
+    };
+
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('channels-updated', handleChannelsUpdated);
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('channels-updated', handleChannelsUpdated);
     };
   }, []);
 
@@ -1153,24 +1170,46 @@ interface ProjectTaskGroup {
 
               {/* 1. Select Official Channel */}
               <div>
-                <label className="block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400 mb-2">
-                  1. Official Channel Published To
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {OFFICIAL_CHANNELS.map(ch => (
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400">
+                    1. Channel Published To
+                  </label>
+                  {onNavigateTab && (
                     <button
-                      key={ch}
                       type="button"
-                      onClick={() => setSelectedChannel(ch)}
+                      onClick={() => {
+                        setIsPublishModalOpen(false);
+                        onNavigateTab('more');
+                      }}
+                      className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 font-bold transition"
+                    >
+                      <Plus className="w-3 h-3 text-white" />
+                      <span>+ Add Channel in Settings</span>
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                  {(channelsList.length > 0 ? channelsList : OFFICIAL_CHANNELS.map(name => ({ id: name, name, source: 'default' as const, client_name: null }))).map((ch: ChannelItem | { id: string; name: string; source: 'default'; client_name?: string | null }) => (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => setSelectedChannel(ch.name)}
                       className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
-                        selectedChannel === ch
+                        selectedChannel === ch.name
                           ? 'border-white bg-white text-black shadow-sm'
                           : 'border-zinc-800 hover:border-zinc-700 text-zinc-300 bg-zinc-800/70'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="truncate">{ch}</span>
-                        {selectedChannel === ch && <Check className="w-3.5 h-3.5 text-black shrink-0" />}
+                        <div className="truncate">
+                          <span className="truncate block">{ch.name}</span>
+                          {ch.client_name && (
+                            <span className={`text-[9px] ${selectedChannel === ch.name ? 'text-zinc-600' : 'text-zinc-400'} truncate block`}>
+                              Client: {ch.client_name}
+                            </span>
+                          )}
+                        </div>
+                        {selectedChannel === ch.name && <Check className="w-3.5 h-3.5 text-black shrink-0 ml-1" />}
                       </div>
                     </button>
                   ))}
@@ -1278,6 +1317,13 @@ interface ProjectTaskGroup {
           if (selectedChannelFilter === 'x') {
             return l.platform === 'x' || (l.notes && (l.notes.toLowerCase().includes('twitter') || l.notes.toLowerCase().includes('platform: x')));
           }
+          // Filter by channel name if matching
+          if (l.channel_name && l.channel_name.toLowerCase() === selectedChannelFilter.toLowerCase()) {
+            return true;
+          }
+          if (l.notes && l.notes.toLowerCase().includes(`[channel: ${selectedChannelFilter.toLowerCase()}]`)) {
+            return true;
+          }
           return l.platform === selectedChannelFilter;
         });
 
@@ -1290,11 +1336,14 @@ interface ProjectTaskGroup {
 
         const channelTabs = [
           { id: 'all', label: 'All Channels', icon: <Layers className="w-3.5 h-3.5" /> },
-          { id: 'youtube_shorts', label: 'YouTube Shorts', icon: <PlaySquare className="w-3.5 h-3.5 text-zinc-300" /> },
-          { id: 'instagram_reels', label: 'Instagram Reels', icon: <Camera className="w-3.5 h-3.5 text-zinc-300" /> },
-          { id: 'youtube_full', label: 'YouTube Full', icon: <Tv className="w-3.5 h-3.5 text-zinc-300" /> },
-          { id: 'facebook', label: 'Facebook', icon: <Share2 className="w-3.5 h-3.5 text-zinc-300" /> },
-          { id: 'x', label: 'X (Twitter)', icon: <Share2 className="w-3.5 h-3.5 text-zinc-300" /> }
+          ...channelsList.slice(0, 5).map(ch => ({
+            id: ch.name,
+            label: ch.name,
+            icon: <Radio className="w-3.5 h-3.5 text-zinc-300" />
+          })),
+          { id: 'youtube_shorts', label: 'Shorts', icon: <PlaySquare className="w-3.5 h-3.5 text-zinc-300" /> },
+          { id: 'instagram_reels', label: 'Reels', icon: <Camera className="w-3.5 h-3.5 text-zinc-300" /> },
+          { id: 'youtube_full', label: 'Full Videos', icon: <Tv className="w-3.5 h-3.5 text-zinc-300" /> }
         ];
 
         const renderPostCard = (log: PublishingLog, isToday = false) => {

@@ -4,15 +4,16 @@ import {
   Crown, Film, Megaphone, LogOut, 
   BarChart3, LayoutGrid, CheckCheck, Send, MoreHorizontal, 
   CheckSquare, HardDrive, MessageSquare, User, PlusCircle, 
-  CheckCircle, History, ListTodo, Briefcase, PlaySquare, Share2
+  CheckCircle, History, ListTodo, Briefcase, PlaySquare, Share2, Settings
 } from 'lucide-react';
 
 interface NavbarProps {
   darkMode?: boolean;
   setDarkMode?: (val: boolean) => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = () => {
+export const Navbar: React.FC<NavbarProps> = ({ onNavigateTab }) => {
   const { currentUser, role, signOut } = useAuth();
 
   const getRoleInfo = () => {
@@ -68,6 +69,16 @@ export const Navbar: React.FC<NavbarProps> = () => {
               </div>
             </div>
 
+            {(role === 'founder' || role === 'social_media_manager') && onNavigateTab && (
+              <button
+                onClick={() => onNavigateTab('more')}
+                className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                title="Settings & Channels"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
+
             <button
               onClick={() => signOut()}
               className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors ml-1"
@@ -112,7 +123,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
           { id: 'clients', label: 'Clients', icon: <Briefcase className="w-5 h-5" /> },
           { id: 'footage', label: 'Footage', icon: <PlusCircle className="w-5 h-5" /> },
           { id: 'pipeline', label: 'Editing', icon: <Film className="w-5 h-5" /> },
-          { id: 'approvals', label: 'Approvals', icon: <CheckCheck className="w-5 h-5" /> },
+          { id: 'more', label: 'Settings', icon: <MoreHorizontal className="w-5 h-5" /> },
         ];
       case 'client':
         return [

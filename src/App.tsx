@@ -106,6 +106,9 @@ export const App: React.FC = () => {
           return <ManagerApprovals />;
         case 'history':
           return <PublishingHistory />;
+        case 'more':
+        case 'settings':
+          return <FounderMore />;
         default:
           return <FounderDashboard onNavigateTab={setActiveTab} />;
       }
@@ -118,7 +121,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-white selection:text-black">
-      <Navbar />
+      <Navbar onNavigateTab={setActiveTab} />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">
         {renderActiveScreen()}
