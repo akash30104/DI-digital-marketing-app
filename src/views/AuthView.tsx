@@ -111,9 +111,7 @@ export const AuthView: React.FC = () => {
     } else {
       const roleLabel = selectedRole === 'editor' 
         ? 'Video Editor' 
-        : selectedRole === 'social_media_manager' 
-          ? 'Social Media Manager' 
-          : 'Client Partner';
+        : 'Social Media Manager';
       setSuccessMessage(`Account created for ${fullName} as ${roleLabel}! You can now sign in.`);
       setAuthMode('signIn');
     }
@@ -371,13 +369,13 @@ export const AuthView: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Podcast / Show / Brand Name
+                      Brand Name
                     </label>
                     <input
                       type="text"
                       value={clientBrandName}
                       onChange={(e) => setClientBrandName(e.target.value)}
-                      placeholder="e.g. Real Estate Unfiltered"
+                      placeholder="e.g. Brand Name"
                       className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                     />
                   </div>
@@ -480,45 +478,34 @@ export const AuthView: React.FC = () => {
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Select Role
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedRole('editor')}
-                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                       selectedRole === 'editor'
                         ? 'border-white bg-zinc-800 text-white font-black'
                         : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    🎬 Editor
+                    🎬 Video Editor
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedRole('social_media_manager')}
-                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                       selectedRole === 'social_media_manager'
                         ? 'border-white bg-zinc-800 text-white font-black'
                         : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    📱 SMM
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole('client')}
-                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
-                      selectedRole === 'client'
-                        ? 'border-white bg-zinc-800 text-white font-black'
-                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    💼 Client
+                    📱 Social Media Mgr
                   </button>
                 </div>
               </div>
 
               <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 text-zinc-400 text-[11px]">
-                Founder role is not selectable here. Use the Founder Setup tab if not yet registered.
+                Founder role is not selectable here. Use the Founder Setup tab if not yet registered. Clients register in the Client tab.
               </div>
 
               <button
@@ -528,7 +515,7 @@ export const AuthView: React.FC = () => {
               >
                 {isLoading 
                   ? 'Creating account...' 
-                  : `Register as ${selectedRole === 'editor' ? 'Video Editor' : selectedRole === 'social_media_manager' ? 'Social Media Manager' : 'Client Partner'}`}
+                  : `Register as ${selectedRole === 'editor' ? 'Video Editor' : 'Social Media Manager'}`}
               </button>
             </form>
           )}
