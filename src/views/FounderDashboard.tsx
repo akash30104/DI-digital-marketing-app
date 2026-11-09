@@ -11,14 +11,18 @@ import {
   PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
   Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight, 
   Share2, Plus, X, Check, Sparkles, Layers, Calendar, Clock,
-  Play, Video, Trash2, Eye, MessageSquare, Heart, Edit3
+  Play, Video, Trash2, Eye, MessageSquare, Heart, Edit3,
+  Zap, Key, Loader2, AlertCircle
 } from 'lucide-react';
 import { 
   filterDeliverables, filterPublishingLogs, deleteSingleDeliverable, 
   purgeAllDeliverables, deleteSinglePublishingLog 
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, getCachedTargets, TargetConfig } from '../lib/targets';
-import { parseInsights, formatCompactNumber, formatInsightsNote, SocialInsights } from '../lib/insights';
+import { 
+  parseInsights, formatCompactNumber, formatInsightsNote, SocialInsights,
+  extractYouTubeVideoId, isYouTubeUrl, fetchYouTubeLiveStats
+} from '../lib/insights';
 
 // Video embed and format helpers
 const getYouTubeEmbedUrl = (url?: string): string | null => {
@@ -157,14 +161,68 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
   const [insightShares, setInsightShares] = useState<number>(0);
   const [insightLikes, setInsightLikes] = useState<number>(0);
   const [isSavingInsights, setIsSavingInsights] = useState(false);
+  const [isFetchingAutoStats, setIsFetchingAutoStats] = useState(false);
+  const [autoFetchMessage, setAutoFetchMessage] = useState<string | null>(null);
+  const [showApiKeySetting, setShowApiKeySetting] = useState(false);
+  const [youtubeApiKeyInput, setYoutubeApiKeyInput] = useState<string>(() => {
+    return typeof window !== 'undefined' ? (localStorage.getItem('youtube_api_key') || '') : '';
+  });
 
   const openEditInsights = (log: PublishingLog) => {
-    const current = parseInsights(log.notes, log.id);
+    const current = parseInsights(log.notes);
     setInsightViews(current.views);
     setInsightComments(current.comments);
     setInsightShares(current.shares);
     setInsightLikes(current.likes);
+    setAutoFetchMessage(null);
     setEditingInsightsLog(log);
+  };
+
+  const handleAutoFetchYouTube = async () => {
+    if (!editingInsightsLog?.post_url) return;
+    const videoId = extractYouTubeVideoId(editingInsightsLog.post_url);
+    if (!videoId) {
+      setAutoFetchMessage('❌ Not a recognized YouTube video or Shorts link.');
+      return;
+    }
+
+    const key = youtubeApiKeyInput.trim() || (typeof window !== 'undefined' ? localStorage.getItem('youtube_api_key') : null);
+    if (!key) {
+      setShowApiKeySetting(true);
+      setAutoFetchMessage('Enter your free YouTube Data API key below to auto-sync statistics.');
+      return;
+    }
+
+    setIsFetchingAutoStats(true);
+    setAutoFetchMessage(null);
+    try {
+      const stats = await fetchYouTubeLiveStats(videoId, key);
+      if (stats) {
+        setInsightViews(stats.views);
+        setInsightLikes(stats.likes);
+        setInsightComments(stats.comments);
+        setAutoFetchMessage(`✅ Successfully fetched live YouTube stats: ${stats.views.toLocaleString()} views, ${stats.likes.toLocaleString()} likes, ${stats.comments.toLocaleString()} comments.`);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('youtube_api_key', key.trim());
+        }
+      } else {
+        setAutoFetchMessage('⚠️ Could not fetch from YouTube API. Please verify your API Key or enter metrics manually.');
+        setShowApiKeySetting(true);
+      }
+    } catch (err: any) {
+      console.error('Error auto-fetching YouTube stats:', err);
+      setAutoFetchMessage(`⚠️ Auto-fetch error: ${err.message || 'Check network / API key'}`);
+    } finally {
+      setIsFetchingAutoStats(false);
+    }
+  };
+
+  const handleSaveApiKey = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('youtube_api_key', youtubeApiKeyInput.trim());
+      showToast('YouTube API Key saved in browser!');
+      setShowApiKeySetting(false);
+    }
   };
 
   const handleSaveInsights = async (e: React.FormEvent) => {
@@ -173,11 +231,12 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
     setIsSavingInsights(true);
 
     try {
-      const newInsights: SocialInsights = {
+      const newInsights: Partial<SocialInsights> = {
         views: Math.max(0, Number(insightViews) || 0),
         comments: Math.max(0, Number(insightComments) || 0),
         shares: Math.max(0, Number(insightShares) || 0),
         likes: Math.max(0, Number(insightLikes) || 0),
+        isRecorded: true,
       };
 
       const updatedNotes = formatInsightsNote(editingInsightsLog.notes, newInsights);
@@ -200,7 +259,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
       setTodayPublishedLogs(prev => prev.map(l => l.id === editingInsightsLog.id ? { ...l, notes: updatedNotes } : l));
       setWeekPublishedLogs(prev => prev.map(l => l.id === editingInsightsLog.id ? { ...l, notes: updatedNotes } : l));
 
-      showToast('🎉 Video insights updated successfully!');
+      showToast('🎉 Real video insights saved successfully!');
       setEditingInsightsLog(null);
     } catch (err: any) {
       console.error('Error saving insights:', err);
@@ -1365,67 +1424,87 @@ interface ProjectTaskGroup {
 
               {/* VIDEO PERFORMANCE INSIGHTS DOWN THE VIDEO */}
               {(() => {
-                const ins = parseInsights(log.notes, log.id);
+                const ins = parseInsights(log.notes);
 
                 return (
                   <div className="bg-black/90 rounded-2xl p-3 border border-zinc-800 space-y-2.5 mt-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-zinc-300" />
-                        <span>Live Video Insights</span>
+                        <span>{ins.isRecorded ? 'Real Video Insights' : 'Video Insights'}</span>
                       </span>
 
                       <button
                         type="button"
                         onClick={() => openEditInsights(log)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition active:scale-95"
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition active:scale-95 ${
+                          ins.isRecorded
+                            ? 'text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700'
+                            : 'text-black bg-white hover:bg-zinc-200'
+                        }`}
                       >
                         <Edit3 className="w-3 h-3" />
-                        <span>Update Insights</span>
+                        <span>{ins.isRecorded ? 'Update Insights' : '+ Enter Real Stats'}</span>
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2 text-center">
-                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
-                          <Eye className="w-3 h-3 text-zinc-400" />
-                          <span>Views</span>
+                    {!ins.isRecorded ? (
+                      <div className="py-2.5 px-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center justify-between">
+                        <div>
+                          <p className="text-[11px] text-zinc-300 font-bold">
+                            No live metrics logged yet
+                          </p>
+                          <p className="text-[10px] text-zinc-500">
+                            Verified views, likes, and comments from Studio/Dashboard
+                          </p>
                         </div>
-                        <div className="text-sm sm:text-base font-black text-white mt-1">
-                          {formatCompactNumber(ins.views)}
-                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                          0 Views
+                        </span>
                       </div>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                          <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                            <Eye className="w-3 h-3 text-zinc-400" />
+                            <span>Views</span>
+                          </div>
+                          <div className="text-sm sm:text-base font-black text-white mt-1">
+                            {formatCompactNumber(ins.views)}
+                          </div>
+                        </div>
 
-                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
-                          <MessageSquare className="w-3 h-3 text-zinc-400" />
-                          <span>Comments</span>
+                        <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                          <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                            <MessageSquare className="w-3 h-3 text-zinc-400" />
+                            <span>Comments</span>
+                          </div>
+                          <div className="text-sm sm:text-base font-black text-white mt-1">
+                            {formatCompactNumber(ins.comments)}
+                          </div>
                         </div>
-                        <div className="text-sm sm:text-base font-black text-white mt-1">
-                          {formatCompactNumber(ins.comments)}
-                        </div>
-                      </div>
 
-                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
-                          <Share2 className="w-3.5 h-3.5 text-zinc-400" />
-                          <span>Shares</span>
+                        <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                          <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                            <Share2 className="w-3.5 h-3.5 text-zinc-400" />
+                            <span>Shares</span>
+                          </div>
+                          <div className="text-sm sm:text-base font-black text-white mt-1">
+                            {formatCompactNumber(ins.shares)}
+                          </div>
                         </div>
-                        <div className="text-sm sm:text-base font-black text-white mt-1">
-                          {formatCompactNumber(ins.shares)}
-                        </div>
-                      </div>
 
-                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
-                          <Heart className="w-3 h-3 text-zinc-400" />
-                          <span>Likes</span>
-                        </div>
-                        <div className="text-sm sm:text-base font-black text-white mt-1">
-                          {formatCompactNumber(ins.likes)}
+                        <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                          <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                            <Heart className="w-3 h-3 text-zinc-400" />
+                            <span>Likes</span>
+                          </div>
+                          <div className="text-sm sm:text-base font-black text-white mt-1">
+                            {formatCompactNumber(ins.likes)}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1555,15 +1634,15 @@ interface ProjectTaskGroup {
           onClick={() => setEditingInsightsLog(null)}
         >
           <div 
-            className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl p-6 space-y-4"
+            className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl p-6 space-y-4 max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-white" />
                 <div>
-                  <h3 className="font-bold text-white text-base">Update Video Insights</h3>
-                  <p className="text-[11px] text-zinc-400">Live social engagement numbers</p>
+                  <h3 className="font-bold text-white text-base">Real Video Insights</h3>
+                  <p className="text-[11px] text-zinc-400">Exact live engagement numbers (No fake metrics)</p>
                 </div>
               </div>
               <button 
@@ -1574,12 +1653,110 @@ interface ProjectTaskGroup {
               </button>
             </div>
 
+            {/* Video Link Reference */}
+            {editingInsightsLog.post_url && (
+              <div className="px-3.5 py-2.5 rounded-xl bg-black border border-zinc-800 text-[11px] text-zinc-300 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 truncate">
+                  <PlaySquare className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                  <span className="truncate text-zinc-400 font-mono text-[10px]">{editingInsightsLog.post_url}</span>
+                </div>
+                <a
+                  href={editingInsightsLog.post_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-white hover:underline flex items-center gap-1 font-bold text-[11px]"
+                >
+                  <span>Open Video</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
+
+            {/* YouTube Auto-Fetch Option */}
+            {isYouTubeUrl(editingInsightsLog.post_url) && (
+              <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-xs font-black uppercase tracking-wider text-zinc-200">
+                      YouTube Live Sync
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKeySetting(!showApiKeySetting)}
+                    className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 font-bold transition"
+                  >
+                    <Key className="w-3 h-3" />
+                    <span>{showApiKeySetting ? 'Hide API Key' : 'API Key Setup'}</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAutoFetchYouTube}
+                  disabled={isFetchingAutoStats}
+                  className="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-95"
+                >
+                  {isFetchingAutoStats ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                      <span>Fetching Live YouTube Stats...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                      <span>Auto-Fetch Live from YouTube</span>
+                    </>
+                  )}
+                </button>
+
+                {showApiKeySetting && (
+                  <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2 mt-2">
+                    <label className="block text-[10px] font-bold text-zinc-300 uppercase">
+                      YouTube Data API v3 Key (Free from Google Cloud)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        placeholder="AIzaSy..."
+                        value={youtubeApiKeyInput}
+                        onChange={(e) => setYoutubeApiKeyInput(e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveApiKey}
+                        className="px-3.5 py-2 rounded-lg text-xs font-bold bg-white text-black hover:bg-zinc-200 transition"
+                      >
+                        Save
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-zinc-500">
+                      Allows unlimited 1-click retrieval of real view count, likes, and comments from YouTube.
+                    </p>
+                  </div>
+                )}
+
+                {autoFetchMessage && (
+                  <div className={`p-2.5 rounded-xl text-xs ${autoFetchMessage.startsWith('✅') ? 'bg-zinc-900 text-white border border-zinc-700 font-semibold' : 'bg-zinc-900 text-zinc-300 border border-zinc-800'}`}>
+                    {autoFetchMessage}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Manual Entry Form */}
+            <div className="text-[11px] text-zinc-400">
+              Enter verified numbers from <span className="text-zinc-200 font-bold">YouTube Studio</span> or <span className="text-zinc-200 font-bold">Instagram Professional Dashboard</span>:
+            </div>
+
             <form onSubmit={handleSaveInsights} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1">
                     <Eye className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Views</span>
+                    <span>Real Views</span>
                   </label>
                   <input
                     type="number"
@@ -1593,7 +1770,7 @@ interface ProjectTaskGroup {
                 <div>
                   <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1">
                     <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Comments</span>
+                    <span>Real Comments</span>
                   </label>
                   <input
                     type="number"
@@ -1607,7 +1784,7 @@ interface ProjectTaskGroup {
                 <div>
                   <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1">
                     <Share2 className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Shares</span>
+                    <span>Real Shares</span>
                   </label>
                   <input
                     type="number"
@@ -1621,7 +1798,7 @@ interface ProjectTaskGroup {
                 <div>
                   <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1">
                     <Heart className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Likes</span>
+                    <span>Real Likes</span>
                   </label>
                   <input
                     type="number"
@@ -1637,7 +1814,7 @@ interface ProjectTaskGroup {
                 <button
                   type="button"
                   onClick={() => setEditingInsightsLog(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-800 text-zinc-300 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-800 text-zinc-300 hover:text-white transition"
                 >
                   Cancel
                 </button>
@@ -1646,7 +1823,7 @@ interface ProjectTaskGroup {
                   disabled={isSavingInsights}
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow disabled:opacity-50"
                 >
-                  {isSavingInsights ? 'Saving...' : 'Save Insights'}
+                  {isSavingInsights ? 'Saving...' : 'Save Real Insights'}
                 </button>
               </div>
             </form>
