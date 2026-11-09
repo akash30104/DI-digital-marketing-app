@@ -477,43 +477,33 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-16">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">
-            {todayFormatted} (Asia/Kolkata)
-          </span>
-          <h2 className="text-2xl font-black text-white tracking-tight">
-            {isManager ? 'Social Media Hub' : 'Founder Overview'}
-          </h2>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            {isManager
-              ? 'Publish videos directly on social media (YouTube, Instagram, Facebook, X) and update the live proof links here.'
-              : 'Executive monitoring of video editing progress, channel publications, and manager consistency.'}
-          </p>
-        </div>
+      {/* Top Header (Visible for Founder Overview; removed from Social Media Hub) */}
+      {!isManager && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">
+              {todayFormatted} (Asia/Kolkata)
+            </span>
+            <h2 className="text-2xl font-black text-white tracking-tight">
+              Founder Overview
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Executive monitoring of video editing progress, channel publications, and manager consistency.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          {isManager && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsPublishModalOpen(true)}
-              className="px-5 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+              onClick={loadData}
+              disabled={isLoading}
+              className="p-2 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-sm transition-all self-start sm:self-auto"
+              title="Refresh Data"
             >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>Update Published Video</span>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
-          )}
-
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="p-2 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-sm transition-all self-start sm:self-auto"
-            title="Refresh Data"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Social Media Manager Direct Action Banner */}
       {isManager && (
@@ -535,13 +525,23 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
             </p>
           </div>
 
-          <button
-            onClick={() => setIsPublishModalOpen(true)}
-            className="px-6 py-3 rounded-full bg-white hover:bg-zinc-200 text-black font-black text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all shrink-0"
-          >
-            <Share2 className="w-4 h-4" />
-            <span>+ Update Published Video Link</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setIsPublishModalOpen(true)}
+              className="px-6 py-3 rounded-full bg-white hover:bg-zinc-200 text-black font-black text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all shrink-0"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>+ Update Published Video Link</span>
+            </button>
+            <button
+              onClick={loadData}
+              disabled={isLoading}
+              className="p-3 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-sm transition-all"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
       )}
 
