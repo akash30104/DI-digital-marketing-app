@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { DailySummary, PublishingLog, Deliverable, PlatformType } from '../types';
@@ -331,6 +331,57 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
     await purgeAllDeliverables(ids);
     showToast('All editing tasks deleted successfully.');
   };
+
+interface ProjectTaskGroup {
+  projectId: string;
+  projectTitle: string;
+  editorName: string;
+  reelsCount: number;
+  fullVideosCount: number;
+  avgProgress: number;
+  tasks: Deliverable[];
+}
+
+  // Group active editing tasks by Project / Shoot ("show inside project show all")
+  const projectTaskGroups = useMemo<ProjectTaskGroup[]>(() => {
+    const map = new Map<string, {
+      projectId: string;
+      projectTitle: string;
+      editorName: string;
+      tasks: Deliverable[];
+    }>();
+
+    activeEditingTasks.forEach((task: Deliverable) => {
+      const projKey = task.recording_id || (task.recording_title ? task.recording_title.trim() : '') || (task.title.includes(' - ') ? task.title.split(' - ')[0].trim() : 'Studio Project');
+      const projTitle = task.recording_title || (task.title.includes(' - ') ? task.title.split(' - ')[0].trim() : task.title);
+
+      if (!map.has(projKey)) {
+        map.set(projKey, {
+          projectId: projKey,
+          projectTitle: projTitle,
+          editorName: task.editor_name || 'Unassigned',
+          tasks: []
+        });
+      }
+      map.get(projKey)!.tasks.push(task);
+    });
+
+    return Array.from(map.values()).map(group => {
+      const reels = group.tasks.filter((t: Deliverable) => t.deliverable_type === 'reel');
+      const fulls = group.tasks.filter((t: Deliverable) => t.deliverable_type === 'full_length_video');
+      const totalProg = group.tasks.reduce((acc: number, t: Deliverable) => acc + (t.progress_percentage || 0), 0);
+      const avgProg = group.tasks.length > 0 ? Math.round(totalProg / group.tasks.length) : 0;
+      const primaryEditor = group.tasks.find((t: Deliverable) => t.editor_name && t.editor_name !== 'Unassigned')?.editor_name || group.editorName;
+
+      return {
+        ...group,
+        editorName: primaryEditor,
+        reelsCount: reels.length,
+        fullVideosCount: fulls.length,
+        avgProgress: avgProg
+      };
+    });
+  }, [activeEditingTasks]);
 
   const handleDeleteSingleLog = async (id: string, title?: string) => {
     if (!window.confirm(`Delete published proof "${title || 'video'}"?`)) return;
@@ -779,54 +830,116 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           </div>
         </div>
 
-        {activeEditingTasks.length === 0 ? (
+        {projectTaskGroups.length === 0 ? (
           <div className="p-6 text-center rounded-3xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-500">
             No active video editing tasks in progress right now.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {activeEditingTasks.map((task) => (
+          <div className="space-y-4">
+            {projectTaskGroups.map((project) => (
               <div 
-                key={task.id} 
-                className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-sm hover:border-zinc-700 transition-all space-y-3 relative group"
+                key={project.projectId} 
+                className="p-5 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-sm space-y-4"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300">
-                    {task.deliverable_type === 'reel' ? '📱 Short / Reel' : '📺 Full Video'}
-                  </span>
-                  
-                  <div className="flex items-center gap-1.5">
-                    <StatusBadge status={task.editing_status} />
+                {/* Project Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
+                        🎬 Project
+                      </span>
+                      <span className="text-xs font-semibold text-zinc-400">
+                        {project.tasks.length} {project.tasks.length === 1 ? 'Cut' : 'Cuts'} ({project.reelsCount} {project.reelsCount === 1 ? 'Reel' : 'Reels'}{project.fullVideosCount > 0 ? ` • ${project.fullVideosCount} Full Video` : ''})
+                      </span>
+                    </div>
+                    <h4 className="text-base sm:text-lg font-black text-white tracking-tight">
+                      {project.projectTitle}
+                    </h4>
+                    <div className="text-xs text-zinc-400">
+                      Editor: <strong className="text-zinc-200">{project.editorName}</strong>
+                    </div>
+                  </div>
+
+                  {/* Project Overall Progress & Shortcut */}
+                  <div className="flex items-center gap-3">
+                    <div className="bg-black/60 px-3.5 py-2 rounded-2xl border border-zinc-800 text-right min-w-[120px]">
+                      <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                        Project Progress
+                      </div>
+                      <div className="text-sm font-black text-white mt-0.5">
+                        {project.avgProgress}% Done
+                      </div>
+                      <div className="w-full bg-zinc-800 rounded-full h-1 mt-1.5 overflow-hidden">
+                        <div
+                          className="bg-white h-full rounded-full transition-all duration-300"
+                          style={{ width: `${project.avgProgress}%` }}
+                        />
+                      </div>
+                    </div>
+
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSingleTask(task.id, task.title);
-                      }}
-                      className="p-1 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-colors"
-                      title="Delete this task"
+                      onClick={() => onNavigateTab?.(role === 'founder' ? 'production' : 'pipeline')}
+                      className="p-2 rounded-xl text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 transition"
+                      title="Open in Editing Tab"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <ArrowUpRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="font-bold text-sm text-white line-clamp-1">
-                    {task.title}
-                  </h4>
-                  <div className="flex items-center justify-between mt-1 text-xs text-zinc-400">
-                    <span>Editor: <strong className="text-zinc-200">{task.editor_name}</strong></span>
-                    <span className="font-bold text-white bg-zinc-800 px-2 py-0.5 rounded-full text-[11px] border border-zinc-700">{task.progress_percentage}% Done</span>
+                {/* INSIDE PROJECT: SHOW ALL REELS & DELIVERABLES */}
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center justify-between">
+                    <span>All Project Deliverables &amp; Reels ({project.tasks.length})</span>
                   </div>
-                </div>
 
-                {/* Progress bar */}
-                <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-white h-full rounded-full transition-all duration-300"
-                    style={{ width: `${task.progress_percentage}%` }}
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {project.tasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="p-3 rounded-2xl bg-black/60 border border-zinc-800/90 hover:border-zinc-700 transition space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300">
+                            {task.deliverable_type === 'reel' ? '📱 Reel' : '📺 Full'}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <StatusBadge status={task.editing_status} />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSingleTask(task.id, task.title);
+                              }}
+                              className="p-1 rounded text-zinc-500 hover:text-white transition"
+                              title="Delete this task"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h5 className="font-bold text-xs text-white truncate" title={task.title}>
+                            {task.title}
+                          </h5>
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400 mt-0.5">
+                            <span className="truncate">{task.editor_name || project.editorName}</span>
+                            <span className="font-bold text-zinc-200">{task.progress_percentage || 0}% Done</span>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="w-full bg-zinc-800 rounded-full h-1 overflow-hidden">
+                          <div
+                            className="bg-white h-full rounded-full transition-all duration-300"
+                            style={{ width: `${task.progress_percentage || 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
