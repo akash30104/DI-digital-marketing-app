@@ -10,6 +10,7 @@ dist-ssr/
 
 # Android Build & IDE Cache
 *.apk
+*.aab
 android/.gradle/
 android/build/
 android/app/build/
