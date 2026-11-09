@@ -39,8 +39,6 @@ export const RecordingRegistration: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const [howShared, setHowShared] = useState('AirDrop');
-  const [locationDetails, setLocationDetails] = useState('');
   const [reelsCount, setReelsCount] = useState(3);
   const [includeFullVideo, setIncludeFullVideo] = useState(true);
   const [deadline, setDeadline] = useState(() => {
@@ -50,14 +48,6 @@ export const RecordingRegistration: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Suggested sharing methods
-  const SHARING_SUGGESTIONS = [
-    { label: 'AirDrop', icon: <Smartphone className="w-3.5 h-3.5" />, example: 'AirDropped to Editor MacBook' },
-    { label: 'Hard Disk', icon: <HardDrive className="w-3.5 h-3.5" />, example: 'SanDisk 2TB SSD / Blue Drive' },
-    { label: 'Google Drive', icon: <Cloud className="w-3.5 h-3.5" />, example: 'Google Drive Folder Link' },
-    { label: 'Pen Drive / USB', icon: <Usb className="w-3.5 h-3.5" />, example: '64GB Kingston USB in Drawer' },
-  ];
 
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
@@ -122,8 +112,6 @@ export const RecordingRegistration: React.FC = () => {
 
   const openShareModal = () => {
     setTitle('');
-    setHowShared('AirDrop');
-    setLocationDetails('');
     setSelectedEditorId(editors[0]?.id || '');
     setReelsCount(3);
     setIncludeFullVideo(true);
@@ -137,16 +125,11 @@ export const RecordingRegistration: React.FC = () => {
       return;
     }
 
-    if (!howShared.trim()) {
-      showToast('error', 'Please specify how you shared the footage (e.g. AirDrop, Hard Disk).');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      const finalMethod = howShared.trim();
-      const finalLocation = locationDetails.trim() || `Transferred via ${finalMethod}`;
+      const finalMethod = 'Studio Footage';
+      const finalLocation = '/footage';
       const finalDeadline = deadline.trim() || todayStr;
 
       // 1. Insert Recording
@@ -157,9 +140,9 @@ export const RecordingRegistration: React.FC = () => {
             title: title.trim(),
             recording_date: todayStr,
             date_received: todayStr,
-            hard_disk_name: finalMethod, // Stores 'AirDrop', 'Hard Disk', etc.
-            folder_path: finalLocation,  // Stores location / notes
-            notes: `[Deadline: ${finalDeadline}] Shared to Editor via: ${finalMethod}. Details: ${finalLocation}`,
+            hard_disk_name: finalMethod,
+            folder_path: finalLocation,
+            notes: `[Deadline: ${finalDeadline}]`,
             registered_by: currentUser?.id
           }
         ])
@@ -210,7 +193,7 @@ export const RecordingRegistration: React.FC = () => {
 
       const assignedEditor = editors.find(ed => ed.id === selectedEditorId);
       const editorNotice = assignedEditor ? ` assigned to ${assignedEditor.full_name}` : '';
-      showToast('success', `Footage shared via ${finalMethod}! ${deliverablesToInsert.length} editing tasks${editorNotice}. 🚀`);
+      showToast('success', `Footage created! ${deliverablesToInsert.length} editing tasks${editorNotice}. 🚀`);
       setIsModalOpen(false);
       loadRecordings();
     } catch (err: any) {
@@ -468,61 +451,7 @@ export const RecordingRegistration: React.FC = () => {
                 />
               </div>
 
-              {/* 2. HOW DID YOU SHARE IT? (AirDrop, Hard Disk, etc.) */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
-                  <span>How did you share it with the editor? *</span>
-                  <span className="text-[10px] text-zinc-400 font-bold">Type or Tap</span>
-                </label>
-
-                {/* Quick Selection Chips */}
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  {SHARING_SUGGESTIONS.map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => {
-                        setHowShared(item.label);
-                        if (!locationDetails) setLocationDetails(item.example);
-                      }}
-                      className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all text-left ${
-                        howShared === item.label
-                          ? 'border-white bg-white text-black shadow-sm'
-                          : 'border-zinc-800 bg-zinc-800/60 hover:bg-zinc-800 text-zinc-300'
-                      }`}
-                    >
-                      {item.icon}
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Custom Typing Field */}
-                <input
-                  type="text"
-                  required
-                  value={howShared}
-                  onChange={(e) => setHowShared(e.target.value)}
-                  placeholder="Type like AirDrop, Hard Disk, SSD, etc."
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
-                />
-              </div>
-
-              {/* 3. Where / Details (Optional) */}
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  Location / Details for Editor (optional)
-                </label>
-                <input
-                  type="text"
-                  value={locationDetails}
-                  onChange={(e) => setLocationDetails(e.target.value)}
-                  placeholder="e.g. AirDropped to Downloads folder, or Drive link"
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                />
-              </div>
-
-              {/* 4. Assign to Editor */}
+              {/* 2. Assign to Editor */}
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
                   <span>Assign to Video Editor</span>
