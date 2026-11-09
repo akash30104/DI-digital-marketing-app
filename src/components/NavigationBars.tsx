@@ -4,7 +4,7 @@ import {
   Crown, Film, Megaphone, LogOut, 
   BarChart3, LayoutGrid, CheckCheck, Send, MoreHorizontal, 
   CheckSquare, HardDrive, MessageSquare, User, PlusCircle, 
-  CheckCircle, History, ListTodo 
+  CheckCircle, History, ListTodo, Briefcase, PlaySquare, Share2
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -23,6 +23,10 @@ export const Navbar: React.FC<NavbarProps> = () => {
         return { title: 'Video Editor', icon: <Film className="w-3.5 h-3.5" />, badge: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
       case 'social_media_manager':
         return { title: 'Social Media Manager', icon: <Megaphone className="w-3.5 h-3.5" />, badge: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
+      case 'client':
+        return { title: 'Client Partner', icon: <Briefcase className="w-3.5 h-3.5" />, badge: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
+      default:
+        return { title: 'Client', icon: <Briefcase className="w-3.5 h-3.5" />, badge: 'bg-zinc-800 text-zinc-200 border-zinc-700' };
     }
   };
 
@@ -108,6 +112,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
           { id: 'pipeline', label: 'Editing', icon: <Film className="w-5 h-5" /> },
           { id: 'approvals', label: 'Approvals', icon: <CheckCheck className="w-5 h-5" /> },
         ];
+      case 'client':
+        return [
+          { id: 'cuts', label: 'Cuts & Review', icon: <PlaySquare className="w-5 h-5" /> },
+          { id: 'published', label: 'Published', icon: <Share2 className="w-5 h-5" /> },
+          { id: 'shows', label: 'Shoots', icon: <Film className="w-5 h-5" /> },
+        ];
+      default:
+        return [];
     }
   };
 

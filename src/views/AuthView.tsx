@@ -1,12 +1,27 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Users, Crown, ShieldAlert, ArrowRight, Video, CheckCircle2 } from 'lucide-react';
+import { Lock, Users, Crown, ShieldAlert, ArrowRight, Video, CheckCircle2, Briefcase, Sparkles } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const AuthView: React.FC = () => {
   const { signIn, signUp, founderExists, refreshFounderStatus } = useAuth();
-  const [authMode, setAuthMode] = useState<'signIn' | 'teamRegister' | 'founderSetup'>('signIn');
   
+  // Detect if accessing via client subdomain (e.g. client.yourdomain.com) or query parameter (?portal=client)
+  const isClientAccess = typeof window !== 'undefined' && (
+    window.location.hostname.startsWith('client.') ||
+    window.location.hostname.startsWith('clients.') ||
+    window.location.search.includes('portal=client') ||
+    window.location.search.includes('client') ||
+    window.location.hash.includes('client')
+  );
+
+  const [authMode, setAuthMode] = useState<'signIn' | 'clientPortal' | 'teamRegister' | 'founderSetup'>(
+    isClientAccess ? 'clientPortal' : 'signIn'
+  );
+  
+  const [clientSubMode, setClientSubMode] = useState<'signIn' | 'signUp'>('signIn');
+  const [clientBrandName, setClientBrandName] = useState('');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,7 +32,7 @@ export const AuthView: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleTabChange = (mode: 'signIn' | 'teamRegister' | 'founderSetup') => {
+  const handleTabChange = (mode: 'signIn' | 'clientPortal' | 'teamRegister' | 'founderSetup') => {
     setAuthMode(mode);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -52,6 +67,30 @@ export const AuthView: React.FC = () => {
     }
   };
 
+  const handleClientSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName.trim() || !email.trim() || !password) {
+      setErrorMessage('Please fill in your name, email, and password.');
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
+      return;
+    }
+    setIsLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    const clientDisplayName = clientBrandName.trim() ? `${fullName.trim()} (${clientBrandName.trim()})` : fullName.trim();
+    const res = await signUp(email, password, clientDisplayName, 'client');
+    setIsLoading(false);
+    if (res.error) {
+      setErrorMessage(sanitizeError(res.error));
+    } else {
+      setSuccessMessage(`Client account created for ${fullName}! You can now sign in.`);
+      setClientSubMode('signIn');
+    }
+  };
+
   const handleTeamSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !email.trim() || !password) {
@@ -70,7 +109,12 @@ export const AuthView: React.FC = () => {
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));
     } else {
-      setSuccessMessage(`Account created for ${fullName} as ${selectedRole === 'editor' ? 'Video Editor' : 'Social Media Manager'}! You can now sign in.`);
+      const roleLabel = selectedRole === 'editor' 
+        ? 'Video Editor' 
+        : selectedRole === 'social_media_manager' 
+          ? 'Social Media Manager' 
+          : 'Client Partner';
+      setSuccessMessage(`Account created for ${fullName} as ${roleLabel}! You can now sign in.`);
       setAuthMode('signIn');
     }
   };
@@ -116,10 +160,10 @@ export const AuthView: React.FC = () => {
         </div>
 
         {/* Top Navigation Bar / Segmented Bar */}
-        <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-2xl mb-4">
+        <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-2xl mb-4 gap-1 overflow-x-auto">
           <button
             onClick={() => handleTabChange('signIn')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
               authMode === 'signIn'
                 ? 'bg-white text-black font-black shadow-md'
                 : 'text-zinc-400 hover:text-white'
@@ -130,27 +174,39 @@ export const AuthView: React.FC = () => {
           </button>
 
           <button
+            onClick={() => handleTabChange('clientPortal')}
+            className={`flex-1 min-w-[95px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
+              authMode === 'clientPortal'
+                ? 'bg-white text-black font-black shadow-md'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5 text-zinc-300" />
+            <span>Client</span>
+          </button>
+
+          <button
             onClick={() => handleTabChange('teamRegister')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex-1 min-w-[85px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
               authMode === 'teamRegister'
                 ? 'bg-white text-black font-black shadow-md'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Team Register</span>
+            <span>Team</span>
           </button>
 
           <button
             onClick={() => handleTabChange('founderSetup')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex-1 min-w-[85px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
               authMode === 'founderSetup'
                 ? 'bg-zinc-800 text-white font-black border border-zinc-700 shadow-md'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Crown className="w-3.5 h-3.5 text-zinc-300" />
-            <span>Founder Setup</span>
+            <span>Founder</span>
           </button>
         </div>
 
@@ -175,14 +231,14 @@ export const AuthView: React.FC = () => {
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Work Email
+                  Email
                 </label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="editor@studio.com"
+                  placeholder="name@studio.com"
                   className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
@@ -209,10 +265,173 @@ export const AuthView: React.FC = () => {
                 {isLoading ? 'Signing in...' : 'Sign In'}
                 <ArrowRight className="w-4 h-4" />
               </button>
+
+              <div className="pt-2 border-t border-zinc-800 text-center">
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('clientPortal')}
+                  className="text-xs font-bold text-zinc-400 hover:text-white transition-colors inline-flex items-center gap-1.5 py-1"
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-zinc-300" />
+                  <span>Are you a Client Partner? <strong>Access Client Portal →</strong></span>
+                </button>
+              </div>
             </form>
           )}
 
-          {/* TAB 2: TEAM REGISTER (EDITOR / MANAGER) */}
+          {/* TAB: CLIENT PORTAL ACCESS */}
+          {authMode === 'clientPortal' && (
+            <div className="space-y-4">
+              <div className="text-center pb-2 border-b border-zinc-800">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white mb-2">
+                  <Briefcase className="w-3.5 h-3.5 text-zinc-200" />
+                  <span>Client Review &amp; Approvals Portal</span>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Review podcast cuts, preview Google Drive deliverables, approve finished reels, and request edits.
+                </p>
+
+                {/* Sub-toggle: Sign In vs Register */}
+                <div className="flex bg-black border border-zinc-800 rounded-xl p-1 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => { setClientSubMode('signIn'); setErrorMessage(null); setSuccessMessage(null); }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      clientSubMode === 'signIn' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Client Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setClientSubMode('signUp'); setErrorMessage(null); setSuccessMessage(null); }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      clientSubMode === 'signUp' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    New Client Register
+                  </button>
+                </div>
+              </div>
+
+              {clientSubMode === 'signIn' ? (
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Client Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="client@brand.com"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                  >
+                    {isLoading ? 'Opening Client Portal...' : 'Enter Client Portal'}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleClientSignUp} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Your Full Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. David Miller"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Podcast / Show / Brand Name
+                    </label>
+                    <input
+                      type="text"
+                      value={clientBrandName}
+                      onChange={(e) => setClientBrandName(e.target.value)}
+                      placeholder="e.g. Real Estate Unfiltered"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Client Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="david@company.com"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Create Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Min. 6 characters"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                  >
+                    {isLoading ? 'Creating Client Account...' : 'Register Client Account'}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+              )}
+
+              {/* Subdomain & Direct URL helper */}
+              <div className="p-3 rounded-2xl bg-black border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+                <span className="font-bold text-white block">Client Portal Direct Access:</span>
+                <p>
+                  Clients can also access directly via subdomain (e.g. <code>client.yourdomain.com</code>) or appending <code>?portal=client</code> to your site link.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: TEAM REGISTER (EDITOR / MANAGER / CLIENT) */}
           {authMode === 'teamRegister' && (
             <form onSubmit={handleTeamSignUp} className="space-y-4">
               <div>
@@ -261,28 +480,39 @@ export const AuthView: React.FC = () => {
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Select Role
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedRole('editor')}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
                       selectedRole === 'editor'
                         ? 'border-white bg-zinc-800 text-white font-black'
                         : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    🎬 Video Editor
+                    🎬 Editor
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedRole('social_media_manager')}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
                       selectedRole === 'social_media_manager'
                         ? 'border-white bg-zinc-800 text-white font-black'
                         : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    📱 Social Media Mgr
+                    📱 SMM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('client')}
+                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                      selectedRole === 'client'
+                        ? 'border-white bg-zinc-800 text-white font-black'
+                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    💼 Client
                   </button>
                 </div>
               </div>
@@ -296,7 +526,9 @@ export const AuthView: React.FC = () => {
                 disabled={isLoading}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
               >
-                {isLoading ? 'Creating account...' : `Register as ${selectedRole === 'editor' ? 'Video Editor' : 'Social Media Manager'}`}
+                {isLoading 
+                  ? 'Creating account...' 
+                  : `Register as ${selectedRole === 'editor' ? 'Video Editor' : selectedRole === 'social_media_manager' ? 'Social Media Manager' : 'Client Partner'}`}
               </button>
             </form>
           )}

@@ -47,3 +47,40 @@ CREATE POLICY "Founders and SMM can upsert daily_targets"
     ON public.daily_targets FOR ALL
     TO authenticated
     USING (public.is_founder() OR public.is_social_media_manager());
+
+-- 7. Allow 'client' role in profiles check constraint
+DO $$
+BEGIN
+    ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('founder', 'editor', 'social_media_manager', 'client'));
+EXCEPTION
+    WHEN undefined_object THEN NULL;
+    WHEN others THEN NULL;
+END $$;
+
+-- 8. Allow authenticated clients to read recordings, deliverables, and publishing logs
+DROP POLICY IF EXISTS "Anyone authenticated can read deliverables" ON public.deliverables;
+CREATE POLICY "Anyone authenticated can read deliverables"
+    ON public.deliverables FOR SELECT
+    TO authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Anyone authenticated can read recordings" ON public.recordings;
+CREATE POLICY "Anyone authenticated can read recordings"
+    ON public.recordings FOR SELECT
+    TO authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Anyone authenticated can read publishing_logs" ON public.publishing_logs;
+CREATE POLICY "Anyone authenticated can read publishing_logs"
+    ON public.publishing_logs FOR SELECT
+    TO authenticated
+    USING (true);
+
+-- 9. Allow clients to update deliverables (e.g. approve or request revisions)
+DROP POLICY IF EXISTS "Authenticated users can update deliverable status" ON public.deliverables;
+CREATE POLICY "Authenticated users can update deliverable status"
+    ON public.deliverables FOR UPDATE
+    TO authenticated
+    USING (true)
+    WITH CHECK (true);

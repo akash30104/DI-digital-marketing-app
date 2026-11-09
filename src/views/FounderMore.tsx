@@ -352,7 +352,7 @@ export const FounderMore: React.FC = () => {
                 </div>
 
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-zinc-800 text-zinc-200 border border-zinc-700">
-                  {p.role.replace('_', ' ')}
+                  {p.role === 'client' ? 'Client Partner' : p.role.replace('_', ' ')}
                 </span>
               </div>
             ))}

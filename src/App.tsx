@@ -13,6 +13,7 @@ import { SocialMediaPublishing } from './views/SocialMediaPublishing';
 import { PublishingHistory } from './views/PublishingHistory';
 import { FounderMore } from './views/FounderMore';
 import { ManagerApprovals } from './views/ManagerApprovals';
+import { ClientPortal } from './views/ClientPortal';
 
 export const App: React.FC = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
@@ -39,6 +40,8 @@ export const App: React.FC = () => {
       setActiveTab('my_tasks');
     } else if (role === 'social_media_manager') {
       setActiveTab('dashboard');
+    } else if (role === 'client') {
+      setActiveTab('cuts');
     }
   }, [role]);
 
@@ -101,6 +104,8 @@ export const App: React.FC = () => {
         default:
           return <FounderDashboard onNavigateTab={setActiveTab} />;
       }
+    } else if (role === 'client') {
+      return <ClientPortal activeTab={activeTab} onNavigateTab={setActiveTab} />;
     }
 
     return <FounderDashboard onNavigateTab={setActiveTab} />;

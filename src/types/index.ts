@@ -1,4 +1,4 @@
-export type UserRole = 'founder' | 'editor' | 'social_media_manager';
+export type UserRole = 'founder' | 'editor' | 'social_media_manager' | 'client';
 
 export type DeliverableType = 'reel' | 'full_length_video' | 'other';
 
