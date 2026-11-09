@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Deliverable } from '../types';
 import { 
   MessageSquare, AlertCircle, RefreshCw, Send, CheckCircle2, 
-  ExternalLink, Film, ArrowRight, HardDrive, Clock
+  ExternalLink, Film, ArrowRight, HardDrive, Clock, Briefcase
 } from 'lucide-react';
 import { filterDeliverables } from '../lib/deletionFilter';
 
@@ -135,26 +135,42 @@ export const EditorFeedback: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {items.map(item => (
-            <div
-              key={item.id}
-              className="bg-zinc-900 rounded-3xl border border-zinc-800 p-5 shadow-sm"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-200">
-                      Changes Requested
-                    </span>
-                    <span className="text-xs text-zinc-400">
-                      {item.recording_title} {item.episode_number ? `(Ep #${item.episode_number})` : ''}
-                    </span>
-                  </div>
+          {items.map(item => {
+            const isClientWork = /\[Client/i.test(`${item.approval_notes || ''} ${item.description || ''}`) ||
+              /\[Brand/i.test(`${item.approval_notes || ''} ${item.description || ''}`) ||
+              /Client/i.test(item.recording_title || '') ||
+              /\([A-Z0-9_-]+\)/i.test(item.recording_title || '');
 
-                  <h3 className="text-base font-bold text-white">
-                    {item.title}
-                  </h3>
-                </div>
+            return (
+              <div
+                key={item.id}
+                className={`rounded-3xl p-5 transition-all ${
+                  isClientWork
+                    ? 'bg-zinc-950 border-2 border-white shadow-[0_0_20px_rgba(255,255,255,0.18)]'
+                    : 'bg-zinc-900 border border-zinc-800 shadow-sm'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      {isClientWork && (
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-white text-black border border-white flex items-center gap-1 shadow-sm">
+                          <Briefcase className="w-2.5 h-2.5 text-black" />
+                          <span>CLIENT WORK</span>
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-200">
+                        Changes Requested
+                      </span>
+                      <span className="text-xs text-zinc-400">
+                        {item.recording_title} {item.episode_number ? `(Ep #${item.episode_number})` : ''}
+                      </span>
+                    </div>
+
+                    <h3 className="text-base font-bold text-white">
+                      {item.title}
+                    </h3>
+                  </div>
 
                 <div className="flex items-center gap-2 self-start">
                   <button
@@ -208,7 +224,8 @@ export const EditorFeedback: React.FC = () => {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -7,9 +7,10 @@ import {
   Sliders, HardDrive, Folder, AlertCircle, Send, Check, 
   CheckCircle2, PlaySquare, Tv, Clock, ExternalLink, Sparkles, 
   UserCheck, X, ChevronRight, ChevronLeft, ArrowRight, ListTodo, 
-  CheckSquare, Plus, ArrowLeft, Cloud, Film, Calendar, RefreshCw, User, Trash2
+  CheckSquare, Plus, ArrowLeft, Cloud, Film, Calendar, RefreshCw, User, Trash2, Briefcase
 } from 'lucide-react';
 import { filterDeliverables, filterRecordings, deleteSingleDeliverable, deleteSingleRecording } from '../lib/deletionFilter';
+import { getClientBrandName } from '../lib/clientIsolation';
 
 interface EditorWorkspaceProps {
   mode?: 'all' | 'my';
@@ -54,6 +55,8 @@ interface PodcastItem {
   completedCuts: number;
   progressPercentage: number;
   isMyPodcast: boolean;
+  isClientWork: boolean;
+  clientBrandName: string;
 }
 
 export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({ 
@@ -64,6 +67,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   const [podcasts, setPodcasts] = useState<PodcastItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activePodcastId, setActivePodcastId] = useState<string | null>(null);
+  const [workFilter, setWorkFilter] = useState<'all' | 'client' | 'studio'>('all');
 
   // 100% Google Drive Submission Modal State
   const [driveModalCut, setDriveModalCut] = useState<Deliverable | null>(null);
@@ -91,12 +95,76 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     return null;
   };
 
+  const extractClientBrandInfo = (
+    recNotes?: string, 
+    recTitle?: string, 
+    podDelivs: Deliverable[] = [],
+    clientProfiles: Profile[] = []
+  ): { isClientWork: boolean; clientBrandName: string } => {
+    const notes = (recNotes || '').trim();
+    const title = (recTitle || '').trim();
+
+    // 1. Tag [Brand: XYZ] in notes
+    const brandMatch = notes.match(/\[Brand:\s*([^\]]+)\]/i);
+    if (brandMatch && brandMatch[1]) {
+      return { isClientWork: true, clientBrandName: brandMatch[1].trim() };
+    }
+
+    // 2. Tag [Client: XYZ] in notes
+    const clientMatch = notes.match(/\[Client:\s*([^\]]+)\]/i);
+    if (clientMatch && clientMatch[1]) {
+      const rawVal = clientMatch[1].trim();
+      const matchedProfile = clientProfiles.find(c => c.id === rawVal);
+      if (matchedProfile) {
+        return { isClientWork: true, clientBrandName: getClientBrandName(matchedProfile) };
+      }
+      return { isClientWork: true, clientBrandName: rawVal };
+    }
+
+    // 3. Match against known client profiles (full_name, brand parentheses e.g. "LLBS")
+    for (const client of clientProfiles) {
+      const brand = getClientBrandName(client);
+      const clientName = client.full_name || '';
+      if (brand && (title.toLowerCase().includes(brand.toLowerCase()) || notes.toLowerCase().includes(brand.toLowerCase()))) {
+        return { isClientWork: true, clientBrandName: brand };
+      }
+      if (clientName && (title.toLowerCase().includes(clientName.toLowerCase()) || notes.toLowerCase().includes(clientName.toLowerCase()))) {
+        return { isClientWork: true, clientBrandName: brand || clientName };
+      }
+      if (notes.includes(client.id)) {
+        return { isClientWork: true, clientBrandName: brand || clientName };
+      }
+    }
+
+    // 4. Check deliverables notes or title
+    for (const d of podDelivs) {
+      const dNotes = `${d.approval_notes || ''} ${d.description || ''}`;
+      const dBrandMatch = dNotes.match(/\[Brand:\s*([^\]]+)\]/i);
+      if (dBrandMatch && dBrandMatch[1]) {
+        return { isClientWork: true, clientBrandName: dBrandMatch[1].trim() };
+      }
+      for (const client of clientProfiles) {
+        const brand = getClientBrandName(client);
+        if (brand && (d.title.toLowerCase().includes(brand.toLowerCase()) || dNotes.toLowerCase().includes(brand.toLowerCase()))) {
+          return { isClientWork: true, clientBrandName: brand };
+        }
+      }
+    }
+
+    // 5. Keyword heuristic
+    if (/\[Client/i.test(notes) || /Client Work/i.test(notes) || /Client Work/i.test(title)) {
+      return { isClientWork: true, clientBrandName: 'Client Brand' };
+    }
+
+    return { isClientWork: false, clientBrandName: '' };
+  };
+
   const loadData = async (showSpinner = false) => {
     if (!currentUser) return;
     if (showSpinner) setIsLoading(true);
 
     try {
-      const [recsRes, delivRes] = await Promise.all([
+      const [recsRes, delivRes, clientsRes] = await Promise.all([
         supabase
           .from('recordings')
           .select('*')
@@ -108,9 +176,14 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             recordings (title, episode_number, recording_date, hard_disk_name, folder_path, notes),
             profiles:assigned_editor_id (full_name)
           `)
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('profiles')
+          .select('id, full_name, email, role')
+          .eq('role', 'client')
       ]);
 
+      const clientProfiles = (clientsRes.data || []) as Profile[];
       const recs = filterRecordings(recsRes.data || []);
       const rawDels: Deliverable[] = (delivRes.data || []).map((d: any) => ({
         ...d,
@@ -158,6 +231,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           ? Math.round(podDelivs.reduce((acc, d) => acc + (d.progress_percentage || 0), 0) / totalCuts)
           : 0;
 
+        const { isClientWork, clientBrandName } = extractClientBrandInfo(rec.notes, rec.title, podDelivs, clientProfiles);
+
         items.push({
           id: rec.id,
           title: rec.title,
@@ -172,7 +247,9 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           totalCuts,
           completedCuts,
           progressPercentage,
-          isMyPodcast
+          isMyPodcast,
+          isClientWork,
+          clientBrandName
         });
       }
 
@@ -207,6 +284,18 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       return podcasts.filter(p => !p.isMyPodcast);
     }
   }, [podcasts, mode]);
+
+  // Client work vs Studio work counts and filtering
+  const clientWorksCount = useMemo(() => displayedPodcasts.filter(p => p.isClientWork).length, [displayedPodcasts]);
+  const studioWorksCount = useMemo(() => displayedPodcasts.filter(p => !p.isClientWork).length, [displayedPodcasts]);
+
+  const filteredPodcasts = useMemo(() => {
+    return displayedPodcasts.filter(p => {
+      if (workFilter === 'client') return p.isClientWork;
+      if (workFilter === 'studio') return !p.isClientWork;
+      return true;
+    });
+  }, [displayedPodcasts, workFilter]);
 
   // Active Podcast currently opened inside
   const activePodcast = useMemo(() => {
@@ -541,6 +630,39 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           </span>
         </div>
 
+        {/* CLIENT WORK BANNER (WHITE STYLING) */}
+        {activePodcast.isClientWork && (
+          <div className="p-4 sm:p-5 rounded-3xl bg-white text-black shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-2 border-white animate-in slide-in-from-top-2">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-black text-white flex items-center justify-center shrink-0 shadow-md">
+                <Briefcase className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-black uppercase tracking-widest bg-black text-white px-2.5 py-0.5 rounded-full">
+                    CLIENT WORK
+                  </span>
+                  <span className="text-sm font-black text-black uppercase tracking-wider">
+                    {activePodcast.clientBrandName || 'Client Partner Deliverable'}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-900 border border-zinc-300">
+                    Dedicated Brand Project
+                  </span>
+                </div>
+                <p className="text-xs font-semibold text-zinc-800 mt-1">
+                  These video cuts are for client review. Submissions sync directly to the Client Portal for approval.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+              <span className="text-xs font-black px-3.5 py-1.5 rounded-full bg-black text-white shadow-md flex items-center gap-1.5">
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>Syncs with Client Portal 💼</span>
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* PODCAST HERO CARD */}
         <div className="p-6 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-xl space-y-4">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -682,11 +804,22 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             return (
               <div
                 key={cut.id}
-                className="p-5 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-sm space-y-4 transition-all hover:border-zinc-700"
+                className={`p-5 rounded-3xl bg-zinc-900 border space-y-4 transition-all ${
+                  activePodcast.isClientWork
+                    ? 'border-zinc-700 hover:border-white shadow-[0_0_15px_rgba(255,255,255,0.06)]'
+                    : 'border-zinc-800 hover:border-zinc-700 shadow-sm'
+                }`}
               >
                 {/* Cut Header */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {activePodcast.isClientWork && (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-white text-black border border-white flex items-center gap-1 shadow-sm">
+                        <Briefcase className="w-3 h-3 text-black" />
+                        <span>CLIENT WORK: {activePodcast.clientBrandName || 'Deliverable'}</span>
+                      </span>
+                    )}
+
                     <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-200 flex items-center gap-1">
                       {cut.deliverable_type === 'full_length_video' ? (
                         <>
@@ -999,6 +1132,47 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         </button>
       </div>
 
+      {/* Work Type Filter Tabs (Client Works vs Studio Works) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <button
+          type="button"
+          onClick={() => setWorkFilter('all')}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+            workFilter === 'all'
+              ? 'bg-white text-black font-black shadow-md'
+              : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+          }`}
+        >
+          All Tasks ({displayedPodcasts.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setWorkFilter('client')}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+            workFilter === 'client'
+              ? 'bg-white text-black font-black shadow-lg ring-2 ring-white/50'
+              : 'bg-zinc-900 text-white border-2 border-white/60 hover:border-white shadow-sm'
+          }`}
+        >
+          <Briefcase className="w-3.5 h-3.5" />
+          <span>Client Works ({clientWorksCount})</span>
+          <span className="w-2 h-2 rounded-full bg-white shadow-[0_0_6px_#fff]" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setWorkFilter('studio')}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+            workFilter === 'studio'
+              ? 'bg-white text-black font-black shadow-md'
+              : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+          }`}
+        >
+          Studio Internal ({studioWorksCount})
+        </button>
+      </div>
+
       {/* PODCASTS LIST */}
       {isLoading ? (
         <div className="py-20 text-center">
@@ -1017,13 +1191,151 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
               : 'All podcasts have been claimed by editors. Check back when the Social Media Manager shares new footage.'}
           </p>
         </div>
+      ) : filteredPodcasts.length === 0 ? (
+        <div className="py-14 text-center rounded-3xl bg-zinc-900 border border-zinc-800 p-6 space-y-2">
+          <Briefcase className="w-8 h-8 text-zinc-600 mx-auto mb-1" />
+          <h3 className="text-sm font-bold text-white">
+            {workFilter === 'client' ? 'No Client Works in this view' : 'No Studio Works in this view'}
+          </h3>
+          <p className="text-xs text-zinc-400">
+            {workFilter === 'client' 
+              ? 'When client footage or brand projects are created, they will stand out here in white.' 
+              : 'Switch filter to "All Tasks" to view everything.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setWorkFilter('all')}
+            className="mt-2 px-4 py-1.5 rounded-full text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-white"
+          >
+            Show All Tasks
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {displayedPodcasts.map((podcast) => {
+          {filteredPodcasts.map((podcast) => {
             const reels = podcast.deliverables.filter(d => d.deliverable_type === 'reel');
             const fullVideos = podcast.deliverables.filter(d => d.deliverable_type === 'full_length_video');
             const completedReels = reels.filter(r => (r.progress_percentage || 0) === 100).length;
             const completedFull = fullVideos.filter(f => (f.progress_percentage || 0) === 100).length;
+
+            if (podcast.isClientWork) {
+              return (
+                <div
+                  key={podcast.id}
+                  onClick={() => setActivePodcastId(podcast.id)}
+                  className="p-5 rounded-3xl bg-zinc-950 border-2 border-white shadow-[0_0_30px_rgba(255,255,255,0.22)] ring-1 ring-white/60 hover:shadow-[0_0_36px_rgba(255,255,255,0.3)] transition-all duration-200 cursor-pointer space-y-4 group relative overflow-hidden"
+                >
+                  {/* Top Banner in pure white */}
+                  <div className="bg-white text-black px-4 py-2 rounded-2xl flex items-center justify-between font-black text-xs shadow-md">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-5 h-5 rounded-md bg-black text-white flex items-center justify-center shrink-0">
+                        <Briefcase className="w-3 h-3 text-white" />
+                      </div>
+                      <span className="tracking-wider uppercase font-black text-[11px]">CLIENT WORK</span>
+                      <span className="font-extrabold text-zinc-800 text-[11px] truncate">
+                        • {podcast.clientBrandName || 'Brand Deliverable'}
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-black text-white px-2.5 py-0.5 rounded-full border border-black shrink-0">
+                      Dedicated Client
+                    </span>
+                  </div>
+
+                  {/* Header Row: Title & Deadline */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-white text-black border border-white inline-flex items-center gap-1 shadow-sm">
+                          <Briefcase className="w-2.5 h-2.5 text-black" />
+                          CLIENT
+                        </span>
+                        <span className="text-xs font-black text-zinc-300 uppercase">
+                          {podcast.clientBrandName}
+                        </span>
+                      </div>
+                      <h3 className="font-black text-white text-base group-hover:text-zinc-100 transition-colors">
+                        {podcast.title}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-[11px] text-zinc-400 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-zinc-500" />
+                          Shot: {podcast.recording_date}
+                        </span>
+
+                        {/* DEADLINE DISPLAY (BY SMM) */}
+                        {podcast.deadline && (
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-zinc-800 text-white border border-zinc-700 flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-white" />
+                            <span>Deadline: {podcast.deadline}</span>
+                          </span>
+                        )}
+
+                        <span className="text-[10px] font-semibold text-zinc-400 flex items-center gap-1">
+                          <User className="w-3 h-3 text-zinc-500" />
+                          <span>Editor: <strong className="text-zinc-200">{podcast.editor_name}</strong></span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {podcast.isMyPodcast ? (
+                        <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-white text-black border border-white shrink-0 shadow-md">
+                          Assigned to You
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => handleClaimPodcast(podcast, e)}
+                          className="px-3.5 py-1.5 rounded-full bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all shadow-[0_0_15px_rgba(255,255,255,0.4)] active:scale-95 shrink-0"
+                        >
+                          🎬 Claim Client Task
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeletePodcast(podcast, e)}
+                        className="p-1.5 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+                        title="Delete podcast"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Overall Podcast Progress Bar with White Highlight */}
+                  <div className="space-y-1.5 pt-1 border-t border-zinc-800">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-300 font-bold flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_5px_#fff]" />
+                        <span>{podcast.completedCuts} of {podcast.totalCuts} Cuts Done ({completedReels} Reels, {completedFull} Full)</span>
+                      </span>
+                      <span className="font-black text-black bg-white px-2.5 py-0.5 rounded-full text-[11px] shadow-sm">
+                        {podcast.progressPercentage}%
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-black h-2.5 rounded-full overflow-hidden border border-white/60">
+                      <div
+                        className="bg-white h-full rounded-full transition-all duration-300 shadow-[0_0_10px_#ffffff]"
+                        style={{ width: `${podcast.progressPercentage}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Open Podcast Button */}
+                  <div className="pt-2 flex items-center justify-between text-xs">
+                    <span className="text-[11px] text-zinc-400 font-medium">
+                      Click to open client cuts &amp; upload deliverables
+                    </span>
+                    <div className="flex items-center gap-1 font-black text-white group-hover:translate-x-1 transition-transform">
+                      <span>Manage Client Cuts</span>
+                      <ChevronRight className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div
