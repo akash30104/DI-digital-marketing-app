@@ -28,7 +28,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
   // Selected Client Filter ('all' or clientId)
   const [selectedClientId, setSelectedClientId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [workTypeFilter, setWorkTypeFilter] = useState<'all' | 'shoots' | 'published'>('all');
 
   // Modal to add/link work to a client
   const [showAddWorkModal, setShowAddWorkModal] = useState(false);
@@ -422,34 +421,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
               </span>
             )}
           </div>
-
-          {/* Work Type Filter */}
-          <div className="flex items-center gap-1 p-1 bg-black border border-zinc-800 rounded-xl text-xs">
-            <button
-              onClick={() => setWorkTypeFilter('all')}
-              className={`px-3 py-1 rounded-lg font-bold transition ${
-                workTypeFilter === 'all' ? 'bg-white text-black font-black' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              All Assets
-            </button>
-            <button
-              onClick={() => setWorkTypeFilter('shoots')}
-              className={`px-3 py-1 rounded-lg font-bold transition ${
-                workTypeFilter === 'shoots' ? 'bg-white text-black font-black' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Shoots
-            </button>
-            <button
-              onClick={() => setWorkTypeFilter('published')}
-              className={`px-3 py-1 rounded-lg font-bold transition ${
-                workTypeFilter === 'published' ? 'bg-white text-black font-black' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Published
-            </button>
-          </div>
         </div>
 
         {/* Editing Tab Redirection Notice */}
@@ -479,8 +450,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
 
           return (
             <div className="space-y-4">
-              {/* SHOOTS (if all or shoots) */}
-              {(workTypeFilter === 'all' || workTypeFilter === 'shoots') && targetRecs.length > 0 && (
+              {/* SHOOTS */}
+              {targetRecs.length > 0 && (
                 <div className="space-y-2">
                   <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                     <Film className="w-3.5 h-3.5 text-zinc-300" />
@@ -508,7 +479,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
               )}
 
               {/* PUBLISHED POSTS */}
-              {(workTypeFilter === 'all' || workTypeFilter === 'published') && targetLogs.length > 0 && (
+              {targetLogs.length > 0 && (
                 <div className="space-y-2">
                   <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                     <Share2 className="w-3.5 h-3.5 text-zinc-300" />
