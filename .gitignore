@@ -9,6 +9,7 @@ dist-ssr/
 *.log
 
 # Android Build & IDE Cache
+*.apk
 android/.gradle/
 android/build/
 android/app/build/
