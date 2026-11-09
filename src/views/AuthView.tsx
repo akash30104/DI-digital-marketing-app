@@ -1,27 +1,21 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Users, Crown, ShieldAlert, ArrowRight, Video, CheckCircle2, Briefcase, Sparkles } from 'lucide-react';
+import { Lock, Users, Crown, ShieldAlert, ArrowRight, CheckCircle2, Briefcase, Film } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const AuthView: React.FC = () => {
   const { signIn, signUp, founderExists, refreshFounderStatus } = useAuth();
-  
-  // Detect if accessing via client subdomain (e.g. client.yourdomain.com) or query parameter (?portal=client)
-  const isClientAccess = typeof window !== 'undefined' && (
-    window.location.hostname.startsWith('client.') ||
-    window.location.hostname.startsWith('clients.') ||
-    window.location.search.includes('portal=client') ||
-    window.location.search.includes('client') ||
-    window.location.hash.includes('client')
-  );
 
-  const [authMode, setAuthMode] = useState<'signIn' | 'clientPortal' | 'teamRegister' | 'founderSetup'>(
-    isClientAccess ? 'clientPortal' : 'signIn'
-  );
+  // All-in-one Hosting: Toggle between Studio Team and Client Portal
+  const [portalType, setPortalType] = useState<'studio' | 'client'>('studio');
   
-  const [clientSubMode, setClientSubMode] = useState<'signIn' | 'signUp'>('signIn');
+  // Studio sub-modes: 'signIn' | 'register' | 'founder'
+  const [studioMode, setStudioMode] = useState<'signIn' | 'register' | 'founder'>('signIn');
+  
+  // Client sub-modes: 'signIn' | 'register'
+  const [clientMode, setClientMode] = useState<'signIn' | 'register'>('signIn');
+
   const [clientBrandName, setClientBrandName] = useState('');
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,13 +26,9 @@ export const AuthView: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleTabChange = (mode: 'signIn' | 'clientPortal' | 'teamRegister' | 'founderSetup') => {
-    setAuthMode(mode);
+  const resetMessages = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
-    if (mode === 'founderSetup') {
-      refreshFounderStatus();
-    }
   };
 
   const sanitizeError = (err: string | undefined): string => {
@@ -58,8 +48,7 @@ export const AuthView: React.FC = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+    resetMessages();
     const res = await signIn(email, password);
     setIsLoading(false);
     if (res.error) {
@@ -78,8 +67,7 @@ export const AuthView: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+    resetMessages();
     const clientDisplayName = clientBrandName.trim() ? `${fullName.trim()} (${clientBrandName.trim()})` : fullName.trim();
     const res = await signUp(email, password, clientDisplayName, 'client');
     setIsLoading(false);
@@ -87,7 +75,7 @@ export const AuthView: React.FC = () => {
       setErrorMessage(sanitizeError(res.error));
     } else {
       setSuccessMessage(`Client account created for ${fullName}! You can now sign in.`);
-      setClientSubMode('signIn');
+      setClientMode('signIn');
     }
   };
 
@@ -102,8 +90,7 @@ export const AuthView: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+    resetMessages();
     const res = await signUp(email, password, fullName, selectedRole);
     setIsLoading(false);
     if (res.error) {
@@ -113,7 +100,7 @@ export const AuthView: React.FC = () => {
         ? 'Video Editor' 
         : 'Social Media Manager';
       setSuccessMessage(`Account created for ${fullName} as ${roleLabel}! You can now sign in.`);
-      setAuthMode('signIn');
+      setStudioMode('signIn');
     }
   };
 
@@ -132,12 +119,15 @@ export const AuthView: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    setErrorMessage(null);
+    resetMessages();
     const res = await signUp(email, password, fullName, 'founder');
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));
       refreshFounderStatus();
+    } else {
+      setSuccessMessage(`Primary founder account created! You can now sign in.`);
+      setStudioMode('signIn');
     }
   };
 
@@ -153,58 +143,42 @@ export const AuthView: React.FC = () => {
             Digital Inertia
           </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Production & Social Media Management App
+            Production &amp; Social Media Management App
           </p>
         </div>
 
-        {/* Top Navigation Bar / Segmented Bar */}
-        <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-2xl mb-4 gap-1 overflow-x-auto">
+        {/* ALL-IN-ONE HOSTING: TOGGLE BUTTON */}
+        <div className="p-1 bg-zinc-900 border border-zinc-800 rounded-2xl mb-4 flex gap-1 shadow-xl">
           <button
-            onClick={() => handleTabChange('signIn')}
-            className={`flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
-              authMode === 'signIn'
-                ? 'bg-white text-black font-black shadow-md'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Sign In</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('clientPortal')}
-            className={`flex-1 min-w-[95px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
-              authMode === 'clientPortal'
-                ? 'bg-white text-black font-black shadow-md'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5 text-zinc-300" />
-            <span>Client</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('teamRegister')}
-            className={`flex-1 min-w-[85px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
-              authMode === 'teamRegister'
-                ? 'bg-white text-black font-black shadow-md'
-                : 'text-zinc-400 hover:text-white'
+            type="button"
+            onClick={() => {
+              setPortalType('studio');
+              resetMessages();
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+              portalType === 'studio'
+                ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Team</span>
+            <span>Studio Team</span>
           </button>
 
           <button
-            onClick={() => handleTabChange('founderSetup')}
-            className={`flex-1 min-w-[85px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
-              authMode === 'founderSetup'
-                ? 'bg-zinc-800 text-white font-black border border-zinc-700 shadow-md'
-                : 'text-zinc-400 hover:text-white'
+            type="button"
+            onClick={() => {
+              setPortalType('client');
+              resetMessages();
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+              portalType === 'client'
+                ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
             }`}
           >
-            <Crown className="w-3.5 h-3.5 text-zinc-300" />
-            <span>Founder</span>
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Client Portal</span>
           </button>
         </div>
 
@@ -224,61 +198,310 @@ export const AuthView: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 1: SIGN IN */}
-          {authMode === 'signIn' && (
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@studio.com"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                />
-              </div>
+          {/* ==================== PORTAL: STUDIO TEAM ==================== */}
+          {portalType === 'studio' && (
+            <div className="space-y-4">
+              {/* Secondary Sub-Toggle: Sign In vs Register Team */}
+              {studioMode !== 'founder' && (
+                <div className="flex bg-black border border-zinc-800 rounded-xl p-1 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => { setStudioMode('signIn'); resetMessages(); }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      studioMode === 'signIn' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Team Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setStudioMode('register'); resetMessages(); }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      studioMode === 'register' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Register Team
+                  </button>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                />
-              </div>
+              {/* STUDIO: SIGN IN */}
+              {studioMode === 'signIn' && (
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Work Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@studio.com"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
-              >
-                {isLoading ? 'Signing in...' : 'Sign In'}
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
 
-              <div className="pt-2 border-t border-zinc-800 text-center">
-                <button
-                  type="button"
-                  onClick={() => handleTabChange('clientPortal')}
-                  className="text-xs font-bold text-zinc-400 hover:text-white transition-colors inline-flex items-center gap-1.5 py-1"
-                >
-                  <Briefcase className="w-3.5 h-3.5 text-zinc-300" />
-                  <span>Are you a Client Partner? <strong>Access Client Portal →</strong></span>
-                </button>
-              </div>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                  >
+                    {isLoading ? 'Signing in...' : 'Sign In to Studio'}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+                    <button
+                      type="button"
+                      onClick={() => { setStudioMode('register'); resetMessages(); }}
+                      className="hover:text-white transition-colors"
+                    >
+                      Need an account? <strong>Register →</strong>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setStudioMode('founder'); refreshFounderStatus(); resetMessages(); }}
+                      className="hover:text-white transition-colors inline-flex items-center gap-1 text-[11px] text-zinc-500"
+                    >
+                      <Crown className="w-3 h-3 text-zinc-400" />
+                      <span>Founder Setup</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STUDIO: REGISTER TEAM MEMBER */}
+              {studioMode === 'register' && (
+                <form onSubmit={handleTeamSignUp} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Alex Rivera"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Work Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="alex@studio.com"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Min. 6 characters"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Select Role
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRole('editor')}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                          selectedRole === 'editor'
+                            ? 'border-white bg-zinc-800 text-white font-black'
+                            : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        🎬 Video Editor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRole('social_media_manager')}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                          selectedRole === 'social_media_manager'
+                            ? 'border-white bg-zinc-800 text-white font-black'
+                            : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        📱 Social Media Mgr
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                  >
+                    {isLoading 
+                      ? 'Creating account...' 
+                      : `Register as ${selectedRole === 'editor' ? 'Video Editor' : 'Social Media Manager'}`}
+                  </button>
+
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setStudioMode('signIn'); resetMessages(); }}
+                      className="text-xs text-zinc-400 hover:text-white transition-colors"
+                    >
+                      Already have an account? <strong>Sign In →</strong>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STUDIO: FOUNDER SETUP */}
+              {studioMode === 'founder' && (
+                <div>
+                  {founderExists ? (
+                    /* LOCKED STATE */
+                    <div className="text-center py-4 space-y-3">
+                      <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center">
+                        <ShieldAlert className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">
+                          Founder Account Claimed
+                        </h3>
+                        <p className="text-xs text-zinc-400 mt-1 px-4 leading-relaxed">
+                          A primary founder account has already been registered for this workspace. Only <strong>ONE founder account</strong> is permitted per organization.
+                        </p>
+                      </div>
+                      <div className="pt-2">
+                        <button
+                          onClick={() => { setStudioMode('signIn'); resetMessages(); }}
+                          className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full text-xs font-bold transition-all border border-zinc-700"
+                        >
+                          Return to Sign In
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* UNCLAIMED FOUNDER REGISTRATION FORM */
+                    <form onSubmit={handleFounderSignUp} className="space-y-4">
+                      <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-zinc-800 border border-zinc-700 text-zinc-200">
+                        <Crown className="w-5 h-5 flex-shrink-0 text-zinc-300" />
+                        <div className="text-xs">
+                          <p className="font-bold text-white">Claim Primary Founder Account</p>
+                          <p className="text-[11px] text-zinc-400">First user gets master administrative oversight &amp; approvals.</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                          Founder Full Name
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Founder Name"
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                          Founder Work Email
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="founder@company.com"
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                          Master Password
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Min. 6 characters"
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                          Confirm Master Password
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Repeat password"
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                      >
+                        {isLoading ? 'Creating Founder...' : 'Create Primary Founder Account'}
+                        <Crown className="w-4 h-4" />
+                      </button>
+
+                      <div className="pt-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => { setStudioMode('signIn'); resetMessages(); }}
+                          className="text-xs text-zinc-400 hover:text-white transition-colors"
+                        >
+                          Return to <strong>Sign In →</strong>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
-          {/* TAB: CLIENT PORTAL ACCESS */}
-          {authMode === 'clientPortal' && (
+          {/* ==================== PORTAL: CLIENT PORTAL ==================== */}
+          {portalType === 'client' && (
             <div className="space-y-4">
               <div className="text-center pb-2 border-b border-zinc-800">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white mb-2">
@@ -286,33 +509,34 @@ export const AuthView: React.FC = () => {
                   <span>Client Review &amp; Approvals Portal</span>
                 </div>
                 <p className="text-xs text-zinc-400 leading-relaxed">
-                  Review podcast cuts, preview Google Drive deliverables, approve finished reels, and request edits.
+                  Review podcast cuts, preview Drive deliverables, and approve finished reels.
                 </p>
 
-                {/* Sub-toggle: Sign In vs Register */}
+                {/* Sub-toggle: Client Sign In vs Register Brand */}
                 <div className="flex bg-black border border-zinc-800 rounded-xl p-1 mt-3">
                   <button
                     type="button"
-                    onClick={() => { setClientSubMode('signIn'); setErrorMessage(null); setSuccessMessage(null); }}
+                    onClick={() => { setClientMode('signIn'); resetMessages(); }}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                      clientSubMode === 'signIn' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
+                      clientMode === 'signIn' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
                     }`}
                   >
                     Client Sign In
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setClientSubMode('signUp'); setErrorMessage(null); setSuccessMessage(null); }}
+                    onClick={() => { setClientMode('register'); resetMessages(); }}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                      clientSubMode === 'signUp' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
+                      clientMode === 'register' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
                     }`}
                   >
-                    New Client Register
+                    Register Brand
                   </button>
                 </div>
               </div>
 
-              {clientSubMode === 'signIn' ? (
+              {/* CLIENT: SIGN IN */}
+              {clientMode === 'signIn' ? (
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-zinc-300 mb-1.5">
@@ -347,12 +571,38 @@ export const AuthView: React.FC = () => {
                     disabled={isLoading}
                     className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
                   >
-                    {isLoading ? 'Opening Client Portal...' : 'Enter Client Portal'}
+                    {isLoading ? 'Opening Client Portal...' : 'Sign In as Client Partner'}
                     <ArrowRight className="w-4 h-4" />
                   </button>
+
+                  <div className="pt-2 text-center text-xs text-zinc-400">
+                    New brand partner?{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setClientMode('register'); resetMessages(); }}
+                      className="font-bold text-white hover:underline ml-1"
+                    >
+                      Register Brand →
+                    </button>
+                  </div>
                 </form>
               ) : (
+                /* CLIENT: REGISTER BRAND */
                 <form onSubmit={handleClientSignUp} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Brand Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={clientBrandName}
+                      onChange={(e) => setClientBrandName(e.target.value)}
+                      placeholder="e.g. Brand Name"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                       Your Full Name
@@ -363,19 +613,6 @@ export const AuthView: React.FC = () => {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="e.g. David Miller"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Brand Name
-                    </label>
-                    <input
-                      type="text"
-                      value={clientBrandName}
-                      onChange={(e) => setClientBrandName(e.target.value)}
-                      placeholder="e.g. Brand Name"
                       className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                     />
                   </div>
@@ -416,211 +653,17 @@ export const AuthView: React.FC = () => {
                     {isLoading ? 'Creating Client Account...' : 'Register Client Account'}
                     <ArrowRight className="w-4 h-4" />
                   </button>
-                </form>
-              )}
 
-              {/* Subdomain & Direct URL helper */}
-              <div className="p-3 rounded-2xl bg-black border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
-                <span className="font-bold text-white block">Client Portal Direct Access:</span>
-                <p>
-                  Clients can also access directly via subdomain (e.g. <code>client.yourdomain.com</code>) or appending <code>?portal=client</code> to your site link.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: TEAM REGISTER (EDITOR / MANAGER / CLIENT) */}
-          {authMode === 'teamRegister' && (
-            <form onSubmit={handleTeamSignUp} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Alex Rivera"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Work Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="alex@studio.com"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 6 characters"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Select Role
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole('editor')}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
-                      selectedRole === 'editor'
-                        ? 'border-white bg-zinc-800 text-white font-black'
-                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    🎬 Video Editor
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole('social_media_manager')}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
-                      selectedRole === 'social_media_manager'
-                        ? 'border-white bg-zinc-800 text-white font-black'
-                        : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    📱 Social Media Mgr
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 text-zinc-400 text-[11px]">
-                Founder role is not selectable here. Use the Founder Setup tab if not yet registered. Clients register in the Client tab.
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
-              >
-                {isLoading 
-                  ? 'Creating account...' 
-                  : `Register as ${selectedRole === 'editor' ? 'Video Editor' : 'Social Media Manager'}`}
-              </button>
-            </form>
-          )}
-
-          {/* TAB 3: FOUNDER SETUP (SINGLE FOUNDER LOCKOUT) */}
-          {authMode === 'founderSetup' && (
-            <div>
-              {founderExists ? (
-                /* LOCKED STATE */
-                <div className="text-center py-4 space-y-3">
-                  <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center">
-                    <ShieldAlert className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-white">
-                      Founder Account Claimed
-                    </h3>
-                    <p className="text-xs text-zinc-400 mt-1 px-4 leading-relaxed">
-                      A primary founder account has already been registered for this workspace. Only <strong>ONE founder account</strong> is permitted per organization.
-                    </p>
-                  </div>
-                  <div className="pt-2">
+                  <div className="pt-2 text-center text-xs text-zinc-400">
+                    Already registered?{' '}
                     <button
-                      onClick={() => handleTabChange('signIn')}
-                      className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full text-xs font-bold transition-all border border-zinc-700"
+                      type="button"
+                      onClick={() => { setClientMode('signIn'); resetMessages(); }}
+                      className="font-bold text-white hover:underline ml-1"
                     >
-                      Return to Sign In
+                      Client Sign In →
                     </button>
                   </div>
-                </div>
-              ) : (
-                /* UNCLAIMED FOUNDER REGISTRATION FORM */
-                <form onSubmit={handleFounderSignUp} className="space-y-4">
-                  <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-zinc-800 border border-zinc-700 text-zinc-200">
-                    <Crown className="w-5 h-5 flex-shrink-0 text-zinc-300" />
-                    <div className="text-xs">
-                      <p className="font-bold text-white">Claim Primary Founder Account</p>
-                      <p className="text-[11px] text-zinc-400">First user gets master administrative oversight & Google Sheets sync.</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Founder Full Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Founder Name"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Founder Work Email
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="founder@company.com"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Master Password
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Min. 6 characters"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Confirm Master Password
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Repeat password"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
-                  >
-                    {isLoading ? 'Creating Founder...' : 'Create Primary Founder Account'}
-                    <Crown className="w-4 h-4" />
-                  </button>
                 </form>
               )}
             </div>
