@@ -155,22 +155,56 @@ export async function purgeAllDeliverables(idsToPurge?: string[]): Promise<void>
 }
 
 /**
+ * Permanently deletes an individual recording / podcast and its linked deliverables
+ */
+export async function deleteSingleRecording(id: string): Promise<void> {
+  // 1. Mark in client storage immediately
+  addToSet(STORAGE_DELETED_RECORDINGS_KEY, id);
+
+  // 2. Cancel and delete all deliverables linked to this recording
+  try {
+    await supabase.from('deliverables').update({
+      editing_status: 'cancelled',
+      updated_at: new Date().toISOString()
+    }).eq('recording_id', id);
+  } catch (e) {
+    console.warn('Update deliverables to cancelled note:', e);
+  }
+
+  try {
+    await supabase.from('deliverables').delete().eq('recording_id', id);
+  } catch (e) {
+    console.warn('Delete recording deliverables note:', e);
+  }
+
+  // 3. Attempt hard DELETE on recording
+  try {
+    await supabase.from('recordings').delete().eq('id', id);
+  } catch (e) {
+    console.warn('Delete recording note:', e);
+  }
+}
+
+/**
  * Purges all recordings / podcasts and linked deliverables
  */
 export async function purgeAllRecordings(idsToPurge?: string[]): Promise<void> {
   localStorage.setItem(STORAGE_PURGED_RECORDINGS_KEY, new Date().toISOString());
   if (idsToPurge && idsToPurge.length > 0) {
     addManyToSet(STORAGE_DELETED_RECORDINGS_KEY, idsToPurge);
-  }
+    for (const id of idsToPurge) {
+      await deleteSingleRecording(id);
+    }
+  } else {
+    // Also purge all deliverables linked to these recordings
+    await purgeAllDeliverables();
 
-  // Also purge all deliverables linked to these recordings
-  await purgeAllDeliverables();
-
-  // Attempt hard DELETE on recordings
-  try {
-    await supabase.from('recordings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  } catch (e) {
-    console.warn('Delete recordings note:', e);
+    // Attempt hard DELETE on recordings
+    try {
+      await supabase.from('recordings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    } catch (e) {
+      console.warn('Delete recordings note:', e);
+    }
   }
 }
 

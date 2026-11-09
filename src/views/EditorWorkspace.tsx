@@ -9,7 +9,7 @@ import {
   UserCheck, X, ChevronRight, ChevronLeft, ArrowRight, ListTodo, 
   CheckSquare, Plus, ArrowLeft, Cloud, Film, Calendar, RefreshCw, User, Trash2
 } from 'lucide-react';
-import { filterDeliverables, filterRecordings, deleteSingleDeliverable } from '../lib/deletionFilter';
+import { filterDeliverables, filterRecordings, deleteSingleDeliverable, deleteSingleRecording } from '../lib/deletionFilter';
 
 interface EditorWorkspaceProps {
   mode?: 'all' | 'my';
@@ -124,8 +124,16 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
       const acceptedSet = getAcceptedPodcastIds(currentUser.id);
 
-      const items: PodcastItem[] = recs.map((rec: any) => {
+      const items: PodcastItem[] = [];
+      for (const rec of recs as any[]) {
         const podDelivs = dels.filter(d => d.recording_id === rec.id);
+
+        // If all tasks for this podcast have been deleted (0 deliverables),
+        // do NOT display this empty card in the editor's workspace!
+        if (podDelivs.length === 0) {
+          continue;
+        }
+
         const deadline = extractDeadline(rec.notes, podDelivs);
 
         // Find primary assigned editor for this podcast
@@ -150,13 +158,13 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           ? Math.round(podDelivs.reduce((acc, d) => acc + (d.progress_percentage || 0), 0) / totalCuts)
           : 0;
 
-        return {
+        items.push({
           id: rec.id,
           title: rec.title,
           recording_date: rec.recording_date,
           hard_disk_name: rec.hard_disk_name,
           folder_path: rec.folder_path,
-          notes: rec.notes,
+          notes: rec.notes || undefined,
           deadline,
           assigned_editor_id: assignedEditorId,
           editor_name: editorName,
@@ -165,8 +173,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           completedCuts,
           progressPercentage,
           isMyPodcast
-        };
-      });
+        });
+      }
 
       setPodcasts(items);
     } catch (err) {
@@ -234,6 +242,18 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     } catch (err) {
       console.error('Error claiming podcast:', err);
     }
+  };
+
+  // Delete / Dismiss entire Podcast action
+  const handleDeletePodcast = async (podcast: PodcastItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Delete podcast shoot "${podcast.title}" and all its deliverables?`)) return;
+    await deleteSingleRecording(podcast.id);
+    setPodcasts(prev => prev.filter(p => p.id !== podcast.id));
+    if (activePodcastId === podcast.id) {
+      setActivePodcastId(null);
+    }
+    showToast(`🗑️ "${podcast.title}" deleted.`);
   };
 
   // Real-time slider mouse movement (60fps optimistic update)
@@ -533,8 +553,17 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
               </h2>
             </div>
 
-            {/* DEADLINE BADGE (SET BY SOCIAL MEDIA MANAGER) */}
+            {/* DEADLINE BADGE & ACTIONS */}
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={(e) => handleDeletePodcast(activePodcast, e)}
+                className="px-3 py-2 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 border border-zinc-700/60 text-zinc-400 hover:text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+                title="Delete this podcast shoot"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Shoot</span>
+              </button>
+
               {activePodcast.deadline ? (
                 <div className="px-4 py-2 rounded-2xl bg-zinc-800 border border-zinc-700 text-white flex items-center gap-2 shadow-sm">
                   <Clock className="w-4 h-4 text-white" />
@@ -1029,19 +1058,30 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                     </div>
                   </div>
 
-                  {podcast.isMyPodcast ? (
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-white text-black border border-white shrink-0">
-                      Assigned to You
-                    </span>
-                  ) : (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {podcast.isMyPodcast ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-white text-black border border-white shrink-0">
+                        Assigned to You
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => handleClaimPodcast(podcast, e)}
+                        className="px-3.5 py-1.5 rounded-full bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all shadow-md active:scale-95 shrink-0"
+                      >
+                        🎬 Claim Podcast
+                      </button>
+                    )}
+
                     <button
                       type="button"
-                      onClick={(e) => handleClaimPodcast(podcast, e)}
-                      className="px-3.5 py-1.5 rounded-full bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all shadow-md active:scale-95 shrink-0"
+                      onClick={(e) => handleDeletePodcast(podcast, e)}
+                      className="p-1.5 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+                      title="Delete podcast"
                     >
-                      🎬 Claim Podcast
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  </div>
                 </div>
 
                 {/* Overall Podcast Progress Bar */}
