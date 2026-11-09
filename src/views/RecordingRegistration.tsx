@@ -8,6 +8,7 @@ import {
   Clock, ArrowRight, Sparkles, Layers, ExternalLink, User, Trash2
 } from 'lucide-react';
 import { filterDeliverables, filterRecordings, purgeAllRecordings } from '../lib/deletionFilter';
+import { getClientBrandName } from '../lib/clientIsolation';
 
 interface RecordingWithDeliverables {
   id: string;
@@ -34,6 +35,8 @@ export const RecordingRegistration: React.FC = () => {
   const [recordings, setRecordings] = useState<RecordingWithDeliverables[]>([]);
   const [editors, setEditors] = useState<Profile[]>([]);
   const [selectedEditorId, setSelectedEditorId] = useState<string>('');
+  const [clients, setClients] = useState<Profile[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal State
@@ -54,7 +57,7 @@ export const RecordingRegistration: React.FC = () => {
   const loadRecordings = async () => {
     setIsLoading(true);
     try {
-      const [recRes, editorsRes] = await Promise.all([
+      const [recRes, editorsRes, clientsRes] = await Promise.all([
         supabase
           .from('recordings')
           .select(`
@@ -66,6 +69,10 @@ export const RecordingRegistration: React.FC = () => {
           .from('profiles')
           .select('*')
           .eq('role', 'editor')
+          .order('full_name'),
+        supabase
+          .from('profiles')
+          .select('*')
           .order('full_name')
       ]);
 
@@ -80,6 +87,13 @@ export const RecordingRegistration: React.FC = () => {
 
       if (!editorsRes.error && editorsRes.data) {
         setEditors(editorsRes.data as Profile[]);
+      }
+
+      if (!clientsRes.error && clientsRes.data) {
+        const clientProfiles = clientsRes.data.filter((p: Profile) => 
+          p.role === 'client' || (p.full_name && p.full_name.includes('(') && p.role !== 'founder')
+        );
+        setClients(clientProfiles);
       }
     } catch (e) {
       console.error('Failed to load recordings:', e);
@@ -113,6 +127,7 @@ export const RecordingRegistration: React.FC = () => {
   const openShareModal = () => {
     setTitle('');
     setSelectedEditorId(editors[0]?.id || '');
+    setSelectedClientId('');
     setReelsCount(3);
     setIncludeFullVideo(true);
     setIsModalOpen(true);
@@ -132,17 +147,24 @@ export const RecordingRegistration: React.FC = () => {
       const finalLocation = '/footage';
       const finalDeadline = deadline.trim() || todayStr;
 
+      const selectedClient = clients.find(c => c.id === selectedClientId);
+      const brandName = selectedClient ? getClientBrandName(selectedClient) : '';
+      const clientTag = selectedClient ? `[Client: ${selectedClient.id}] [Brand: ${brandName}] ` : '';
+      const fullShootTitle = brandName && !title.toLowerCase().includes(brandName.toLowerCase())
+        ? `${brandName} - ${title.trim()}`
+        : title.trim();
+
       // 1. Insert Recording
       const { data: recData, error: recError } = await supabase
         .from('recordings')
         .insert([
           {
-            title: title.trim(),
+            title: fullShootTitle,
             recording_date: todayStr,
             date_received: todayStr,
             hard_disk_name: finalMethod,
             folder_path: finalLocation,
-            notes: `[Deadline: ${finalDeadline}]`,
+            notes: `${clientTag}[Deadline: ${finalDeadline}]`,
             registered_by: currentUser?.id
           }
         ])
@@ -158,7 +180,7 @@ export const RecordingRegistration: React.FC = () => {
       for (let i = 1; i <= Math.max(0, reelsCount); i++) {
         deliverablesToInsert.push({
           recording_id: recData.id,
-          title: `${title.trim()} - Reel #${i}`,
+          title: `${fullShootTitle} - Reel #${i}`,
           deliverable_type: 'reel',
           assigned_editor_id: selectedEditorId || null,
           editing_status: 'assigned',
@@ -171,7 +193,7 @@ export const RecordingRegistration: React.FC = () => {
       if (includeFullVideo) {
         deliverablesToInsert.push({
           recording_id: recData.id,
-          title: `${title.trim()} - Full Episode Video`,
+          title: `${fullShootTitle} - Full Episode Video`,
           deliverable_type: 'full_length_video',
           assigned_editor_id: selectedEditorId || null,
           editing_status: 'assigned',
@@ -436,6 +458,26 @@ export const RecordingRegistration: React.FC = () => {
 
             {/* Modal Form */}
             <form onSubmit={handleShareToEditor} className="p-5 space-y-4">
+              {/* Client Selection */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                  <span>Client / Brand (Optional)</span>
+                  <span className="text-[10px] text-zinc-400 font-bold">Auto-routes to Client Portal</span>
+                </label>
+                <select
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
+                >
+                  <option value="">Studio General (No specific client)</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      🏢 {c.full_name} {c.email ? `(${c.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* 1. Footage Title */}
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">

@@ -15,6 +15,7 @@ import { FounderMore } from './views/FounderMore';
 import { ManagerApprovals } from './views/ManagerApprovals';
 import { ClientPortal } from './views/ClientPortal';
 import { ClientsView } from './views/ClientsView';
+import { PublishedVideosView } from './views/PublishedVideosView';
 
 export const App: React.FC = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
@@ -36,13 +37,13 @@ export const App: React.FC = () => {
   // Set default tab when role changes
   useEffect(() => {
     if (role === 'founder') {
-      setActiveTab('dashboard');
+      setActiveTab('editing');
     } else if (role === 'editor') {
       setActiveTab('my_tasks');
     } else if (role === 'social_media_manager') {
-      setActiveTab('dashboard');
+      setActiveTab('pipeline');
     } else if (role === 'client') {
-      setActiveTab('cuts');
+      setActiveTab('editing');
     }
   }, [role]);
 
@@ -64,18 +65,21 @@ export const App: React.FC = () => {
   const renderActiveScreen = () => {
     if (role === 'founder') {
       switch (activeTab) {
-        case 'dashboard':
-          return <FounderDashboard onNavigateTab={setActiveTab} />;
-        case 'clients':
-          return <ClientsView onNavigateTab={setActiveTab} />;
-        case 'approvals':
-          return <FounderApprovals />;
+        case 'editing':
         case 'production':
           return <ProductionBoard />;
+        case 'published':
+        case 'dashboard':
+          return <PublishedVideosView canEditInsights={true} />;
+        case 'approvals':
+          return <FounderApprovals />;
+        case 'clients':
+          return <ClientsView onNavigateTab={setActiveTab} />;
         case 'more':
+        case 'settings':
           return <FounderMore />;
         default:
-          return <FounderDashboard onNavigateTab={setActiveTab} />;
+          return <ProductionBoard />;
       }
     } else if (role === 'editor') {
       switch (activeTab) {
@@ -93,30 +97,34 @@ export const App: React.FC = () => {
     } else if (role === 'social_media_manager') {
       switch (activeTab) {
         case 'dashboard':
+        case 'hub':
           return <FounderDashboard onNavigateTab={setActiveTab} />;
         case 'clients':
           return <ClientsView onNavigateTab={setActiveTab} />;
         case 'footage':
           return <RecordingRegistration />;
         case 'pipeline':
+        case 'editing':
           return <ProductionBoard />;
         case 'approvals':
         case 'approved':
-        case 'publishing':
           return <ManagerApprovals />;
+        case 'published':
+        case 'publishing':
+          return <PublishedVideosView canEditInsights={true} />;
         case 'history':
           return <PublishingHistory />;
         case 'more':
         case 'settings':
           return <FounderMore />;
         default:
-          return <FounderDashboard onNavigateTab={setActiveTab} />;
+          return <ProductionBoard />;
       }
     } else if (role === 'client') {
       return <ClientPortal activeTab={activeTab} onNavigateTab={setActiveTab} />;
     }
 
-    return <FounderDashboard onNavigateTab={setActiveTab} />;
+    return <ProductionBoard />;
   };
 
   return (
