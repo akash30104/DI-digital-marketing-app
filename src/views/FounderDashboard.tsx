@@ -11,13 +11,14 @@ import {
   PlaySquare, Camera, Tv, Film, CheckCircle2, RotateCcw, 
   Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight, 
   Share2, Plus, X, Check, Sparkles, Layers, Calendar, Clock,
-  Play, Video, Trash2
+  Play, Video, Trash2, Eye, MessageSquare, Heart, Edit3
 } from 'lucide-react';
 import { 
   filterDeliverables, filterPublishingLogs, deleteSingleDeliverable, 
   purgeAllDeliverables, deleteSinglePublishingLog 
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, getCachedTargets, TargetConfig } from '../lib/targets';
+import { parseInsights, formatCompactNumber, formatInsightsNote, SocialInsights } from '../lib/insights';
 
 // Video embed and format helpers
 const getYouTubeEmbedUrl = (url?: string): string | null => {
@@ -110,6 +111,66 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
   const [selectedDeliverableId, setSelectedDeliverableId] = useState<string>('');
   const [availableDeliverables, setAvailableDeliverables] = useState<Deliverable[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Live Video Insights Modal State
+  const [editingInsightsLog, setEditingInsightsLog] = useState<PublishingLog | null>(null);
+  const [insightViews, setInsightViews] = useState<number>(0);
+  const [insightComments, setInsightComments] = useState<number>(0);
+  const [insightShares, setInsightShares] = useState<number>(0);
+  const [insightLikes, setInsightLikes] = useState<number>(0);
+  const [isSavingInsights, setIsSavingInsights] = useState(false);
+
+  const openEditInsights = (log: PublishingLog) => {
+    const current = parseInsights(log.notes, log.id);
+    setInsightViews(current.views);
+    setInsightComments(current.comments);
+    setInsightShares(current.shares);
+    setInsightLikes(current.likes);
+    setEditingInsightsLog(log);
+  };
+
+  const handleSaveInsights = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInsightsLog) return;
+    setIsSavingInsights(true);
+
+    try {
+      const newInsights: SocialInsights = {
+        views: Math.max(0, Number(insightViews) || 0),
+        comments: Math.max(0, Number(insightComments) || 0),
+        shares: Math.max(0, Number(insightShares) || 0),
+        likes: Math.max(0, Number(insightLikes) || 0),
+      };
+
+      const updatedNotes = formatInsightsNote(editingInsightsLog.notes, newInsights);
+
+      // 1. Update publishing_logs
+      await supabase
+        .from('publishing_logs')
+        .update({ notes: updatedNotes })
+        .eq('id', editingInsightsLog.id);
+
+      // 2. Update linked deliverable if exists
+      if (editingInsightsLog.deliverable_id) {
+        await supabase
+          .from('deliverables')
+          .update({ approval_notes: updatedNotes })
+          .eq('id', editingInsightsLog.deliverable_id);
+      }
+
+      // Optimistically update local logs
+      setTodayPublishedLogs(prev => prev.map(l => l.id === editingInsightsLog.id ? { ...l, notes: updatedNotes } : l));
+      setWeekPublishedLogs(prev => prev.map(l => l.id === editingInsightsLog.id ? { ...l, notes: updatedNotes } : l));
+
+      showToast('🎉 Video insights updated successfully!');
+      setEditingInsightsLog(null);
+    } catch (err: any) {
+      console.error('Error saving insights:', err);
+      alert(`Failed to save insights: ${err.message}`);
+    } finally {
+      setIsSavingInsights(false);
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -1114,6 +1175,73 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
                   </a>
                 </div>
               )}
+
+              {/* VIDEO PERFORMANCE INSIGHTS DOWN THE VIDEO */}
+              {(() => {
+                const ins = parseInsights(log.notes, log.id);
+
+                return (
+                  <div className="bg-black/90 rounded-2xl p-3 border border-zinc-800 space-y-2.5 mt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-zinc-300" />
+                        <span>Live Video Insights</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => openEditInsights(log)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition active:scale-95"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Update Insights</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                          <Eye className="w-3 h-3 text-zinc-400" />
+                          <span>Views</span>
+                        </div>
+                        <div className="text-sm sm:text-base font-black text-white mt-1">
+                          {formatCompactNumber(ins.views)}
+                        </div>
+                      </div>
+
+                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                          <MessageSquare className="w-3 h-3 text-zinc-400" />
+                          <span>Comments</span>
+                        </div>
+                        <div className="text-sm sm:text-base font-black text-white mt-1">
+                          {formatCompactNumber(ins.comments)}
+                        </div>
+                      </div>
+
+                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                          <Share2 className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>Shares</span>
+                        </div>
+                        <div className="text-sm sm:text-base font-black text-white mt-1">
+                          {formatCompactNumber(ins.shares)}
+                        </div>
+                      </div>
+
+                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                          <Heart className="w-3 h-3 text-zinc-400" />
+                          <span>Likes</span>
+                        </div>
+                        <div className="text-sm sm:text-base font-black text-white mt-1">
+                          {formatCompactNumber(ins.likes)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           );
         };
@@ -1232,6 +1360,112 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
           </div>
         );
       })()}
+
+      {/* EDIT VIDEO INSIGHTS MODAL */}
+      {editingInsightsLog && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setEditingInsightsLog(null)}
+        >
+          <div 
+            className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-white" />
+                <div>
+                  <h3 className="font-bold text-white text-base">Update Video Insights</h3>
+                  <p className="text-[11px] text-zinc-400">Live social engagement numbers</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setEditingInsightsLog(null)}
+                className="text-zinc-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveInsights} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1">
+                    <Eye className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Views</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={insightViews}
+                    onChange={(e) => setInsightViews(parseInt(e.target.value, 10) || 0)}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1">
+                    <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Comments</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={insightComments}
+                    onChange={(e) => setInsightComments(parseInt(e.target.value, 10) || 0)}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1">
+                    <Share2 className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Shares</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={insightShares}
+                    onChange={(e) => setInsightShares(parseInt(e.target.value, 10) || 0)}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1">
+                    <Heart className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Likes</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={insightLikes}
+                    onChange={(e) => setInsightLikes(parseInt(e.target.value, 10) || 0)}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingInsightsLog(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-800 text-zinc-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingInsights}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow disabled:opacity-50"
+                >
+                  {isSavingInsights ? 'Saving...' : 'Save Insights'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Floating Toast Notice */}
       {toastMessage && (
