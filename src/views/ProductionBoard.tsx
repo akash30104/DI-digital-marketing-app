@@ -45,6 +45,10 @@ export const ProductionBoard: React.FC = () => {
   } | null>(null);
   const [isSavingInsights, setIsSavingInsights] = useState(false);
 
+  // Modal for editor-wise detailed breakdown
+  const [showEditorModal, setShowEditorModal] = useState(false);
+  const [editorModalTab, setEditorModalTab] = useState<'all' | 'today' | 'pending'>('all');
+
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -413,25 +417,63 @@ export const ProductionBoard: React.FC = () => {
     });
   }, [podcastGroups, searchQuery, statusFilter, formatFilter]);
 
-  // Total summary metrics
-  const totalStats = useMemo(() => {
-    let views = 0;
-    let comments = 0;
-    let shares = 0;
-    let fullVideosCount = 0;
-    let reelsCount = 0;
+  // Today's date string in Asia/Kolkata
+  const todayDateStr = useMemo(() => {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  }, []);
 
-    deliverables.forEach(d => {
-      const ins = getDeliverableInsights(d);
-      views += ins.views;
-      comments += ins.comments;
-      shares += ins.shares;
-      if (d.deliverable_type === 'full_length_video') fullVideosCount++;
-      if (d.deliverable_type === 'reel') reelsCount++;
+  // Deliverables edited today (100% done, submitted, or approved today)
+  const todayEditedVideos = useMemo(() => {
+    return deliverables.filter(d => {
+      if (d.editing_status === 'cancelled') return false;
+      const updatedDate = d.updated_at 
+        ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(d.updated_at)) 
+        : '';
+      const createdDate = d.created_at
+        ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(d.created_at))
+        : '';
+      const isToday = updatedDate === todayDateStr || createdDate === todayDateStr;
+      const isDone = (d.progress_percentage || 0) === 100 || 
+                     d.editing_status === 'approved' || 
+                     d.editing_status === 'submitted_for_approval';
+      return isDone && (isToday || !d.updated_at);
     });
+  }, [deliverables, todayDateStr]);
 
-    return { views, comments, shares, fullVideosCount, reelsCount };
-  }, [deliverables, publishingLogs]);
+  // Pending deliverables (not yet 100% done and not yet approved)
+  const pendingDeliverables = useMemo(() => {
+    return deliverables.filter(d => {
+      if (d.editing_status === 'cancelled') return false;
+      const isDone = (d.progress_percentage || 0) === 100 || d.editing_status === 'approved';
+      return !isDone;
+    });
+  }, [deliverables]);
+
+  // Unassigned deliverables in pipeline
+  const unassignedDeliverables = useMemo(() => {
+    return deliverables.filter(d => !d.assigned_editor_id && d.editing_status !== 'cancelled');
+  }, [deliverables]);
+
+  // Detailed editor-wise breakdown
+  const editorBreakdowns = useMemo(() => {
+    return editors.map(editor => {
+      const assigned = deliverables.filter(d => d.assigned_editor_id === editor.id && d.editing_status !== 'cancelled');
+      const todayVids = assigned.filter(d => todayEditedVideos.some(tv => tv.id === d.id));
+      const pendingVids = assigned.filter(d => pendingDeliverables.some(pv => pv.id === d.id));
+      const totalProgress = assigned.reduce((acc, d) => acc + (d.progress_percentage || 0), 0);
+      const avgProgress = assigned.length > 0 ? Math.round(totalProgress / assigned.length) : 0;
+
+      return {
+        editorId: editor.id,
+        editorName: editor.full_name || 'Editor',
+        avatarUrl: editor.avatar_url,
+        assignedTotal: assigned.length,
+        todayVideos: todayVids,
+        pendingVideos: pendingVids,
+        avgProgress
+      };
+    });
+  }, [editors, deliverables, todayEditedVideos, pendingDeliverables]);
 
   const getStatusBadge = (status: EditingStatus) => {
     switch (status) {
@@ -509,48 +551,68 @@ export const ProductionBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* Executive Performance Summary Strip (Black & Charcoal) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-[#121214] border border-[#27272A] p-4 rounded-2xl">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5 text-zinc-400" /> Total Social Views
+      {/* Executive Performance Summary Strip (Videos Edited Today & Pending Works) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* CARD 1: VIDEOS EDITED TODAY */}
+        <div 
+          onClick={() => {
+            setEditorModalTab('today');
+            setShowEditorModal(true);
+          }}
+          className="bg-[#121214] border border-[#27272A] p-4 rounded-2xl hover:border-zinc-500 hover:bg-zinc-900/60 transition-all cursor-pointer group shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-white" />
+              <span>Videos Edited Today</span>
+            </div>
+            <span className="text-[10px] font-bold text-zinc-400 group-hover:text-white flex items-center gap-1 transition-colors bg-zinc-800/80 px-2 py-0.5 rounded-full border border-zinc-700/60">
+              Editor Overview ↗
+            </span>
           </div>
-          <div className="text-2xl font-black text-white tracking-tight">
-            {formatCompactNumber(totalStats.views)}
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-black text-white tracking-tight">
+              {todayEditedVideos.length}
+            </span>
+            <span className="text-xs font-semibold text-zinc-400">
+              {todayEditedVideos.length === 1 ? 'video completed' : 'videos completed'}
+            </span>
           </div>
-          <div className="text-[10px] text-zinc-500 mt-1">Across all published cuts</div>
+          <div className="text-[10px] text-zinc-500 mt-1 flex items-center justify-between">
+            <span>Reels &amp; full videos finished today</span>
+            <span className="text-zinc-400 group-hover:text-white transition-colors">Click to view editor-wise</span>
+          </div>
         </div>
 
-        <div className="bg-[#121214] border border-[#27272A] p-4 rounded-2xl">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 flex items-center gap-1.5">
-            <MessageSquare className="w-3.5 h-3.5 text-zinc-400" /> Total Comments
+        {/* CARD 2: PENDING WORKS */}
+        <div 
+          onClick={() => {
+            setEditorModalTab('pending');
+            setShowEditorModal(true);
+          }}
+          className="bg-[#121214] border border-[#27272A] p-4 rounded-2xl hover:border-zinc-500 hover:bg-zinc-900/60 transition-all cursor-pointer group shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-zinc-300" />
+              <span>Pending Works</span>
+            </div>
+            <span className="text-[10px] font-bold text-zinc-400 group-hover:text-white flex items-center gap-1 transition-colors bg-zinc-800/80 px-2 py-0.5 rounded-full border border-zinc-700/60">
+              Editor Overview ↗
+            </span>
           </div>
-          <div className="text-2xl font-black text-white tracking-tight">
-            {formatCompactNumber(totalStats.comments)}
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-black text-white tracking-tight">
+              {pendingDeliverables.length}
+            </span>
+            <span className="text-xs font-semibold text-zinc-400">
+              {pendingDeliverables.length === 1 ? 'task in pipeline' : 'tasks in pipeline'}
+            </span>
           </div>
-          <div className="text-[10px] text-zinc-500 mt-1">Community engagements</div>
-        </div>
-
-        <div className="bg-[#121214] border border-[#27272A] p-4 rounded-2xl">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 flex items-center gap-1.5">
-            <Share2 className="w-3.5 h-3.5 text-zinc-400" /> Total Shares
+          <div className="text-[10px] text-zinc-500 mt-1 flex items-center justify-between">
+            <span>Assigned, in-progress &amp; revision tasks</span>
+            <span className="text-zinc-400 group-hover:text-white transition-colors">Click to view editor-wise</span>
           </div>
-          <div className="text-2xl font-black text-white tracking-tight">
-            {formatCompactNumber(totalStats.shares)}
-          </div>
-          <div className="text-[10px] text-zinc-500 mt-1">Viral reposts & shares</div>
-        </div>
-
-        <div className="bg-[#121214] border border-[#27272A] p-4 rounded-2xl">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-zinc-400" /> Production Assets
-          </div>
-          <div className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-            <span>{totalStats.fullVideosCount} Full</span>
-            <span className="text-zinc-600">•</span>
-            <span>{totalStats.reelsCount} Reels</span>
-          </div>
-          <div className="text-[10px] text-zinc-500 mt-1">Active video formats</div>
         </div>
       </div>
 
@@ -1193,6 +1255,282 @@ export const ProductionBoard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDITOR-WISE DETAILED OVERVIEW MODAL */}
+      {showEditorModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setShowEditorModal(false)}
+        >
+          <div 
+            className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-5 border-b border-zinc-800 flex items-center justify-between bg-black/40">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <span>Editor-Wise Workload &amp; Output</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Videos edited today vs pending works for each video editor.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditorModal(false)}
+                className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Metrics & Filter Tabs */}
+            <div className="px-5 py-3 border-b border-zinc-800/80 bg-zinc-950/60 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 p-1 bg-black border border-zinc-800 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setEditorModalTab('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    editorModalTab === 'all'
+                      ? 'bg-white text-black shadow-sm font-black'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  All Statuses
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditorModalTab('today')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                    editorModalTab === 'today'
+                      ? 'bg-white text-black shadow-sm font-black'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Edited Today ({todayEditedVideos.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditorModalTab('pending')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                    editorModalTab === 'pending'
+                      ? 'bg-white text-black shadow-sm font-black'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Pending Works ({pendingDeliverables.length})</span>
+                </button>
+              </div>
+
+              <div className="text-[11px] text-zinc-400">
+                <span className="font-bold text-white">{editors.length}</span> Registered {editors.length === 1 ? 'Editor' : 'Editors'}
+              </div>
+            </div>
+
+            {/* Editor Cards List */}
+            <div className="p-5 overflow-y-auto space-y-4">
+              {editors.length === 0 ? (
+                <div className="text-center py-10 text-zinc-500 text-xs">
+                  No video editors registered in the system yet.
+                </div>
+              ) : (
+                editorBreakdowns.map((item) => {
+                  const showThisEditor =
+                    editorModalTab === 'all' ||
+                    (editorModalTab === 'today' && item.todayVideos.length > 0) ||
+                    (editorModalTab === 'pending' && item.pendingVideos.length > 0);
+
+                  if (!showThisEditor) return null;
+
+                  return (
+                    <div 
+                      key={item.editorId}
+                      className="bg-black/60 border border-zinc-800 rounded-2xl p-4 space-y-3 hover:border-zinc-700 transition"
+                    >
+                      {/* Editor Header */}
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 text-white font-black text-sm flex items-center justify-center">
+                            {item.editorName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-sm font-black text-white flex items-center gap-2">
+                              <span>{item.editorName}</span>
+                              <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
+                                🎬 Video Editor
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500">
+                              {item.assignedTotal} total assigned &bull; {item.avgProgress}% overall progress
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Badges */}
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-zinc-800 text-white border border-zinc-700">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                            <span>{item.todayVideos.length} Edited Today</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-zinc-900 text-zinc-300 border border-zinc-800">
+                            <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                            <span>{item.pendingVideos.length} Pending</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content Sections */}
+                      {(editorModalTab === 'all' || editorModalTab === 'today') && item.todayVideos.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-zinc-900">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-white" /> Videos Completed Today ({item.todayVideos.length})
+                          </div>
+                          <div className="space-y-1">
+                            {item.todayVideos.map(vid => (
+                              <div key={vid.id} className="p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between text-xs">
+                                <div className="space-y-0.5 min-w-0 pr-2">
+                                  <div className="font-bold text-white truncate flex items-center gap-2">
+                                    <span>{vid.title}</span>
+                                    <span className="text-[9px] font-semibold text-zinc-400 bg-black px-1.5 py-0.5 rounded border border-zinc-800 shrink-0">
+                                      {vid.deliverable_type === 'full_length_video' ? 'Full 16:9' : 'Reel 9:16'}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-zinc-500 truncate">
+                                    Shoot: {vid.recording_title || 'Podcast'}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[10px] font-black text-white bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
+                                    100% Done
+                                  </span>
+                                  {(vid.final_video_link || vid.preview_link) && (
+                                    <a
+                                      href={vid.final_video_link || vid.preview_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 rounded bg-black hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition"
+                                      title="Open Drive/Video Link"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {(editorModalTab === 'all' || editorModalTab === 'pending') && item.pendingVideos.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-zinc-900">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-zinc-400" /> Pending Works ({item.pendingVideos.length})
+                          </div>
+                          <div className="space-y-1">
+                            {item.pendingVideos.map(vid => (
+                              <div key={vid.id} className="p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between text-xs">
+                                <div className="space-y-0.5 min-w-0 pr-2">
+                                  <div className="font-bold text-white truncate flex items-center gap-2">
+                                    <span>{vid.title}</span>
+                                    <span className="text-[9px] font-semibold text-zinc-400 bg-black px-1.5 py-0.5 rounded border border-zinc-800 shrink-0">
+                                      {vid.deliverable_type === 'full_length_video' ? 'Full 16:9' : 'Reel 9:16'}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-zinc-500 truncate flex items-center gap-2">
+                                    <span>Shoot: {vid.recording_title || 'Podcast'}</span>
+                                    {vid.deadline && (
+                                      <span>&bull; Deadline: {vid.deadline}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <div className="text-right">
+                                    <span className="text-[10px] font-bold text-zinc-300 block">
+                                      {vid.progress_percentage || 0}% Done
+                                    </span>
+                                    <span className="text-[9px] text-zinc-500 uppercase font-semibold">
+                                      {vid.editing_status.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Empty state for this editor */}
+                      {item.todayVideos.length === 0 && item.pendingVideos.length === 0 && (
+                        <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-900 text-[11px] text-zinc-500 text-center">
+                          ✨ All caught up — No active tasks currently assigned.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+
+              {/* UNASSIGNED QUEUE (IF ANY DELIVERABLES ARE UNASSIGNED) */}
+              {unassignedDeliverables.length > 0 && (
+                <div className="bg-black/80 border border-zinc-800 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-zinc-200">
+                        ⚠️ Unassigned Tasks Queue
+                      </span>
+                      <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
+                        {unassignedDeliverables.length} Tasks
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500">
+                      Needs editor assignment
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {unassignedDeliverables.map(vid => (
+                      <div key={vid.id} className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center justify-between text-xs">
+                        <div className="space-y-0.5 min-w-0 pr-2">
+                          <div className="font-bold text-white truncate">
+                            {vid.title}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 truncate">
+                            Shoot: {vid.recording_title || 'Podcast'} &bull; {vid.deliverable_type === 'full_length_video' ? 'Full 16:9' : 'Reel 9:16'}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700 shrink-0">
+                          Unassigned
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-zinc-800 bg-black/60 flex items-center justify-between text-xs text-zinc-400">
+              <span>
+                Total: <strong className="text-white">{todayEditedVideos.length}</strong> edited today &bull; <strong className="text-white">{pendingDeliverables.length}</strong> pending works
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowEditorModal(false)}
+                className="px-4 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold transition shadow-sm text-xs"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
