@@ -88,7 +88,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     setIsLoading(true);
     resetMessages();
     const targetRole = portalType === 'client' ? 'client' : undefined;
-    const res = await signIn(email, password, targetRole);
+    const res = await signIn(email.trim().toLowerCase(), password.trim(), targetRole);
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));
@@ -99,7 +99,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     e.preventDefault();
     setIsLoading(true);
     resetMessages();
-    const res = await signIn(email, password, 'founder');
+    const res = await signIn(email.trim().toLowerCase(), password.trim(), 'founder');
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));
@@ -119,12 +119,15 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
 
     setIsLoading(true);
     resetMessages();
-    const res = await acceptInvitation(inviteToken.trim(), password, fullName.trim());
+    const res = await acceptInvitation(inviteToken.trim(), password.trim(), fullName.trim());
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(res.error);
     } else {
-      setSuccessMessage('Invitation accepted! Welcome to Digital Inertia.');
+      setSuccessMessage('Invitation accepted! Entering workspace...');
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
   };
 
