@@ -724,9 +724,25 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                    Assign Editor
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-zinc-300">
+                      Assign Editor
+                    </label>
+                    {onNavigateTab && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProject(null);
+                          onNavigateTab('team');
+                        }}
+                        className="text-[10px] text-zinc-400 hover:text-white font-bold flex items-center gap-1 transition"
+                        title="Invite a new Video Editor"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>+ Invite</span>
+                      </button>
+                    )}
+                  </div>
                   <select
                     value={newDelivEditorId}
                     onChange={(e) => setNewDelivEditorId(e.target.value)}
@@ -905,9 +921,25 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
 
               {/* Assigned Editors */}
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Assigned Video Editors
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-zinc-300">
+                    Assigned Video Editors
+                  </label>
+                  {onNavigateTab && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModal(false);
+                        onNavigateTab('team');
+                      }}
+                      className="text-[10px] text-zinc-400 hover:text-white font-bold flex items-center gap-1 transition"
+                      title="Invite a new Video Editor"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ Invite New Editor</span>
+                    </button>
+                  )}
+                </div>
                 <div className="flex gap-2 flex-wrap max-h-32 overflow-y-auto">
                   {editors.length === 0 ? (
                     <span className="text-xs text-zinc-500">No editors available.</span>

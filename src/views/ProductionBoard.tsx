@@ -3,14 +3,18 @@ import { supabase } from '../lib/supabase';
 import { Deliverable, EditingStatus, Profile, Recording } from '../types';
 import { 
   Film, Search, RefreshCw, User, CheckCircle2, Clock, 
-  Play, Sparkles, X, Trash2, ChevronRight, ExternalLink
+  Play, Sparkles, X, Trash2, ChevronRight, ExternalLink, Plus, UserPlus
 } from 'lucide-react';
 import { 
   filterDeliverables, filterRecordings, 
   deleteSingleDeliverable, purgeAllDeliverables 
 } from '../lib/deletionFilter';
 
-export const ProductionBoard: React.FC = () => {
+interface ProductionBoardProps {
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab }) => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [editors, setEditors] = useState<Profile[]>([]);
@@ -320,6 +324,18 @@ interface ProductionProjectGroup {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => onNavigateTab('team')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-zinc-200 text-black shadow-sm transition active:scale-[0.99]"
+              title="Invite a new Video Editor"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>+ Invite Editor</span>
+            </button>
+          )}
+
           {deliverables.length > 0 && (
             <button
               onClick={handleDeleteAllTasks}
@@ -923,17 +939,32 @@ interface ProductionProjectGroup {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-zinc-800 bg-black/60 flex items-center justify-between text-xs text-zinc-400">
+            <div className="p-4 border-t border-zinc-800 bg-black/60 flex items-center justify-between gap-3 text-xs text-zinc-400 flex-wrap">
               <span>
                 Total: <strong className="text-white">{todayEditedVideos.length}</strong> edited today &bull; <strong className="text-white">{pendingDeliverables.length}</strong> pending works
               </span>
-              <button
-                type="button"
-                onClick={() => setShowEditorModal(false)}
-                className="px-4 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold transition shadow-sm text-xs"
-              >
-                Done
-              </button>
+              <div className="flex items-center gap-2">
+                {onNavigateTab && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditorModal(false);
+                      onNavigateTab('team');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold transition border border-zinc-700 text-xs flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Invite New Editor</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowEditorModal(false)}
+                  className="px-4 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold transition shadow-sm text-xs"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>

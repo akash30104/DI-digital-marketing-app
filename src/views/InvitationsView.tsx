@@ -167,13 +167,32 @@ export const InvitationsView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => { setShowInviteModal(true); setCreatedInvite(null); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-zinc-200 text-black rounded-xl text-xs font-black shadow-lg transition active:scale-[0.99] shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Invite Member or Client</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            onClick={() => { setInviteRole('editor'); setShowInviteModal(true); setCreatedInvite(null); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-zinc-200 text-black rounded-xl text-xs font-black shadow-lg transition active:scale-[0.99] shrink-0"
+            title="Invite a new Video Editor"
+          >
+            <Film className="w-4 h-4" />
+            <span>+ Invite Editor</span>
+          </button>
+          <button
+            onClick={() => { setInviteRole('social_media_manager'); setShowInviteModal(true); setCreatedInvite(null); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold border border-zinc-700 transition active:scale-[0.99] shrink-0"
+            title="Invite a new Social Media Manager"
+          >
+            <Megaphone className="w-4 h-4 text-white" />
+            <span>+ Invite SMM</span>
+          </button>
+          <button
+            onClick={() => { setInviteRole('client'); setShowInviteModal(true); setCreatedInvite(null); }}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-bold border border-zinc-800 transition active:scale-[0.99] shrink-0"
+            title="Invite a Client Partner"
+          >
+            <Briefcase className="w-4 h-4 text-zinc-400" />
+            <span>+ Invite Client</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -434,15 +453,15 @@ export const InvitationsView: React.FC = () => {
             {!createdInvite ? (
               <form onSubmit={handleCreateInvitation} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                    Invitee Email Address
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                    <span>Invitee Email Address</span>
+                    <span className="text-[10px] text-zinc-500 font-normal">Optional (leave blank for universal link)</span>
                   </label>
                   <input
                     type="email"
-                    required
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="teammate@agency.com or client@brand.com"
+                    placeholder="editor@agency.com (or leave blank for shareable token)"
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
@@ -456,9 +475,9 @@ export const InvitationsView: React.FC = () => {
                     onChange={(e) => setInviteRole(e.target.value as UserRole)}
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-semibold"
                   >
-                    <option value="social_media_manager">Social Media Manager (SMM)</option>
-                    <option value="editor">Video Editor</option>
-                    <option value="client">External Client Partner</option>
+                    <option value="editor">🎬 Video Editor (Assign editing cuts & tasks)</option>
+                    <option value="social_media_manager">📣 Social Media Manager (SMM - review & publish)</option>
+                    <option value="client">💼 External Client Partner (Brand deliverables)</option>
                   </select>
                 </div>
 

@@ -751,7 +751,7 @@ interface ProjectTaskGroup {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             <button
               onClick={() => setIsPublishModalOpen(true)}
               className="px-6 py-3 rounded-full bg-white hover:bg-zinc-200 text-black font-black text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all shrink-0"
@@ -760,15 +760,26 @@ interface ProjectTaskGroup {
               <span>+ Update Published Video Link</span>
             </button>
             {onNavigateTab && (
-              <button
-                type="button"
-                onClick={() => onNavigateTab('team')}
-                className="px-4 py-3 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-zinc-700 shadow-md active:scale-95 transition-all shrink-0"
-                title="Invite New SMM or Team Member"
-              >
-                <Users className="w-4 h-4 text-white" />
-                <span>+ Invite SMM</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('team')}
+                  className="px-4 py-3 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-zinc-700 shadow-md active:scale-95 transition-all shrink-0"
+                  title="Invite a new Video Editor"
+                >
+                  <Film className="w-4 h-4 text-zinc-300" />
+                  <span>+ Invite Editor</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('team')}
+                  className="px-4 py-3 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-zinc-700 shadow-md active:scale-95 transition-all shrink-0"
+                  title="Invite New SMM"
+                >
+                  <Users className="w-4 h-4 text-zinc-300" />
+                  <span>+ Invite SMM</span>
+                </button>
+              </>
             )}
             <button
               onClick={loadData}

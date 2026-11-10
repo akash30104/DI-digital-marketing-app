@@ -30,7 +30,11 @@ interface RecordingWithDeliverables {
   }[];
 }
 
-export const RecordingRegistration: React.FC = () => {
+interface RecordingRegistrationProps {
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ onNavigateTab }) => {
   const { currentUser } = useAuth();
   const [recordings, setRecordings] = useState<RecordingWithDeliverables[]>([]);
   const [editors, setEditors] = useState<Profile[]>([]);
@@ -495,10 +499,21 @@ export const RecordingRegistration: React.FC = () => {
 
               {/* 2. Assign to Editor */}
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
-                  <span>Assign to Video Editor</span>
-                  <span className="text-[10px] text-zinc-400 font-bold">Direct Task Assignment</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-zinc-300">
+                    Assign to Video Editor
+                  </label>
+                  {onNavigateTab && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateTab('team')}
+                      className="text-[10px] text-zinc-400 hover:text-white font-bold flex items-center gap-1 transition"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ Invite New Editor</span>
+                    </button>
+                  )}
+                </div>
                 <select
                   value={selectedEditorId}
                   onChange={(e) => setSelectedEditorId(e.target.value)}

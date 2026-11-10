@@ -88,7 +88,7 @@ export const App: React.FC = () => {
           return <ProjectsView onNavigateTab={setActiveTab} />;
         case 'editing':
         case 'production':
-          return <ProductionBoard />;
+          return <ProductionBoard onNavigateTab={setActiveTab} />;
         case 'approvals':
           return <FounderApprovals />;
         case 'published':
@@ -126,10 +126,10 @@ export const App: React.FC = () => {
         case 'projects':
           return <ProjectsView onNavigateTab={setActiveTab} />;
         case 'footage':
-          return <RecordingRegistration />;
+          return <RecordingRegistration onNavigateTab={setActiveTab} />;
         case 'pipeline':
         case 'editing':
-          return <ProductionBoard />;
+          return <ProductionBoard onNavigateTab={setActiveTab} />;
         case 'approvals':
         case 'approved':
           return <ManagerApprovals />;
@@ -146,7 +146,7 @@ export const App: React.FC = () => {
         case 'more':
           return <FounderMore onNavigateTab={setActiveTab} />;
         default:
-          return <ProductionBoard />;
+          return <ProductionBoard onNavigateTab={setActiveTab} />;
       }
     } else if (role === 'client') {
       // Map portal subtabs for client
