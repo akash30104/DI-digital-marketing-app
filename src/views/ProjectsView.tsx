@@ -78,6 +78,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
 
     // Auto-generate missing recording & deliverables for projects that have 0 deliverables
     for (const proj of projList) {
+      if (proj.id === 'proj-llbs-podcast' || proj.name?.toLowerCase().includes('unfiltered podcast')) continue;
       const matched = existingDelivs.filter(d => 
         d.project_id === proj.id || 
         (d.title && proj.name && d.title.toLowerCase().includes(proj.name.toLowerCase()))

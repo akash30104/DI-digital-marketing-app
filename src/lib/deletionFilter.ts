@@ -301,8 +301,9 @@ export async function deleteSinglePublishingLog(id: string): Promise<void> {
 /**
  * Filter & deletion helpers for Projects
  */
-export function isProjectDeleted(project: { id: string }): boolean {
+export function isProjectDeleted(project: { id: string; name?: string }): boolean {
   if (!project || !project.id) return false;
+  if (project.id === 'proj-llbs-podcast' || project.name?.toLowerCase().includes('unfiltered podcast')) return true;
   const deletedIds = getSet(STORAGE_DELETED_PROJECTS_KEY);
   return deletedIds.has(project.id);
 }

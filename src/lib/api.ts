@@ -788,26 +788,14 @@ export async function fetchProjects(clientId?: string): Promise<Project[]> {
     // fallback
   }
 
-  const all = getLocal<Project[]>(STORAGE_KEYS.PROJECTS, [
-    {
-      id: 'proj-llbs-podcast',
-      client_id: 'client-llbs',
-      client_name: 'LLBS Media Group',
-      client_brand: 'LLBS',
-      name: 'Unfiltered Podcast Season 2',
-      description: 'Weekly long-form podcast with 8 short-form vertical reels per episode.',
-      start_date: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
-      deadline: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
-      required_videos_count: 8,
-      platforms: ['youtube_shorts', 'instagram_reels', 'youtube_full'],
-      channels: ['LLBS Podcast', 'Digital Inertia'],
-      requires_client_approval: true,
-      status: 'active',
-      created_at: new Date().toISOString()
-    }
-  ]);
+  const all = getLocal<Project[]>(STORAGE_KEYS.PROJECTS, []);
+  // Purge any residual mock project from localStorage
+  const cleanProjects = all.filter(p => p.id !== 'proj-llbs-podcast' && !p.name?.toLowerCase().includes('unfiltered podcast'));
+  if (cleanProjects.length !== all.length) {
+    setLocal(STORAGE_KEYS.PROJECTS, cleanProjects);
+  }
 
-  const cleanList = filterProjects(all);
+  const cleanList = filterProjects(cleanProjects);
   return clientId ? cleanList.filter(p => p.client_id === clientId) : cleanList;
 }
 

@@ -68,6 +68,7 @@ interface PodcastItem {
   notes?: string;
   deadline: string | null;
   assigned_editor_id?: string;
+  assigned_editor_ids?: string[];
   editor_name: string;
   deliverables: Deliverable[];
   totalCuts: number;
@@ -209,7 +210,18 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       let cachedProjectDelivs: Deliverable[] = [];
       try {
         const raw = localStorage.getItem('di_project_deliverables');
-        if (raw) cachedProjectDelivs = JSON.parse(raw);
+        if (raw) {
+          const parsed: Deliverable[] = JSON.parse(raw);
+          // Purge any mock deliverables
+          cachedProjectDelivs = parsed.filter(d => 
+            d.project_id !== 'proj-llbs-podcast' && 
+            d.recording_id !== 'proj-llbs-podcast' &&
+            !d.title?.toLowerCase().includes('unfiltered podcast')
+          );
+          if (cachedProjectDelivs.length !== parsed.length) {
+            localStorage.setItem('di_project_deliverables', JSON.stringify(cachedProjectDelivs));
+          }
+        }
       } catch {}
 
       let progressCache: Record<string, any> = {};
@@ -243,7 +255,12 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         }
       }
 
-      const dels = filterDeliverables(rawDels);
+      // Filter out deleted deliverables and any mock deliverables
+      const dels = filterDeliverables(rawDels).filter(d => 
+        d.project_id !== 'proj-llbs-podcast' &&
+        d.recording_id !== 'proj-llbs-podcast' &&
+        !d.title?.toLowerCase().includes('unfiltered podcast')
+      );
       const acceptedSet = getAcceptedPodcastIds(currentUser.id);
       const items: PodcastItem[] = [];
       const handledProjectIds = new Set<string>();
@@ -292,6 +309,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           notes: rec.notes || undefined,
           deadline,
           assigned_editor_id: assignedEditorId,
+          assigned_editor_ids: assignedEditorId ? [assignedEditorId] : [],
           editor_name: editorName,
           deliverables: podDelivs,
           totalCuts,
@@ -314,8 +332,13 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         }
       }
 
-      // Ensure every project created by SMM/Founder is present in Editor Workspace
-      for (const proj of (projectsList || [])) {
+      // Ensure every user-created project created by SMM/Founder is present in Editor Workspace
+      const validProjects = (projectsList || []).filter(p => 
+        p.id !== 'proj-llbs-podcast' && 
+        !p.name?.toLowerCase().includes('unfiltered podcast')
+      );
+
+      for (const proj of validProjects) {
         if (handledProjectIds.has(proj.id)) continue;
 
         let projDelivs = dels.filter(d => 
@@ -395,6 +418,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           notes: `[Project: ${proj.id}] ${proj.description || ''}`,
           deadline: proj.deadline || null,
           assigned_editor_id: primaryEditorId,
+          assigned_editor_ids: proj.assigned_editor_ids || (primaryEditorId ? [primaryEditorId] : []),
           editor_name: editorName,
           deliverables: projDelivs,
           totalCuts,
@@ -456,6 +480,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             notes: `[Project: ${groupKey}]`,
             deadline: firstDel.deadline || null,
             assigned_editor_id: assignedEditorId,
+            assigned_editor_ids: assignedEditorId ? [assignedEditorId] : [],
             editor_name: editorName,
             deliverables: groupDelivs,
             totalCuts,
@@ -490,15 +515,44 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     };
   }, [currentUser]);
 
+  // Helper: check if a podcast/project is assigned to a specific editor other than currentUser
+  const isAssignedToOtherEditor = (p: PodcastItem): boolean => {
+    if (!currentUser) return false;
+    const isMine = 
+      p.isMyPodcast || 
+      p.assigned_editor_id === currentUser.id || 
+      Boolean(p.assigned_editor_ids && p.assigned_editor_ids.includes(currentUser.id)) ||
+      Boolean(p.deliverables && p.deliverables.some(d => d.assigned_editor_id === currentUser.id));
+
+    if (isMine) return false;
+
+    // If assigned specifically to someone else:
+    if (p.assigned_editor_id && p.assigned_editor_id !== currentUser.id) return true;
+    if (p.assigned_editor_ids && p.assigned_editor_ids.length > 0 && !p.assigned_editor_ids.includes(currentUser.id)) return true;
+    if (p.deliverables && p.deliverables.some(d => d.assigned_editor_id && d.assigned_editor_id !== currentUser.id)) return true;
+
+    return false;
+  };
+
   // Filter podcasts based on workspace mode: 'my' (My Tasks) vs 'all' (Open Tasks Queue)
   const displayedPodcasts = useMemo(() => {
+    if (!currentUser) return [];
+
     if (mode === 'my') {
-      return podcasts.filter(p => p.isMyPodcast);
+      // In 'my_tasks' (My Active Editing): strictly tasks explicitly assigned to or claimed by THIS logged-in editor!
+      return podcasts.filter(p => 
+        p.isMyPodcast || 
+        p.assigned_editor_id === currentUser.id || 
+        (p.assigned_editor_ids && p.assigned_editor_ids.includes(currentUser.id)) ||
+        (p.deliverables && p.deliverables.some(d => d.assigned_editor_id === currentUser.id))
+      );
     } else {
-      // In 'all' queue (Available Tasks), show all available tasks / open to editor
-      return podcasts;
+      // In 'tasks' (Available Tasks):
+      // Only show tasks assigned to THIS editor OR open/unassigned studio tasks!
+      // If a task is assigned specifically to another editor, it MUST NEVER show here!
+      return podcasts.filter(p => !isAssignedToOtherEditor(p));
     }
-  }, [podcasts, mode]);
+  }, [podcasts, mode, currentUser]);
 
   // Client work vs Studio work counts and filtering
   const clientWorksCount = useMemo(() => displayedPodcasts.filter(p => p.isClientWork).length, [displayedPodcasts]);
