@@ -19,6 +19,7 @@ export const DEFAULT_CHANNELS: string[] = [
 ];
 
 const STORAGE_KEY = 'APP_CUSTOM_CHANNELS';
+const DELETED_STORAGE_KEY = 'APP_DELETED_CHANNELS';
 
 /**
  * Extracts clean brand name from a client profile (e.g. "AK (LLBS)" -> "LLBS")
@@ -47,6 +48,32 @@ export function getCachedCustomChannels(): ChannelItem[] {
 }
 
 /**
+ * Reads locally cached deleted / blacklisted channel IDs and names
+ */
+export function getDeletedChannels(): string[] {
+  try {
+    const raw = localStorage.getItem(DELETED_STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Saves deleted channel blacklist to localStorage
+ */
+export function saveDeletedChannels(list: string[]): void {
+  try {
+    localStorage.setItem(DELETED_STORAGE_KEY, JSON.stringify(list));
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('channels-updated'));
+  } catch (e) {
+    console.warn('Error saving deleted channels:', e);
+  }
+}
+
+/**
  * Saves custom channels to local storage and notifies components
  */
 export function cacheCustomChannels(channels: ChannelItem[]): void {
@@ -60,9 +87,12 @@ export function cacheCustomChannels(channels: ChannelItem[]): void {
 }
 
 /**
- * Syncs custom channels to Supabase (founder profile bio backup)
+ * Syncs custom channels and deleted blacklist to Supabase (founder profile bio backup)
  */
-async function syncCustomChannelsToSupabase(customChannels: ChannelItem[]): Promise<void> {
+async function syncCustomChannelsToSupabase(
+  customChannels: ChannelItem[],
+  deletedChannels?: string[]
+): Promise<void> {
   try {
     const { data: founderProfile } = await supabase
       .from('profiles')
@@ -74,18 +104,21 @@ async function syncCustomChannelsToSupabase(customChannels: ChannelItem[]): Prom
     if (!founderProfile) return;
 
     let existingBio = founderProfile.bio || '';
-    // Preserve existing TARGETS tag if present
     const targetsMatch = existingBio.match(/(TARGETS:[^\n]+)/);
     const targetsPrefix = targetsMatch ? targetsMatch[1] : '';
 
     const channelsJson = JSON.stringify(customChannels);
-    const newBio = targetsPrefix 
-      ? `${targetsPrefix}\nCHANNELS:${channelsJson}`
-      : `CHANNELS:${channelsJson}`;
+    const delList = deletedChannels || getDeletedChannels();
+    const deletedJson = JSON.stringify(delList);
+
+    const parts: string[] = [];
+    if (targetsPrefix) parts.push(targetsPrefix);
+    parts.push(`CHANNELS:${channelsJson}`);
+    parts.push(`DELETED_CHANNELS:${deletedJson}`);
 
     await supabase
       .from('profiles')
-      .update({ bio: newBio })
+      .update({ bio: parts.join('\n') })
       .eq('id', founderProfile.id);
   } catch (err) {
     console.warn('Could not sync channels to Supabase bio:', err);
@@ -93,9 +126,12 @@ async function syncCustomChannelsToSupabase(customChannels: ChannelItem[]): Prom
 }
 
 /**
- * Loads custom channels from Supabase backup
+ * Loads custom channels and deleted blacklist from Supabase backup
  */
-async function loadCustomChannelsFromSupabase(): Promise<ChannelItem[]> {
+async function loadCustomChannelsFromSupabase(): Promise<{
+  channels: ChannelItem[];
+  deleted: string[];
+}> {
   try {
     const { data: founderProfile } = await supabase
       .from('profiles')
@@ -105,15 +141,29 @@ async function loadCustomChannelsFromSupabase(): Promise<ChannelItem[]> {
       .maybeSingle();
 
     if (founderProfile?.bio) {
+      let channels: ChannelItem[] = [];
+      let deleted: string[] = [];
+
       const match = founderProfile.bio.match(/CHANNELS:([^\n]+)/);
       if (match && match[1]) {
-        return JSON.parse(match[1]);
+        try {
+          channels = JSON.parse(match[1]);
+        } catch (e) {}
       }
+
+      const delMatch = founderProfile.bio.match(/DELETED_CHANNELS:([^\n]+)/);
+      if (delMatch && delMatch[1]) {
+        try {
+          deleted = JSON.parse(delMatch[1]);
+        } catch (e) {}
+      }
+
+      return { channels, deleted };
     }
   } catch (err) {
     console.warn('Could not read channels from Supabase bio:', err);
   }
-  return [];
+  return { channels: [], deleted: [] };
 }
 
 /**
@@ -122,14 +172,47 @@ async function loadCustomChannelsFromSupabase(): Promise<ChannelItem[]> {
  * 2. Custom channels added by Founder/SMM
  * 3. Client channels (automatically generated if a client is added)
  * 4. Channels found in past publishing logs
+ * Filters out any channels that have been deleted/blacklisted.
  */
 export async function fetchAllChannels(): Promise<ChannelItem[]> {
   const result: ChannelItem[] = [];
   const seenNames = new Set<string>();
 
+  // Fetch remote updates
+  try {
+    const remote = await loadCustomChannelsFromSupabase();
+    if (remote.deleted && remote.deleted.length > 0) {
+      const mergedDeleted = Array.from(new Set([...getDeletedChannels(), ...remote.deleted]));
+      saveDeletedChannels(mergedDeleted);
+    }
+    if (remote.channels && remote.channels.length > 0) {
+      const current = getCachedCustomChannels();
+      const existingIds = new Set(current.map(c => c.id));
+      remote.channels.forEach(rc => {
+        if (!existingIds.has(rc.id)) {
+          current.push(rc);
+        }
+      });
+      cacheCustomChannels(current);
+    }
+  } catch (err) {
+    console.warn('Failed to load remote custom channels:', err);
+  }
+
+  const deletedList = getDeletedChannels().map(s => s.trim().toLowerCase());
+  const isDeleted = (id: string, name: string) => {
+    const normId = (id || '').trim().toLowerCase();
+    const normName = (name || '').trim().toLowerCase();
+    return (
+      (normId && deletedList.includes(normId)) ||
+      (normName && deletedList.includes(normName))
+    );
+  };
+
   const addUnique = (item: ChannelItem) => {
     const norm = item.name.trim().toLowerCase();
     if (!norm || seenNames.has(norm)) return;
+    if (isDeleted(item.id, item.name)) return;
     seenNames.add(norm);
     result.push(item);
   };
@@ -145,23 +228,7 @@ export async function fetchAllChannels(): Promise<ChannelItem[]> {
   });
 
   // 2. Fetch Custom Channels (from cache & Supabase)
-  let customChannels = getCachedCustomChannels();
-  try {
-    const remoteCustom = await loadCustomChannelsFromSupabase();
-    if (remoteCustom && remoteCustom.length > 0) {
-      // Merge unique
-      const existingIds = new Set(customChannels.map(c => c.id));
-      remoteCustom.forEach(rc => {
-        if (!existingIds.has(rc.id)) {
-          customChannels.push(rc);
-        }
-      });
-      cacheCustomChannels(customChannels);
-    }
-  } catch (err) {
-    console.warn('Failed to load remote custom channels:', err);
-  }
-
+  const customChannels = getCachedCustomChannels();
   customChannels.forEach(c => {
     addUnique({
       ...c,
@@ -169,7 +236,7 @@ export async function fetchAllChannels(): Promise<ChannelItem[]> {
     });
   });
 
-  // 3. AUTOMATIC CLIENT SYNC: If client is added in profiles, ensure their channel exists
+  // 3. AUTOMATIC CLIENT SYNC: If client is added in profiles, ensure their channel exists (unless deleted)
   try {
     const { data: profiles } = await supabase
       .from('profiles')
@@ -184,7 +251,6 @@ export async function fetchAllChannels(): Promise<ChannelItem[]> {
       clientProfiles.forEach(client => {
         const brand = extractClientBrandName(client);
         if (brand) {
-          // If brand doesn't already have 'Podcast' or 'Channel', format nicely
           const channelName = brand.toLowerCase().includes('podcast') || brand.toLowerCase().includes('channel') 
             ? brand 
             : `${brand} Podcast`;
@@ -197,7 +263,6 @@ export async function fetchAllChannels(): Promise<ChannelItem[]> {
             source: 'client'
           });
 
-          // Also allow bare brand name if distinct
           if (channelName !== brand) {
             addUnique({
               id: `client-brand-${client.id}`,
@@ -242,7 +307,7 @@ export async function fetchAllChannels(): Promise<ChannelItem[]> {
     console.warn('Failed to load channels from publishing logs:', err);
   }
 
-  return result;
+  return result.filter(c => !isDeleted(c.id, c.name));
 }
 
 /**
@@ -262,6 +327,13 @@ export async function addNewChannel(
     throw new Error(`A channel named "${cleanName}" already exists.`);
   }
 
+  // If this channel was previously deleted/blacklisted, un-blacklist it
+  const currentDeleted = getDeletedChannels();
+  const updatedDeleted = currentDeleted.filter(
+    d => d.toLowerCase() !== cleanName.toLowerCase()
+  );
+  saveDeletedChannels(updatedDeleted);
+
   const newChannel: ChannelItem = {
     id: `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     name: cleanName,
@@ -276,20 +348,58 @@ export async function addNewChannel(
   const updatedCustom = [newChannel, ...currentCustom];
 
   cacheCustomChannels(updatedCustom);
-  await syncCustomChannelsToSupabase(updatedCustom);
+  await syncCustomChannelsToSupabase(updatedCustom, updatedDeleted);
 
   return fetchAllChannels();
 }
 
 /**
- * Removes a custom channel (callable by Social Media Manager and Founder)
+ * Removes a channel permanently (custom, client-brand, or default if authorized).
+ * Automatically blacklists the channel name/id and purges client profile if applicable.
  */
-export async function removeChannel(channelId: string): Promise<ChannelItem[]> {
-  const currentCustom = getCachedCustomChannels();
-  const updatedCustom = currentCustom.filter(c => c.id !== channelId && c.name.toLowerCase() !== channelId.toLowerCase());
+export async function removeChannel(
+  channelId: string,
+  channelName?: string,
+  clientId?: string | null
+): Promise<ChannelItem[]> {
+  const normId = (channelId || '').trim().toLowerCase();
+  const normName = (channelName || '').trim().toLowerCase();
 
+  // 1. Blacklist in deleted channels list so fetchAllChannels never returns it
+  const currentDeleted = getDeletedChannels();
+  const updatedDeleted = Array.from(new Set([
+    ...currentDeleted,
+    ...(normId ? [normId] : []),
+    ...(normName ? [normName] : [])
+  ]));
+  saveDeletedChannels(updatedDeleted);
+
+  // 2. Remove from custom cached channels
+  const currentCustom = getCachedCustomChannels();
+  const updatedCustom = currentCustom.filter(c => {
+    const cId = (c.id || '').trim().toLowerCase();
+    const cName = (c.name || '').trim().toLowerCase();
+    if (normId && (cId === normId || cName === normId)) return false;
+    if (normName && cName === normName) return false;
+    return true;
+  });
   cacheCustomChannels(updatedCustom);
-  await syncCustomChannelsToSupabase(updatedCustom);
+
+  // 3. Sync to Supabase founder bio backup
+  await syncCustomChannelsToSupabase(updatedCustom, updatedDeleted);
+
+  // 4. If linked to client profile, delete from Supabase profiles
+  if (clientId) {
+    try {
+      await supabase.from('profiles').delete().eq('id', clientId);
+    } catch (pe) {
+      console.warn('Profile deletion note:', pe);
+    }
+  }
+
+  // 5. Notify all components
+  window.dispatchEvent(new Event('storage'));
+  window.dispatchEvent(new CustomEvent('channels-updated'));
 
   return fetchAllChannels();
 }

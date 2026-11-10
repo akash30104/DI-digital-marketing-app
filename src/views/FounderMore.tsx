@@ -92,14 +92,39 @@ export const FounderMore: React.FC = () => {
       alert('Default studio channels cannot be deleted.');
       return;
     }
-    if (!window.confirm(`Are you sure you want to remove channel "${ch.name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete channel "${ch.name}"?`)) return;
     try {
-      const updated = await removeChannel(ch.id);
+      // 1. Optimistic removal: remove from state immediately so user sees instant deletion
+      setChannels(prev => prev.filter(c => c.id !== ch.id && c.name.toLowerCase() !== ch.name.toLowerCase()));
+      // 2. Deep deletion: blacklist ID & name, unlink client profile if applicable
+      const updated = await removeChannel(ch.id, ch.name, ch.client_id);
       setChannels(updated);
-      setChannelSuccess(`Channel "${ch.name}" removed.`);
+      setChannelSuccess(`Channel "${ch.name}" deleted successfully.`);
       setTimeout(() => setChannelSuccess(null), 3000);
     } catch (err: any) {
       alert(`Failed to remove channel: ${err.message}`);
+      loadChannels();
+    }
+  };
+
+  const handleDeleteMember = async (profile: Profile) => {
+    if (profile.role === 'founder') {
+      alert('Founder account cannot be deleted.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete ${profile.role === 'client' ? 'client' : 'team member'} "${profile.full_name || profile.email}"?`)) return;
+    try {
+      setProfiles(prev => prev.filter(x => x.id !== profile.id));
+      await supabase.from('profiles').delete().eq('id', profile.id);
+      if (profile.full_name) {
+        await removeChannel(`client-${profile.id}`, profile.full_name, profile.id);
+      }
+      showCleanToast(`Account "${profile.full_name || profile.email}" deleted successfully.`);
+      fetchTeam();
+      loadChannels();
+    } catch (err: any) {
+      alert(`Failed to delete account: ${err.message}`);
+      fetchTeam();
     }
   };
 
@@ -465,9 +490,12 @@ export const FounderMore: React.FC = () => {
                       {!ch.is_default && (
                         <button
                           type="button"
-                          onClick={() => handleRemoveChannel(ch)}
-                          className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition"
-                          title="Remove Channel"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveChannel(ch);
+                          }}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition active:scale-95"
+                          title="Delete Channel"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -611,9 +639,21 @@ export const FounderMore: React.FC = () => {
                   </div>
                 </div>
 
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-zinc-800 text-zinc-200 border border-zinc-700">
-                  {p.role === 'client' ? 'Client Partner' : p.role.replace('_', ' ')}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-zinc-800 text-zinc-200 border border-zinc-700">
+                    {p.role === 'client' ? 'Client Partner' : p.role.replace('_', ' ')}
+                  </span>
+                  {p.role !== 'founder' && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMember(p)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition"
+                      title="Delete Account"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

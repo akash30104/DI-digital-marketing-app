@@ -8,8 +8,9 @@ import {
   Briefcase, Film, CheckCircle2, Clock, ExternalLink, Search, 
   RefreshCw, User, Tv, Plus, Calendar, HardDrive, Folder, 
   MessageSquare, ChevronRight, X, Sparkles, AlertCircle, Share2,
-  Copy, Key, ShieldCheck, Eye, EyeOff, Check, Mail, Send
+  Copy, Key, ShieldCheck, Eye, EyeOff, Check, Mail, Send, Trash2
 } from 'lucide-react';
+import { removeChannel } from '../lib/channels';
 
 interface ClientsViewProps {
   onNavigateTab?: (tab: string) => void;
@@ -153,6 +154,20 @@ Digital Inertia Production Team`;
     navigator.clipboard.writeText(createdInviteInfo.invite_link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
+  };
+
+  const handleDeleteClient = async (clientId: string, clientName: string) => {
+    if (!window.confirm(`Are you sure you want to delete client account "${clientName}"? This will remove the client profile and associated channels.`)) return;
+    try {
+      setClients(prev => prev.filter(c => c.id !== clientId));
+      await supabase.from('profiles').delete().eq('id', clientId);
+      await removeChannel(`client-${clientId}`, clientName, clientId);
+      showToast(`Client account "${clientName}" deleted.`);
+      loadData();
+    } catch (err: any) {
+      alert(`Failed to delete client: ${err.message}`);
+      loadData();
+    }
   };
 
   const resetRegisterModal = () => {
@@ -526,10 +541,25 @@ Digital Inertia Production Team`;
                     <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                       Brand: {brand}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-black border border-zinc-800 px-2 py-0.5 rounded-full text-zinc-300">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      Client
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-black border border-zinc-800 px-2 py-0.5 rounded-full text-zinc-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                        Client
+                      </span>
+                      {(isFounder || isSMM) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClient(client.id, client.full_name || brand);
+                          }}
+                          className="p-1 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition active:scale-95"
+                          title="Delete Client"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="text-base font-black text-white truncate">
