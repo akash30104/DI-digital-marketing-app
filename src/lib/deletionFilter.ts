@@ -8,6 +8,7 @@ const STORAGE_DELETED_RECORDINGS_KEY = 'STUDIO_DELETED_RECORDING_IDS';
 const STORAGE_DELETED_PUBLISHING_KEY = 'STUDIO_DELETED_PUBLISHING_IDS';
 const STORAGE_DELETED_CLIENTS_KEY = 'STUDIO_DELETED_CLIENT_IDS';
 const STORAGE_DELETED_CLIENT_NAMES_KEY = 'STUDIO_DELETED_CLIENT_NAMES';
+const STORAGE_DELETED_PROJECTS_KEY = 'STUDIO_DELETED_PROJECT_IDS';
 
 function getSet(key: string): Set<string> {
   try {
@@ -294,5 +295,28 @@ export async function deleteSinglePublishingLog(id: string): Promise<void> {
     await supabase.from('publishing_logs').delete().eq('id', id);
   } catch (e) {
     console.warn('Delete publishing log note:', e);
+  }
+}
+
+/**
+ * Filter & deletion helpers for Projects
+ */
+export function isProjectDeleted(project: { id: string }): boolean {
+  if (!project || !project.id) return false;
+  const deletedIds = getSet(STORAGE_DELETED_PROJECTS_KEY);
+  return deletedIds.has(project.id);
+}
+
+export function filterProjects<T extends { id: string }>(projects: T[]): T[] {
+  if (!Array.isArray(projects)) return [];
+  return projects.filter(p => !isProjectDeleted(p));
+}
+
+export async function deleteSingleProject(id: string): Promise<void> {
+  addToSet(STORAGE_DELETED_PROJECTS_KEY, id);
+  try {
+    await supabase.from('projects').delete().eq('id', id);
+  } catch (e) {
+    console.warn('Delete project note:', e);
   }
 }

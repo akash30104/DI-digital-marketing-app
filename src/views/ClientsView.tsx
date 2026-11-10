@@ -704,7 +704,6 @@ Digital Inertia Production Team`;
         {(() => {
           // Resolve current scope items
           const targetRecs = selectedSummary ? selectedSummary.recordings : recordings;
-          const targetLogs = selectedSummary ? selectedSummary.publishingLogs : publishingLogs;
 
           return (
             <div className="space-y-4">

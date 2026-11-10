@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Project, Client, Profile, SocialChannel } from '../types';
-import { getProjects, createProject, updateProject, getClients, getProfiles, getSocialChannels, createAuditLog } from '../lib/api';
+import { Project, Client, Profile, SocialChannel, Deliverable, DeliverableType } from '../types';
+import { 
+  getProjects, createProject, updateProject, deleteProject, 
+  getClients, getProfiles, getSocialChannels, createAuditLog 
+} from '../lib/api';
+import { supabase } from '../lib/supabase';
+import { filterDeliverables } from '../lib/deletionFilter';
 import { 
   FolderKanban, Plus, Calendar, CheckCircle2, Clock, 
   Users, Briefcase, Share2, AlertCircle, ArrowUpRight,
-  Filter, Search
+  Filter, Search, Trash2, Film, Tv, ExternalLink, X, ChevronRight
 } from 'lucide-react';
 
 interface ProjectsViewProps {
@@ -19,7 +24,20 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
   const [clients, setClients] = useState<Client[]>([]);
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
   const [channels, setChannels] = useState<SocialChannel[]>([]);
+  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Selected project for detailed view modal
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [delivFilterType, setDelivFilterType] = useState<'all' | 'reel' | 'full_length_video'>('all');
+
+  // Quick Add Deliverable inside project modal
+  const [showAddDeliverableModal, setShowAddDeliverableModal] = useState(false);
+  const [newDelivTitle, setNewDelivTitle] = useState('');
+  const [newDelivType, setNewDelivType] = useState<DeliverableType>('reel');
+  const [newDelivEditorId, setNewDelivEditorId] = useState('');
+  const [newDelivDriveLink, setNewDelivDriveLink] = useState('');
+  const [isAddingDeliverable, setIsAddingDeliverable] = useState(false);
 
   // Filters
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
@@ -43,17 +61,21 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
 
   const loadData = async () => {
     setIsLoading(true);
-    const [projList, clientList, members, chanList] = await Promise.all([
+    const [projList, clientList, members, chanList, delivRes] = await Promise.all([
       getProjects(),
       getClients(),
       getProfiles(),
       getSocialChannels(),
+      supabase.from('deliverables').select('*').order('created_at', { ascending: false })
     ]);
 
     setProjects(projList);
     setClients(clientList);
     setTeamMembers(members);
     setChannels(chanList);
+    if (delivRes.data) {
+      setDeliverables(filterDeliverables(delivRes.data as Deliverable[]));
+    }
     if (clientList.length > 0 && !clientId) {
       setClientId(clientList[0].id);
     }
@@ -62,7 +84,85 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
 
   useEffect(() => {
     loadData();
+
+    const dSub = supabase
+      .channel('projects-view-delivs-feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(dSub);
+    };
   }, []);
+
+  const getProjectDeliverables = (proj: Project): Deliverable[] => {
+    return deliverables.filter(d => 
+      d.project_id === proj.id ||
+      (proj.client_id && d.client_id === proj.client_id) ||
+      (proj.client_name && d.client_brand && d.client_brand.toLowerCase() === proj.client_name.toLowerCase()) ||
+      (proj.name && d.title && d.title.toLowerCase().includes(proj.name.toLowerCase()))
+    );
+  };
+
+  const handleDeleteProject = async (id: string, projectName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete project "${projectName}"? This action cannot be undone.`)) {
+      return;
+    }
+    await deleteProject(id);
+    setProjects(prev => prev.filter(p => p.id !== id));
+    if (selectedProject?.id === id) {
+      setSelectedProject(null);
+    }
+    if (currentUser) {
+      await createAuditLog(
+        'project_deleted',
+        'projects',
+        id,
+        currentUser.id,
+        currentUser.email,
+        { name: projectName }
+      );
+    }
+  };
+
+  const handleCreateDeliverable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject || !newDelivTitle.trim()) return;
+    setIsAddingDeliverable(true);
+
+    const editorObj = teamMembers.find(m => m.id === newDelivEditorId);
+    const newDeliv: Deliverable = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `deliv-${Date.now()}`,
+      recording_id: `rec-${selectedProject.id}`,
+      project_id: selectedProject.id,
+      client_id: selectedProject.client_id,
+      client_name: selectedProject.client_name,
+      client_brand: selectedProject.client_name,
+      title: newDelivTitle.trim(),
+      deliverable_type: newDelivType,
+      aspect_ratio: newDelivType === 'reel' ? '9:16' : '16:9',
+      editing_status: 'not_started',
+      progress_percentage: 0,
+      priority: 'high',
+      assigned_editor_id: newDelivEditorId || undefined,
+      editor_name: editorObj?.full_name || undefined,
+      preview_link: newDelivDriveLink.trim() || undefined,
+      final_video_link: newDelivDriveLink.trim() || undefined,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      await supabase.from('deliverables').insert([newDeliv]);
+    } catch {}
+
+    setDeliverables(prev => [newDeliv, ...prev]);
+    setNewDelivTitle('');
+    setNewDelivDriveLink('');
+    setIsAddingDeliverable(false);
+    setShowAddDeliverableModal(false);
+  };
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,10 +229,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
 
   const toggleEditor = (id: string) => {
     setAssignedEditorIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const toggleChannel = (id: string) => {
-    setSelectedChannelIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   // Filtered projects
@@ -219,32 +315,51 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
           </div>
         ) : (
           filteredProjects.map((p) => {
-            const completedCount = p.completed_video_count || 0;
-            const targetCount = p.required_video_count || p.required_videos_count || 1;
+            const projectDelivs = getProjectDeliverables(p);
+            const reels = projectDelivs.filter(d => d.deliverable_type === 'reel');
+            const fullVideos = projectDelivs.filter(d => d.deliverable_type === 'full_length_video');
+            const completedCount = projectDelivs.filter(d => d.editing_status === 'approved' || d.editing_status === 'published' || d.progress_percentage === 100).length;
+            const targetCount = p.required_video_count || p.required_videos_count || (projectDelivs.length > 0 ? projectDelivs.length : 1);
             const progressPct = Math.min(100, Math.round((completedCount / targetCount) * 100));
 
             return (
               <div
                 key={p.id}
-                className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition flex flex-col justify-between space-y-4"
+                onClick={() => setSelectedProject(p)}
+                className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-600 transition-all flex flex-col justify-between space-y-4 cursor-pointer group active:scale-[0.99] shadow-md"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-300">
                       {p.client_name || 'Studio Project'}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                      p.status === 'completed'
-                        ? 'bg-white text-black'
-                        : p.status === 'active'
-                        ? 'bg-zinc-800 text-white border border-zinc-700'
-                        : 'bg-zinc-800 text-zinc-500'
-                    }`}>
-                      {p.status}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        p.status === 'completed'
+                          ? 'bg-white text-black'
+                          : p.status === 'active'
+                          ? 'bg-zinc-800 text-white border border-zinc-700'
+                          : 'bg-zinc-800 text-zinc-500'
+                      }`}>
+                        {p.status}
+                      </span>
+                      {(role === 'founder' || role === 'social_media_manager') && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProject(p.id, p.name);
+                          }}
+                          className="p-1 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                          title="Delete Project"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <h3 className="text-base font-black text-white mt-2 leading-snug">
+                  <h3 className="text-base font-black text-white mt-2 leading-snug group-hover:text-zinc-200 transition">
                     {p.name}
                   </h3>
 
@@ -253,6 +368,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
                       {p.description}
                     </p>
                   )}
+
+                  {/* Reel and Full Video Count Badges */}
+                  <div className="flex items-center gap-2 pt-2 text-xs">
+                    <span className="px-2.5 py-1 rounded-xl bg-black border border-zinc-800 text-zinc-200 font-bold flex items-center gap-1.5 shadow-sm">
+                      <Film className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>{reels.length} Reels</span>
+                    </span>
+                    <span className="px-2.5 py-1 rounded-xl bg-black border border-zinc-800 text-zinc-200 font-bold flex items-center gap-1.5 shadow-sm">
+                      <Tv className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>{fullVideos.length} Full Videos</span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* Progress bar */}
@@ -303,12 +430,349 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
                       ))}
                     </div>
                   )}
+
+                  {/* View Details Click Prompt */}
+                  <div className="pt-1 flex items-center justify-between text-[11px] text-zinc-500 group-hover:text-white transition">
+                    <span>Click to view reels &amp; details</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
                 </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* DETAILED PROJECT MODAL (REELS & FULL VIDEOS BREAKDOWN) */}
+      {/* ========================================================================= */}
+      {selectedProject && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedProject(null)}
+        >
+          <div 
+            className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-zinc-800 gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-200">
+                    {selectedProject.client_name || 'Studio Project'}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-black">
+                    {selectedProject.status}
+                  </span>
+                </div>
+                <h2 className="text-xl font-black text-white tracking-tight">
+                  {selectedProject.name}
+                </h2>
+                {selectedProject.description && (
+                  <p className="text-xs text-zinc-400">
+                    {selectedProject.description}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {(role === 'founder' || role === 'social_media_manager') && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProject(selectedProject.id, selectedProject.name)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-950/40 border border-red-800/60 text-red-400 hover:bg-red-900/60 transition text-xs font-bold"
+                    title="Delete Project"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Project</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedProject(null)}
+                  className="p-1.5 text-zinc-400 hover:text-white rounded-lg bg-zinc-800 hover:bg-zinc-700 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Breakdown Cards: Number of Reels and Full Videos */}
+            {(() => {
+              const projectDelivs = getProjectDeliverables(selectedProject);
+              const reels = projectDelivs.filter(d => d.deliverable_type === 'reel');
+              const fullVideos = projectDelivs.filter(d => d.deliverable_type === 'full_length_video');
+              const completedCount = projectDelivs.filter(d => d.editing_status === 'approved' || d.editing_status === 'published' || d.progress_percentage === 100).length;
+
+              const displayedDelivs = projectDelivs.filter(d => {
+                if (delivFilterType === 'reel') return d.deliverable_type === 'reel';
+                if (delivFilterType === 'full_length_video') return d.deliverable_type === 'full_length_video';
+                return true;
+              });
+
+              return (
+                <div className="space-y-5">
+                  {/* KPI Stats Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-black border border-zinc-800 space-y-1">
+                      <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] font-bold">
+                        <Film className="w-3.5 h-3.5 text-zinc-300" />
+                        <span>Vertical Reels</span>
+                      </div>
+                      <div className="text-2xl font-black text-white">{reels.length}</div>
+                      <span className="text-[10px] text-zinc-500">9:16 Shorts / Reels</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-black border border-zinc-800 space-y-1">
+                      <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] font-bold">
+                        <Tv className="w-3.5 h-3.5 text-zinc-300" />
+                        <span>Full Videos</span>
+                      </div>
+                      <div className="text-2xl font-black text-white">{fullVideos.length}</div>
+                      <span className="text-[10px] text-zinc-500">16:9 Episodes</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-black border border-zinc-800 space-y-1">
+                      <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-zinc-300" />
+                        <span>Completed</span>
+                      </div>
+                      <div className="text-2xl font-black text-white">
+                        {completedCount} <span className="text-xs text-zinc-500 font-normal">/ {projectDelivs.length}</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-500">Approved / Live</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-black border border-zinc-800 space-y-1">
+                      <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] font-bold">
+                        <Users className="w-3.5 h-3.5 text-zinc-300" />
+                        <span>SMM Lead</span>
+                      </div>
+                      <div className="text-sm font-bold text-white truncate mt-1">
+                        {selectedProject.smm_name || 'Unassigned'}
+                      </div>
+                      <span className="text-[10px] text-zinc-500">Manager in Charge</span>
+                    </div>
+                  </div>
+
+                  {/* Deliverables Section Header & Filter */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-white">
+                          Project Video Deliverables ({projectDelivs.length})
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Type Tabs */}
+                        <div className="flex items-center bg-black border border-zinc-800 rounded-xl p-0.5 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setDelivFilterType('all')}
+                            className={`px-2.5 py-1 rounded-lg font-bold transition ${delivFilterType === 'all' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
+                          >
+                            All ({projectDelivs.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDelivFilterType('reel')}
+                            className={`px-2.5 py-1 rounded-lg font-bold transition ${delivFilterType === 'reel' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
+                          >
+                            Reels ({reels.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDelivFilterType('full_length_video')}
+                            className={`px-2.5 py-1 rounded-lg font-bold transition ${delivFilterType === 'full_length_video' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
+                          >
+                            Full ({fullVideos.length})
+                          </button>
+                        </div>
+
+                        {(role === 'founder' || role === 'social_media_manager') && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddDeliverableModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-black transition shadow-sm"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Video</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Deliverables List */}
+                    {displayedDelivs.length === 0 ? (
+                      <div className="p-8 text-center bg-black border border-zinc-800 rounded-2xl">
+                        <Film className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                        <h4 className="text-xs font-bold text-white">No video deliverables in this project yet</h4>
+                        <p className="text-[11px] text-zinc-500 mt-1">
+                          Click "Add Video" to add reels or full episodes to this project.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        {displayedDelivs.map(deliv => (
+                          <div 
+                            key={deliv.id} 
+                            className="p-3.5 rounded-2xl bg-black border border-zinc-800 hover:border-zinc-700 transition flex items-center justify-between gap-3"
+                          >
+                            <div className="space-y-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                  deliv.deliverable_type === 'reel' 
+                                    ? 'bg-zinc-800 border border-zinc-700 text-zinc-200' 
+                                    : 'bg-white text-black font-black'
+                                }`}>
+                                  {deliv.deliverable_type === 'reel' ? 'Reel (9:16)' : 'Full Video (16:9)'}
+                                </span>
+                                <span className="text-[10px] text-zinc-500 font-semibold">
+                                  {deliv.editor_name ? `Editor: ${deliv.editor_name}` : 'No editor assigned'}
+                                </span>
+                              </div>
+                              <h5 className="text-xs font-bold text-white truncate">{deliv.title}</h5>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                deliv.editing_status === 'approved' || deliv.editing_status === 'published'
+                                  ? 'bg-white text-black font-black'
+                                  : deliv.editing_status === 'submitted_for_approval' || deliv.editing_status === 'internal_review'
+                                  ? 'bg-zinc-800 text-white border border-zinc-600 font-bold'
+                                  : 'bg-zinc-900 border border-zinc-800 text-zinc-400'
+                              }`}>
+                                {deliv.editing_status.replace(/_/g, ' ')}
+                              </span>
+
+                              {deliv.preview_link && (
+                                <a
+                                  href={deliv.preview_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition flex items-center gap-1 text-[11px]"
+                                  title="Open Preview / Google Drive"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* QUICK ADD DELIVERABLE MODAL */}
+      {showAddDeliverableModal && selectedProject && (
+        <div 
+          className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setShowAddDeliverableModal(false)}
+        >
+          <div 
+            className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <Plus className="w-4 h-4 text-zinc-300" />
+                <span>Add Video to {selectedProject.name}</span>
+              </h3>
+              <button
+                onClick={() => setShowAddDeliverableModal(false)}
+                className="text-zinc-500 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDeliverable} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Video Cut Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newDelivTitle}
+                  onChange={(e) => setNewDelivTitle(e.target.value)}
+                  placeholder="e.g. Episode 01 Reel #3 - Key Insight"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                    Deliverable Format
+                  </label>
+                  <select
+                    value={newDelivType}
+                    onChange={(e) => setNewDelivType(e.target.value as DeliverableType)}
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-semibold"
+                  >
+                    <option value="reel">Vertical Reel (9:16)</option>
+                    <option value="full_length_video">Full Episode (16:9)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                    Assign Editor
+                  </label>
+                  <select
+                    value={newDelivEditorId}
+                    onChange={(e) => setNewDelivEditorId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-semibold"
+                  >
+                    <option value="">Unassigned</option>
+                    {editors.map(ed => (
+                      <option key={ed.id} value={ed.id}>{ed.full_name || ed.email}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Google Drive / Video Link (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={newDelivDriveLink}
+                  onChange={(e) => setNewDelivDriveLink(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddDeliverableModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAddingDeliverable}
+                  className="px-5 py-2 rounded-xl text-xs font-black bg-white hover:bg-zinc-200 text-black transition disabled:opacity-50"
+                >
+                  {isAddingDeliverable ? 'Adding...' : 'Add Deliverable'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* CREATE PROJECT MODAL */}
       {showModal && (

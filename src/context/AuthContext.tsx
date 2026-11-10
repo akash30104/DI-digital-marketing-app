@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, checkFounderExists } from '../lib/supabase';
 import { Profile, UserRole, Invitation } from '../types';
-import { getInvitationByToken, markInvitationAccepted, extractInvitationToken, logAuditEvent } from '../lib/api';
+import { getInvitationByToken, markInvitationAccepted, extractInvitationToken, logAuditEvent, deleteFounderProfile } from '../lib/api';
 
 interface AuthContextType {
   currentUser: Profile | null;
@@ -11,6 +11,7 @@ interface AuthContextType {
   founderExists: boolean;
   isSuspended: boolean;
   refreshFounderStatus: () => Promise<boolean>;
+  deleteFounder: () => Promise<void>;
   signIn: (email: string, pass: string, targetRole?: UserRole) => Promise<{ error?: string }>;
   signUp: (email: string, pass: string, name: string, role: UserRole, allowMultipleFounders?: boolean) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -25,7 +26,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const isFounderEmail = (email?: string | null): boolean => {
   if (!email) return false;
   const clean = email.trim().toLowerCase();
-  return clean === 'akash30104@gmail.com' || clean === 'akash.uxui.design@gmail.com';
+  // akash30104@gmail.com is strictly Social Media Manager (SMM)
+  if (clean === 'akash30104@gmail.com') return false;
+  return clean === 'akash.uxui.design@gmail.com';
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -64,8 +67,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (resolved) {
-        // Guarantee founder role if recognized founder email or founder role requested
-        if (isFounderEmail(resolved.email) || requestedRole === 'founder') {
+        if (resolved.email?.toLowerCase() === 'akash30104@gmail.com') {
+          resolved.role = 'social_media_manager';
+        } else if (isFounderEmail(resolved.email) || requestedRole === 'founder') {
           resolved.role = 'founder';
           try {
             await supabase.from('profiles').update({ role: 'founder' }).eq('id', resolved.id);
@@ -79,6 +83,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteFounder = async () => {
+    await deleteFounderProfile();
+    setFounderExists(false);
+    if (currentUser?.role === 'founder') {
+      setCurrentUser(null);
+      localStorage.removeItem('di_authenticated_user_session');
+    }
+  };
+
   useEffect(() => {
     // Initial session restore
     const initAuth = async () => {
@@ -87,7 +100,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const founderCheck = isFounderEmail(session.user.email) ? 'founder' : undefined;
+        const founderCheck = session.user.email?.toLowerCase() === 'akash30104@gmail.com'
+          ? 'social_media_manager'
+          : (isFounderEmail(session.user.email) ? 'founder' : undefined);
         await fetchProfile(session.user.id, founderCheck);
       } else {
         // Check local verified session backup so users stay seamlessly logged in
@@ -96,10 +111,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed && parsed.id && parsed.role) {
-              if (isFounderEmail(parsed.email)) {
+              if (parsed.email && parsed.email.toLowerCase() === 'akash30104@gmail.com') {
+                parsed.role = 'social_media_manager';
+              } else if (isFounderEmail(parsed.email)) {
                 parsed.role = 'founder';
               }
               setCurrentUser(parsed);
+              localStorage.setItem('di_authenticated_user_session', JSON.stringify(parsed));
             }
           }
         } catch (e) {
@@ -114,7 +132,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen to auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        const founderCheck = isFounderEmail(session.user.email) ? 'founder' : undefined;
+        const founderCheck = session.user.email?.toLowerCase() === 'akash30104@gmail.com'
+          ? 'social_media_manager'
+          : (isFounderEmail(session.user.email) ? 'founder' : undefined);
         await fetchProfile(session.user.id, founderCheck);
       } else if (event === 'SIGNED_OUT') {
         localStorage.removeItem('di_authenticated_user_session');
@@ -461,6 +481,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         founderExists,
         isSuspended: !!currentUser?.is_suspended,
         refreshFounderStatus,
+        deleteFounder,
         signIn,
         signUp,
         signOut,

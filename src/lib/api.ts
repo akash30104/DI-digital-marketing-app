@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { filterProjects, deleteSingleProject } from './deletionFilter';
 import { 
   Client, Project, SocialChannel, Invitation, Deliverable, 
   VideoVersion, ApprovalFeedback, PublishingProof, NotificationItem, 
@@ -680,7 +681,7 @@ export async function fetchProjects(clientId?: string): Promise<Project[]> {
     }
     const { data, error } = await q;
     if (!error && data && data.length > 0) {
-      return data as Project[];
+      return filterProjects(data as Project[]);
     }
   } catch {
     // fallback
@@ -705,7 +706,8 @@ export async function fetchProjects(clientId?: string): Promise<Project[]> {
     }
   ]);
 
-  return clientId ? all.filter(p => p.client_id === clientId) : all;
+  const cleanList = filterProjects(all);
+  return clientId ? cleanList.filter(p => p.client_id === clientId) : cleanList;
 }
 
 export async function createProject(data: Omit<Project, 'id' | 'created_at' | 'updated_at'>): Promise<Project> {
@@ -745,13 +747,22 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  try {
-    await supabase.from('projects').delete().eq('id', id);
-  } catch {
-    // fallback
-  }
+  await deleteSingleProject(id);
   const list = getLocal<Project[]>(STORAGE_KEYS.PROJECTS, []);
   setLocal(STORAGE_KEYS.PROJECTS, list.filter(p => p.id !== id));
+}
+
+export async function deleteFounderProfile(): Promise<void> {
+  try {
+    await supabase.from('profiles').delete().eq('role', 'founder');
+  } catch {}
+
+  const profs = getLocal<Profile[]>(STORAGE_KEYS.PROFILES, []);
+  setLocal(STORAGE_KEYS.PROFILES, profs.filter(p => p.role !== 'founder'));
+
+  try {
+    localStorage.removeItem('DI_PLATFORM_FOUNDER_CLAIMED');
+  } catch {}
 }
 
 // ==============================================================================

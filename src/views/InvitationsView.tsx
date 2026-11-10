@@ -3,8 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { UserRole, Invitation, Profile } from '../types';
 import { 
   createInvitation, getInvitations, revokeInvitation, 
-  createAuditLog, getProfiles, updateProfileRole, toggleUserSuspension
+  createAuditLog, getProfiles, updateProfileRole, toggleUserSuspension,
+  deleteFounderProfile
 } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import { 
   Users, Mail, Plus, Copy, Check, Clock, 
   Trash2, RefreshCw, ShieldAlert, CheckCircle2, 
@@ -105,6 +107,20 @@ export const InvitationsView: React.FC = () => {
           { target_email: member.email, suspended: newStatus }
         );
       }
+    }
+  };
+
+  const handleDeleteMember = async (member: Profile) => {
+    if (!window.confirm(`Are you sure you want to permanently delete profile "${member.full_name || member.email}"?`)) return;
+    try {
+      await supabase.from('profiles').delete().eq('id', member.id);
+    } catch {}
+    if (member.role === 'founder') {
+      await deleteFounderProfile();
+    }
+    setTeamMembers(prev => prev.filter(m => m.id !== member.id));
+    if (currentUser) {
+      await createAuditLog('profile_deleted', 'profiles', member.id, currentUser.id, currentUser.email, { email: member.email, role: member.role });
     }
   };
 
@@ -361,18 +377,27 @@ export const InvitationsView: React.FC = () => {
                       )}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      {member.role !== 'founder' && (
+                      <div className="flex items-center justify-end gap-2">
+                        {member.role !== 'founder' && (
+                          <button
+                            onClick={() => handleToggleSuspension(member)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                              member.is_suspended
+                                ? 'bg-white text-black font-black hover:bg-zinc-200'
+                                : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                            }`}
+                          >
+                            {member.is_suspended ? 'Reactivate' : 'Suspend'}
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleToggleSuspension(member)}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                            member.is_suspended
-                              ? 'bg-white text-black font-black hover:bg-zinc-200'
-                              : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                          }`}
+                          onClick={() => handleDeleteMember(member)}
+                          className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                          title="Delete Profile"
                         >
-                          {member.is_suspended ? 'Reactivate' : 'Suspend'}
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}
