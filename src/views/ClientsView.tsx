@@ -3,12 +3,12 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Deliverable, Recording, PublishingLog, Profile } from '../types';
 import { filterDeliverables, filterPublishingLogs, filterRecordings } from '../lib/deletionFilter';
-import { registerNewClientAccount } from '../lib/clientRegistration';
+import { createInvitation, createClient, createAuditLog } from '../lib/api';
 import { 
   Briefcase, Film, CheckCircle2, Clock, ExternalLink, Search, 
   RefreshCw, User, Tv, Plus, Calendar, HardDrive, Folder, 
   MessageSquare, ChevronRight, X, Sparkles, AlertCircle, Share2,
-  Copy, Key, ShieldCheck, Eye, EyeOff, Check
+  Copy, Key, ShieldCheck, Eye, EyeOff, Check, Mail, Send
 } from 'lucide-react';
 
 interface ClientsViewProps {
@@ -45,62 +45,114 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
   const [regContactName, setRegContactName] = useState('');
   const [regBrandName, setRegBrandName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [showRegPassword, setShowRegPassword] = useState(false);
   const [isRegisteringClient, setIsRegisteringClient] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
-  const [createdClientInfo, setCreatedClientInfo] = useState<{
+  const [createdInviteInfo, setCreatedInviteInfo] = useState<{
     full_name: string;
     brand_name: string;
     email: string;
-    password: string;
+    token: string;
+    invite_link: string;
+    mailto_url: string;
   } | null>(null);
-  const [copiedCredentials, setCopiedCredentials] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleRegisterClient = async (e: React.FormEvent) => {
+  const handleInviteClient = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) return;
     setRegError(null);
     setIsRegisteringClient(true);
-    try {
-      const res = await registerNewClientAccount(
-        regEmail,
-        regPassword,
-        regContactName,
-        regBrandName
-      );
 
-      if (!res.success) {
-        setRegError(res.error || 'Failed to create client account.');
-        return;
+    try {
+      const cleanEmail = regEmail.trim().toLowerCase();
+      const cleanBrand = regBrandName.trim();
+      const cleanContact = regContactName.trim();
+
+      // 1. Create client workspace record in database / DAL
+      try {
+        await createClient({
+          name: cleanContact,
+          brand_name: cleanBrand,
+          contact_name: cleanContact,
+          email: cleanEmail,
+          status: 'active',
+          assigned_smm_id: currentUser.id,
+          assigned_smm_name: currentUser.full_name || 'Social Media Manager'
+        });
+      } catch (cErr) {
+        console.warn('createClient note:', cErr);
       }
 
-      setCreatedClientInfo({
-        full_name: res.client!.full_name,
-        brand_name: res.client!.brand_name,
-        email: res.client!.email,
-        password: res.client!.password
+      // 2. Generate 24-hour one-time invitation token
+      const inv = await createInvitation(
+        cleanEmail,
+        'client',
+        currentUser.id,
+        cleanBrand
+      );
+
+      const inviteLink = `${window.location.origin}/?invite=${inv.token}`;
+
+      // 3. Prepare professional branded invitation email message
+      const emailSubject = `Invitation to Digital Inertia Client Portal — ${cleanBrand}`;
+      const emailBody = `Hello ${cleanContact},
+
+You have been invited by ${currentUser.full_name || 'Digital Inertia Management'} to access your dedicated Client Portal for ${cleanBrand}.
+
+Please click the secure link below to set your account password and activate your workspace (link valid for 24 hours):
+${inviteLink}
+
+Once activated, you will be able to:
+• Review your video deliverables and edits
+• Approve cuts or request revisions
+• Monitor social media publishing proofs and live links
+
+Best regards,
+Digital Inertia Production Team`;
+
+      const mailtoUrl = `mailto:${cleanEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
+      setCreatedInviteInfo({
+        full_name: cleanContact,
+        brand_name: cleanBrand,
+        email: cleanEmail,
+        token: inv.token,
+        invite_link: inviteLink,
+        mailto_url: mailtoUrl
       });
 
-      showToast(`🎉 Brand account "${res.client!.brand_name}" created successfully!`);
+      // 4. Automatically redirect / launch default email client with invitation message!
+      window.location.href = mailtoUrl;
+
+      // 5. Audit log
+      await createAuditLog(
+        'invite_sent',
+        'invitations',
+        inv.id,
+        currentUser.id,
+        currentUser.email,
+        { email: cleanEmail, role: 'client', client_brand: cleanBrand }
+      );
+
+      showToast(`✉️ Invitation generated & email redirected for ${cleanBrand}!`);
       loadData();
     } catch (err: any) {
-      setRegError(err.message || 'Registration failed');
+      setRegError(err.message || 'Invitation failed');
     } finally {
       setIsRegisteringClient(false);
     }
   };
 
-  const copyClientCredentials = () => {
-    if (!createdClientInfo) return;
-    const text = `🎬 Digital Inertia — Client Portal Login Details\nBrand: ${createdClientInfo.brand_name}\nContact: ${createdClientInfo.full_name}\nLogin ID / Email: ${createdClientInfo.email}\nPassword: ${createdClientInfo.password}\n\nSign in on the app or web via Client Portal.`;
-    navigator.clipboard.writeText(text);
-    setCopiedCredentials(true);
-    setTimeout(() => setCopiedCredentials(false), 3000);
+  const copyInviteLink = () => {
+    if (!createdInviteInfo) return;
+    navigator.clipboard.writeText(createdInviteInfo.invite_link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 3000);
   };
 
   const resetRegisterModal = () => {
@@ -108,10 +160,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
     setRegContactName('');
     setRegBrandName('');
     setRegEmail('');
-    setRegPassword('');
     setRegError(null);
-    setCreatedClientInfo(null);
-    setCopiedCredentials(false);
+    setCreatedInviteInfo(null);
+    setCopiedLink(false);
   };
 
   const loadData = async () => {
@@ -376,8 +427,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
               }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black bg-white text-black hover:bg-zinc-200 transition shadow-sm"
             >
-              <Plus className="w-4 h-4" />
-              <span>+ Register New Client</span>
+              <Mail className="w-4 h-4" />
+              <span>Invite Client Partner</span>
             </button>
           )}
 
@@ -408,9 +459,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
           <div className="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 mx-auto flex items-center justify-center text-zinc-400">
             <Briefcase className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-white">No Client Accounts Registered Yet</h3>
+          <h3 className="text-sm font-bold text-white">No Client Accounts Connected Yet</h3>
           <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
-            Register new brand clients below. You will set their login email and password, which the client can use to sign in to their private portal.
+            Invite new brand clients below. An invitation email with a secure 24-hour setup link will be prepared so the client can set their own password and sign in to their private portal.
           </p>
           {(isFounder || isSMM) && (
             <button
@@ -420,8 +471,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
               }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black bg-white text-black hover:bg-zinc-200 transition shadow-sm"
             >
-              <Plus className="w-4 h-4" />
-              <span>Register First Brand Client</span>
+              <Mail className="w-4 h-4" />
+              <span>Invite First Brand Client</span>
             </button>
           )}
         </div>
@@ -720,7 +771,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: REGISTER NEW CLIENT ACCOUNT (FOUNDER & SMM ONLY)                   */}
+      {/* MODAL: INVITE CLIENT PARTNER (FOUNDER & SMM ONLY)                         */}
       {/* ========================================================================= */}
       {showRegisterClientModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
@@ -728,14 +779,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center font-bold">
-                  <Briefcase className="w-5 h-5" />
+                  <Mail className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-black text-white">
-                    Register New Client (Brand)
+                    Invite Client Partner
                   </h3>
                   <p className="text-[11px] text-zinc-400">
-                    Create login ID and password for your client partner.
+                    Generate 24-hour setup invitation and launch pre-filled email.
                   </p>
                 </div>
               </div>
@@ -747,64 +798,74 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
               </button>
             </div>
 
-            {createdClientInfo ? (
-              /* Success / Credentials Ready to Copy View */
+            {createdInviteInfo ? (
+              /* Success / Invitation Ready to Send View */
               <div className="space-y-4 py-2">
                 <div className="p-4 rounded-2xl bg-black border border-zinc-700 space-y-3">
                   <div className="flex items-center gap-2 text-white">
                     <CheckCircle2 className="w-5 h-5 text-white" />
-                    <span className="font-bold text-sm">Client Account Created Successfully!</span>
+                    <span className="font-bold text-sm">Invitation Generated & Email Client Opened!</span>
                   </div>
 
                   <div className="space-y-2 pt-2 text-xs">
                     <div className="flex justify-between py-1.5 border-b border-zinc-800">
                       <span className="text-zinc-400">Brand Name:</span>
-                      <strong className="text-white font-mono">{createdClientInfo.brand_name}</strong>
+                      <strong className="text-white font-mono">{createdInviteInfo.brand_name}</strong>
                     </div>
                     <div className="flex justify-between py-1.5 border-b border-zinc-800">
                       <span className="text-zinc-400">Client Contact:</span>
-                      <strong className="text-white font-mono">{createdClientInfo.full_name}</strong>
+                      <strong className="text-white font-mono">{createdInviteInfo.full_name}</strong>
                     </div>
                     <div className="flex justify-between py-1.5 border-b border-zinc-800">
-                      <span className="text-zinc-400">Login ID / Email:</span>
-                      <strong className="text-white font-mono">{createdClientInfo.email}</strong>
+                      <span className="text-zinc-400">Invited Email:</span>
+                      <strong className="text-white font-mono">{createdInviteInfo.email}</strong>
                     </div>
-                    <div className="flex justify-between py-1.5">
-                      <span className="text-zinc-400">Password:</span>
-                      <strong className="text-white font-mono">{createdClientInfo.password}</strong>
+                    <div className="flex flex-col gap-1 py-1.5">
+                      <span className="text-zinc-400">Personalized Setup Link (Valid 24h):</span>
+                      <div className="p-2 rounded-xl bg-zinc-950 border border-zinc-800 font-mono text-[11px] text-zinc-300 break-all select-all">
+                        {createdInviteInfo.invite_link}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 pt-2">
                   <button
-                    onClick={copyClientCredentials}
+                    onClick={copyInviteLink}
                     className="flex-1 py-3 px-4 rounded-xl bg-white text-black font-black text-xs hover:bg-zinc-200 transition flex items-center justify-center gap-1.5 shadow-md"
                   >
-                    {copiedCredentials ? (
+                    {copiedLink ? (
                       <>
                         <Check className="w-4 h-4 text-black" />
-                        <span>Credentials Copied to Clipboard!</span>
+                        <span>Invite Link Copied!</span>
                       </>
                     ) : (
                       <>
                         <Copy className="w-4 h-4" />
-                        <span>Copy Login Credentials</span>
+                        <span>Copy Invitation Link</span>
                       </>
                     )}
                   </button>
 
                   <button
+                    onClick={() => { window.location.href = createdInviteInfo.mailto_url; }}
+                    className="py-3 px-4 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition border border-zinc-700 flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Re-Open Email</span>
+                  </button>
+
+                  <button
                     onClick={resetRegisterModal}
-                    className="py-3 px-5 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition border border-zinc-700"
+                    className="py-3 px-5 rounded-xl bg-zinc-900 text-zinc-300 hover:text-white font-bold text-xs hover:bg-zinc-800 transition border border-zinc-800"
                   >
                     Done
                   </button>
                 </div>
               </div>
             ) : (
-              /* Registration Form */
-              <form onSubmit={handleRegisterClient} className="space-y-3.5">
+              /* Invitation Form */
+              <form onSubmit={handleInviteClient} className="space-y-3.5">
                 {regError && (
                   <div className="p-3 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-zinc-200 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-white shrink-0" />
@@ -844,7 +905,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Client Login Email / ID *
+                    Client Email Address *
                   </label>
                   <input
                     type="email"
@@ -855,52 +916,17 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
                     className="w-full px-3 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                   />
                   <p className="text-[10px] text-zinc-500 mt-1">
-                    The client will enter this email on the login screen under &quot;Client Portal&quot;.
+                    The client will receive an invitation email with a one-time link to create their own password and access their workspace.
                   </p>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-zinc-300">
-                      Create Client Password *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const randomPass = 'DI_' + Math.random().toString(36).substring(2, 8) + '!' + Math.floor(10 + Math.random() * 90);
-                        setRegPassword(randomPass);
-                      }}
-                      className="text-[10px] font-bold text-zinc-400 hover:text-white underline"
-                    >
-                      Generate Secure Password
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type={showRegPassword ? 'text' : 'password'}
-                      required
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      placeholder="Min. 6 characters"
-                      className="w-full pl-3 pr-10 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowRegPassword(prev => !prev)}
-                      className="absolute right-3 top-2.5 text-zinc-400 hover:text-white"
-                    >
-                      {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
                 </div>
 
                 <div className="p-3 rounded-2xl bg-black/60 border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
                   <div className="flex items-center gap-1.5 font-bold text-white">
-                    <Key className="w-3.5 h-3.5" />
-                    <span>How the client will sign in:</span>
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>How the invitation works:</span>
                   </div>
                   <p>
-                    Provide this Email and Password to your client. They tap <strong>Client Portal</strong> on the login screen and enter these credentials to view only their brand&apos;s videos, reviews, and published insights.
+                    Clicking <strong>Send Invitation &amp; Open Email</strong> generates a 24-hour secure setup token and automatically launches your email app with a pre-filled invitation message. The client opens the link to set their own password and sign in to their private portal.
                   </p>
                 </div>
 
@@ -917,8 +943,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
                     disabled={isRegisteringClient}
                     className="px-5 py-2.5 rounded-xl bg-white text-black font-black text-xs hover:bg-zinc-200 transition shadow disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    {isRegisteringClient ? 'Creating Account...' : 'Create Client Account'}
-                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <Send className="w-3.5 h-3.5" />
+                    {isRegisteringClient ? 'Creating Invitation...' : 'Send Invitation & Open Email'}
                   </button>
                 </div>
               </form>
