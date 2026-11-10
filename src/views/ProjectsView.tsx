@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Project, Client, Profile, SocialChannel, Deliverable, DeliverableType } from '../types';
+import { Project, Client, Profile, SocialChannel, Deliverable, DeliverableType, AspectRatio } from '../types';
 import { 
   getProjects, createProject, updateProject, deleteProject, 
-  getClients, getProfiles, getSocialChannels, createAuditLog 
+  getClients, getProfiles, getSocialChannels, createAuditLog, createNotification 
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { filterDeliverables } from '../lib/deletionFilter';
 import { 
   FolderKanban, Plus, Calendar, CheckCircle2, Clock, 
   Users, Briefcase, Share2, AlertCircle, ArrowUpRight,
-  Filter, Search, Trash2, Film, Tv, ExternalLink, X, ChevronRight
+  Filter, Search, Trash2, Film, Tv, ExternalLink, X, ChevronRight, Layers
 } from 'lucide-react';
 
 interface ProjectsViewProps {
@@ -73,9 +73,80 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
     setClients(clientList);
     setTeamMembers(members);
     setChannels(chanList);
-    if (delivRes.data) {
-      setDeliverables(filterDeliverables(delivRes.data as Deliverable[]));
+
+    const existingDelivs = (delivRes.data as Deliverable[]) || [];
+    const backfilledDelivs: Deliverable[] = [];
+
+    // Auto-generate missing recording & deliverables for projects that have 0 deliverables
+    for (const proj of projList) {
+      const matched = existingDelivs.filter(d => 
+        d.project_id === proj.id || 
+        (d.title && proj.name && d.title.toLowerCase().includes(proj.name.toLowerCase()))
+      );
+
+      if (matched.length === 0) {
+        const assignedEdId = proj.assigned_editor_ids?.[0] || undefined;
+        const edObj = members.find(m => m.id === assignedEdId);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const projPlatforms = (proj.platforms as string[]) || [];
+        const isFull = 
+          projPlatforms.includes('youtube_full') ||
+          projPlatforms.includes('full') ||
+          proj.name.toLowerCase().includes('full video') ||
+          proj.name.toLowerCase().includes('full episode');
+
+        const recId = crypto.randomUUID ? crypto.randomUUID() : `rec-${proj.id}`;
+
+        // Insert recording so editor workspace can load it
+        try {
+          await supabase.from('recordings').insert([{
+            id: recId,
+            title: proj.name,
+            recording_date: todayStr,
+            date_received: todayStr,
+            hard_disk_name: proj.client_name || 'Studio Production',
+            folder_path: `/projects/${proj.name.replace(/\s+/g, '_')}`,
+            notes: `[Project: ${proj.id}] [Client: ${proj.client_name || ''}] [Deadline: ${proj.deadline || todayStr}]`,
+            registered_by: currentUser?.id
+          }]);
+        } catch {}
+
+        const count = Math.max(1, proj.required_video_count || proj.required_videos_count || 1);
+        for (let i = 1; i <= count; i++) {
+          const dTitle = count === 1
+            ? `${proj.name} - ${isFull ? 'Full Episode Video (16:9)' : 'Reel (9:16)'}`
+            : `${proj.name} - ${isFull ? 'Full Video Cut' : 'Reel'} #${i}`;
+
+          const newD: Deliverable = {
+            id: crypto.randomUUID ? crypto.randomUUID() : `deliv-${proj.id}-${i}`,
+            recording_id: recId,
+            project_id: proj.id,
+            client_id: proj.client_id,
+            client_name: proj.client_name,
+            client_brand: proj.client_name,
+            title: dTitle,
+            deliverable_type: isFull ? 'full_length_video' : 'reel',
+            aspect_ratio: isFull ? '16:9' : '9:16',
+            assigned_editor_id: assignedEdId || undefined,
+            editor_name: edObj?.full_name || 'Unassigned',
+            editing_status: assignedEdId ? 'assigned' : 'not_started',
+            priority: isFull ? 'high' : 'medium',
+            deadline: proj.deadline || todayStr,
+            progress_percentage: 0,
+            created_at: new Date().toISOString()
+          };
+          backfilledDelivs.push(newD);
+        }
+
+        try {
+          await supabase.from('deliverables').insert(backfilledDelivs);
+        } catch {}
+      }
     }
+
+    const allDelivs = filterDeliverables([...backfilledDelivs, ...existingDelivs]);
+    setDeliverables(allDelivs);
+
     if (clientList.length > 0 && !clientId) {
       setClientId(clientList[0].id);
     }
@@ -199,6 +270,83 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
     setIsSubmitting(false);
 
     if (newProj) {
+      // 1. Immediately create a Recording representation for this project so editors can access it
+      const primaryEditorId = assignedEditorIds[0] || undefined;
+      const editorObj = teamMembers.find(m => m.id === primaryEditorId);
+      const todayStr = new Date().toISOString().split('T')[0];
+      const finalDeadline = deadline || todayStr;
+      const clientName = clientObj?.brand_name || clientObj?.company_name || clientObj?.name || 'Internal Studio';
+
+      const recId = crypto.randomUUID ? crypto.randomUUID() : `rec-${newProj.id}`;
+      try {
+        await supabase.from('recordings').insert([{
+          id: recId,
+          title: newProj.name,
+          recording_date: todayStr,
+          date_received: todayStr,
+          hard_disk_name: clientName,
+          folder_path: `/projects/${newProj.name.replace(/\s+/g, '_')}`,
+          notes: `[Project: ${newProj.id}] [Client: ${clientName}] [Deadline: ${finalDeadline}] ${newProj.description || ''}`,
+          registered_by: currentUser.id
+        }]);
+      } catch (e) {
+        console.warn('Project recording insert note:', e);
+      }
+
+      // 2. Generate Deliverable tasks for the assigned editor(s)
+      const isFullVideo = 
+        platforms.includes('youtube_full') || 
+        platforms.includes('full') || 
+        newProj.name.toLowerCase().includes('full video') || 
+        newProj.name.toLowerCase().includes('full episode');
+
+      const videoCount = Math.max(1, Number(requiredVideoCount) || 1);
+      const deliverablesToInsert: Deliverable[] = [];
+
+      for (let i = 1; i <= videoCount; i++) {
+        const dTitle = videoCount === 1 
+          ? `${newProj.name} - ${isFullVideo ? 'Full Episode Video (16:9)' : 'Reel (9:16)'}`
+          : `${newProj.name} - ${isFullVideo ? 'Full Video Cut' : 'Reel'} #${i}`;
+
+        deliverablesToInsert.push({
+          id: crypto.randomUUID ? crypto.randomUUID() : `deliv-${Date.now()}-${i}`,
+          recording_id: recId,
+          project_id: newProj.id,
+          client_id: newProj.client_id,
+          client_name: newProj.client_name,
+          client_brand: newProj.client_name,
+          title: dTitle,
+          deliverable_type: isFullVideo ? 'full_length_video' : 'reel',
+          aspect_ratio: isFullVideo ? '16:9' : '9:16',
+          assigned_editor_id: primaryEditorId || undefined,
+          editor_name: editorObj?.full_name || 'Unassigned',
+          editing_status: primaryEditorId ? 'assigned' : 'not_started',
+          priority: isFullVideo ? 'high' : 'medium',
+          deadline: finalDeadline,
+          progress_percentage: 0,
+          created_at: new Date().toISOString()
+        });
+      }
+
+      try {
+        await supabase.from('deliverables').insert(deliverablesToInsert);
+      } catch (e) {
+        console.warn('Project deliverables insert note:', e);
+      }
+
+      setDeliverables(prev => [...deliverablesToInsert, ...prev]);
+
+      // Send in-app notification to the assigned editor
+      if (primaryEditorId) {
+        try {
+          await createNotification(
+            primaryEditorId,
+            'New Video Task Assigned',
+            `You have been assigned to edit "${newProj.name}" (${videoCount} ${isFullVideo ? 'full video' : 'reel'} cut${videoCount > 1 ? 's' : ''}).`
+          );
+        } catch {}
+      }
+
       setProjects(prev => [newProj, ...prev]);
       setShowModal(false);
       resetForm();
@@ -208,7 +356,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
         newProj.id,
         currentUser.id,
         currentUser.email,
-        { name: newProj.name, client: newProj.client_name }
+        { name: newProj.name, client: newProj.client_name, full_video: isFullVideo, video_count: videoCount }
       );
     }
   };
@@ -896,24 +1044,33 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
                 </div>
               </div>
 
-              {/* Target Platforms */}
+              {/* Target Platforms & Format */}
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Target Social Platforms
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                  <span>Target Social Platforms &amp; Video Format</span>
+                  <span className="text-[10px] text-zinc-400 font-semibold">Select Full Video (16:9) or Shorts</span>
                 </label>
                 <div className="flex gap-2 flex-wrap">
-                  {['instagram_reels', 'youtube_shorts', 'facebook', 'x'].map(plat => (
+                  {[
+                    { id: 'youtube_full', label: 'FULL VIDEO (16:9)', isFull: true },
+                    { id: 'youtube_shorts', label: 'YOUTUBE SHORTS', isFull: false },
+                    { id: 'instagram_reels', label: 'INSTAGRAM REELS', isFull: false },
+                    { id: 'facebook', label: 'FACEBOOK', isFull: false },
+                    { id: 'x', label: 'X', isFull: false },
+                  ].map(plat => (
                     <button
-                      key={plat}
+                      key={plat.id}
                       type="button"
-                      onClick={() => togglePlatform(plat)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                        platforms.includes(plat)
-                          ? 'bg-white text-black font-black'
+                      onClick={() => togglePlatform(plat.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        platforms.includes(plat.id)
+                          ? 'bg-white text-black font-black shadow-md'
                           : 'bg-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      {plat.replace(/_/g, ' ').toUpperCase()}
+                      {plat.isFull && <Tv className="w-3.5 h-3.5" />}
+                      {!plat.isFull && plat.id === 'youtube_shorts' && <Film className="w-3.5 h-3.5" />}
+                      <span>{plat.label}</span>
                     </button>
                   ))}
                 </div>

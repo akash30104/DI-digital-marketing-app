@@ -254,6 +254,63 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         });
       }
 
+      // Also include deliverables from projects or standalone deliverables that aren't tied to an existing recording
+      const matchedRecIds = new Set((recs as any[]).map(r => r.id));
+      const unmatchedDelivs = dels.filter(d => !matchedRecIds.has(d.recording_id));
+
+      if (unmatchedDelivs.length > 0) {
+        const projectGroups = new Map<string, Deliverable[]>();
+        for (const d of unmatchedDelivs) {
+          const groupKey = d.project_id || d.recording_id || d.recording_title || d.client_name || 'studio-project';
+          if (!projectGroups.has(groupKey)) {
+            projectGroups.set(groupKey, []);
+          }
+          projectGroups.get(groupKey)!.push(d);
+        }
+
+        for (const [groupKey, groupDelivs] of projectGroups.entries()) {
+          const firstDel = groupDelivs[0];
+          const groupTitle = firstDel.recording_title || firstDel.client_name || firstDel.title || 'Project Video Tasks';
+          const assignedDeliv = groupDelivs.find(d => d.assigned_editor_id);
+          const assignedEditorId = assignedDeliv?.assigned_editor_id;
+          const editorName = assignedDeliv?.editor_name || (assignedEditorId === currentUser.id ? currentUser.full_name : 'Unassigned');
+
+          const isAssignedDirectly = groupDelivs.some(d => d.assigned_editor_id === currentUser.id);
+          const isAccepted = acceptedSet.has(groupKey);
+          const isMyPodcast = isAssignedDirectly || isAccepted;
+
+          const completedCuts = groupDelivs.filter(d => 
+            (d.progress_percentage || 0) === 100 || 
+            d.editing_status === 'approved' || 
+            d.editing_status === 'submitted_for_approval'
+          ).length;
+
+          const totalCuts = groupDelivs.length;
+          const progressPercentage = totalCuts > 0
+            ? Math.round(groupDelivs.reduce((acc, d) => acc + (d.progress_percentage || 0), 0) / totalCuts)
+            : 0;
+
+          items.push({
+            id: groupKey,
+            title: groupTitle,
+            recording_date: new Date().toISOString().split('T')[0],
+            hard_disk_name: firstDel.client_name || 'Project Production',
+            folder_path: `/projects/${groupKey}`,
+            notes: `[Project: ${groupKey}]`,
+            deadline: firstDel.deadline || null,
+            assigned_editor_id: assignedEditorId,
+            editor_name: editorName,
+            deliverables: groupDelivs,
+            totalCuts,
+            completedCuts,
+            progressPercentage,
+            isMyPodcast,
+            isClientWork: !!firstDel.client_id || !!firstDel.client_name,
+            clientBrandName: firstDel.client_name || 'Client'
+          });
+        }
+      }
+
       setPodcasts(items);
     } catch (err) {
       console.error('Failed to load podcasts for editor workspace:', err);
@@ -281,8 +338,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     if (mode === 'my') {
       return podcasts.filter(p => p.isMyPodcast);
     } else {
-      // In 'all' queue, show podcasts that are open / available or unassigned
-      return podcasts.filter(p => !p.isMyPodcast);
+      // In 'all' queue (Available Tasks), show all available tasks / open to editor
+      return podcasts;
     }
   }, [podcasts, mode]);
 
