@@ -913,7 +913,7 @@ Digital Inertia Production Team`;
                       required
                       value={regBrandName}
                       onChange={(e) => setRegBrandName(e.target.value)}
-                      placeholder="e.g. LLBS Podcast"
+                      placeholder="Brand or Channel Name"
                       className="w-full px-3 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                     />
                   </div>
@@ -927,7 +927,7 @@ Digital Inertia Production Team`;
                       required
                       value={regContactName}
                       onChange={(e) => setRegContactName(e.target.value)}
-                      placeholder="e.g. Akash Sharma"
+                      placeholder="Contact Person Name"
                       className="w-full px-3 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                     />
                   </div>
