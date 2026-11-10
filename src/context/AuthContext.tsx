@@ -321,21 +321,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (inv.status === 'revoked') {
-      return { error: 'This invitation has been revoked by the founder.' };
+      return { error: 'This invitation has been revoked by management.' };
     }
 
     if (inv.status === 'accepted') {
-      return { error: 'This invitation has already been accepted or redeemed.' };
+      return { error: 'This invitation link has expired because the account has already been created. Please sign in.' };
     }
 
     if (new Date(inv.expires_at).getTime() < Date.now()) {
-      return { error: 'This invitation link expired (valid for 24 hours). Please ask the Founder to resend an invite.' };
+      return { error: 'This invitation link has expired (single-use or past 24 hours). Please request a new invite.' };
     }
 
     const cleanEmail = (inv.email || emailOverride || '').trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return { error: 'Please enter a valid email address to complete registration.' };
     }
+
+    // Check if an account for this email already exists (token must expire immediately)
+    const existingCreds = typeof localStorage !== 'undefined' ? localStorage.getItem(`di_team_creds_${cleanEmail}`) : null;
+    if (existingCreds) {
+      markInvitationAccepted(cleanToken);
+      return { error: `An account for ${cleanEmail} already exists. This invitation link has expired. Please sign in.` };
+    }
+
+    try {
+      const { data: existingProf } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (existingProf) {
+        markInvitationAccepted(cleanToken);
+        return { error: `An account for ${cleanEmail} has already been registered. This invitation link has expired. Please sign in.` };
+      }
+    } catch {}
 
     const roleToUse = inv.role || roleOverride || 'editor';
     const nameToUse = fullName?.trim() || inv.full_name || cleanEmail.split('@')[0];
@@ -396,7 +416,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: authUserId,
       email: cleanEmail,
       full_name: nameToUse,
-      role: roleToUse
+      role: roleToUse,
+      avatar_url: `token:${cleanToken.substring(0, 60)}`
     };
 
     // 1. Upsert Profile in database

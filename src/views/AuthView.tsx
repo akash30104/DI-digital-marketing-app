@@ -71,17 +71,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     setIsLoading(false);
     if (inv) {
       if (inv.status === 'revoked') {
-        setErrorMessage('This invitation link has been revoked by the founder.');
-        setFoundInvitation(null);
-        return;
-      }
-      if (inv.status === 'expired') {
-        setErrorMessage('This invitation link has expired (valid for 24 hours). Please ask the founder for a new invite.');
+        setErrorMessage('This invitation link has been revoked by management.');
         setFoundInvitation(null);
         return;
       }
       if (inv.status === 'accepted') {
-        setErrorMessage('This invitation has already been redeemed. Please sign in with your credentials.');
+        setErrorMessage('This invitation link has expired because the account has already been created. Please sign in with your credentials.');
+        setFoundInvitation(null);
+        if (inv.email) setEmail(inv.email);
+        setTimeout(() => setAuthMode('login'), 2200);
+        return;
+      }
+      if (inv.status === 'expired' || (inv.expires_at && new Date(inv.expires_at).getTime() < Date.now())) {
+        setErrorMessage('This invitation link has expired (single-use or past 24 hours). Please ask management for a new invite.');
         setFoundInvitation(null);
         return;
       }
@@ -89,7 +91,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
       if (inv.email) setEmail(inv.email);
       if (inv.full_name) setFullName(inv.full_name);
     } else {
-      setErrorMessage('Invitation token not found or invalid. Please check your link or ask the founder to resend.');
+      setErrorMessage('Invitation token not found, invalid, or already expired. Please check your link or ask management.');
       setFoundInvitation(null);
     }
   };

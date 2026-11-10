@@ -445,19 +445,41 @@ export async function createInvitation(
 }
 
 export async function fetchInvitations(): Promise<Invitation[]> {
-  try {
-    const { data, error } = await supabase
-      .from('invitations')
-      .select('*')
-      .order('created_at', { ascending: false });
+  const localList = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  const redeemed = getLocal<string[]>('di_redeemed_tokens', []);
+  const redeemedEmails = getLocal<string[]>('di_redeemed_emails', []);
+  const redeemedIds = getLocal<string[]>('di_redeemed_invitation_ids', []);
 
-    if (!error && data && data.length > 0) {
-      return data as Invitation[];
+  // Fetch registered profiles from Supabase to automatically sync accepted invitations
+  let registeredEmails: string[] = [];
+  try {
+    const { data: profs } = await supabase.from('profiles').select('email');
+    if (profs && profs.length > 0) {
+      registeredEmails = profs.map(p => (p.email || '').trim().toLowerCase()).filter(Boolean);
     }
-  } catch {
-    // fallback
-  }
-  return getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  } catch {}
+
+  const synced = localList.map(inv => {
+    const clean = extractInvitationToken(inv.token);
+    const emailClean = (inv.email || '').trim().toLowerCase();
+    const isRedeemed = 
+      inv.status === 'accepted' ||
+      redeemed.includes(clean) ||
+      redeemed.includes(inv.token) ||
+      (inv.id && redeemedIds.includes(inv.id)) ||
+      (emailClean && (redeemedEmails.includes(emailClean) || registeredEmails.includes(emailClean)));
+
+    if (isRedeemed) {
+      return {
+        ...inv,
+        status: 'accepted' as const,
+        expires_at: new Date(0).toISOString() // Once redeemed, immediately expired!
+      };
+    }
+    return inv;
+  });
+
+  return synced;
 }
 
 export const getInvitations = fetchInvitations;
@@ -468,31 +490,77 @@ export async function getInvitationByToken(rawToken: string): Promise<Invitation
 
   // Check if token was marked redeemed locally
   const redeemed = getLocal<string[]>('di_redeemed_tokens', []);
-  const isRedeemed = redeemed.includes(cleanToken);
+  const redeemedIds = getLocal<string[]>('di_redeemed_invitation_ids', []);
+  const redeemedEmails = getLocal<string[]>('di_redeemed_emails', []);
+
+  const isRedeemedLocal = 
+    redeemed.includes(cleanToken) || 
+    redeemed.includes(rawToken);
 
   // 1. Try decoding self-contained / legacy token
   const decoded = decodeInvitationToken(cleanToken);
 
   // 2. Also check local storage (origin device has full record)
   const localInvs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
-  const localMatch = localInvs.find(i => i.token === cleanToken || i.token === rawToken);
+  const localMatch = localInvs.find(i => 
+    i.token === cleanToken || 
+    i.token === rawToken || 
+    (decoded && i.id === decoded.id)
+  );
 
-  // 3. Try database if available
-  let dbMatch: Invitation | null = null;
+  const finalInv = localMatch || decoded;
+  if (!finalInv) return null;
+
+  const invEmail = (finalInv.email || decoded?.email || '').trim().toLowerCase();
+  const invId = finalInv.id || decoded?.id;
+
+  // 3. Immediately expire if token, id, or email was redeemed locally
+  if (
+    isRedeemedLocal || 
+    finalInv.status === 'accepted' || 
+    (invId && redeemedIds.includes(invId)) || 
+    (invEmail && redeemedEmails.includes(invEmail))
+  ) {
+    return { ...finalInv, status: 'accepted', expires_at: new Date(0).toISOString() };
+  }
+
+  // 4. Check if account already exists locally for this email
+  if (invEmail && typeof localStorage !== 'undefined') {
+    const creds = localStorage.getItem(`di_team_creds_${invEmail}`);
+    if (creds) {
+      markInvitationAccepted(cleanToken);
+      return { ...finalInv, status: 'accepted', expires_at: new Date(0).toISOString() };
+    }
+  }
+
+  // 5. Cross-device check: Check if user already registered in Supabase profiles
   try {
-    const { data, error } = await supabase
-      .from('invitations')
-      .select('*')
-      .eq('token', cleanToken)
-      .maybeSingle();
+    if (invEmail) {
+      const { data: profByEmail } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', invEmail)
+        .limit(1);
 
-    if (!error && data) {
-      dbMatch = data as Invitation;
+      if (profByEmail && profByEmail.length > 0) {
+        markInvitationAccepted(cleanToken);
+        return { ...finalInv, status: 'accepted', expires_at: new Date(0).toISOString() };
+      }
+    }
+
+    // Check if token was marked redeemed in profile avatar_url
+    const tokenProbe = cleanToken.length > 40 ? cleanToken.substring(0, 40) : cleanToken;
+    const { data: profByToken } = await supabase
+      .from('profiles')
+      .select('id, email, avatar_url')
+      .ilike('avatar_url', `%${tokenProbe}%`)
+      .limit(1);
+
+    if (profByToken && profByToken.length > 0) {
+      markInvitationAccepted(cleanToken);
+      return { ...finalInv, status: 'accepted', expires_at: new Date(0).toISOString() };
     }
   } catch {}
-
-  const finalInv = dbMatch || localMatch || decoded;
-  if (!finalInv) return null;
 
   // Check revocation locally
   const revoked = getLocal<string[]>('di_revoked_tokens', []);
@@ -500,12 +568,7 @@ export async function getInvitationByToken(rawToken: string): Promise<Invitation
     return { ...finalInv, status: 'revoked' };
   }
 
-  // Check redeemed status
-  if (isRedeemed || finalInv.status === 'accepted') {
-    return { ...finalInv, status: 'accepted' };
-  }
-
-  // Check expiration
+  // Check expiration (past 24 hours or marked expired)
   if (new Date(finalInv.expires_at).getTime() < Date.now()) {
     return { ...finalInv, status: 'expired' };
   }
@@ -518,10 +581,48 @@ export function markInvitationAccepted(token: string): void {
   const redeemed = getLocal<string[]>('di_redeemed_tokens', []);
   if (!redeemed.includes(clean)) {
     redeemed.push(clean);
-    setLocal('di_redeemed_tokens', redeemed);
   }
+  if (!redeemed.includes(token)) {
+    redeemed.push(token);
+  }
+  setLocal('di_redeemed_tokens', redeemed);
+
+  const decoded = decodeInvitationToken(clean);
+  if (decoded?.id) {
+    const redeemedIds = getLocal<string[]>('di_redeemed_invitation_ids', []);
+    if (!redeemedIds.includes(decoded.id)) {
+      redeemedIds.push(decoded.id);
+      setLocal('di_redeemed_invitation_ids', redeemedIds);
+    }
+  }
+
+  if (decoded?.email) {
+    const cleanE = decoded.email.trim().toLowerCase();
+    const redeemedEmails = getLocal<string[]>('di_redeemed_emails', []);
+    if (!redeemedEmails.includes(cleanE)) {
+      redeemedEmails.push(cleanE);
+      setLocal('di_redeemed_emails', redeemedEmails);
+    }
+  }
+
   const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
-  const updated = invs.map(i => (i.token === clean || i.token === token) ? { ...i, status: 'accepted' as const, accepted_at: new Date().toISOString() } : i);
+  const updated = invs.map(i => {
+    const isMatch = 
+      i.token === clean || 
+      i.token === token || 
+      (decoded && i.id === decoded.id) || 
+      (decoded?.email && i.email?.toLowerCase() === decoded.email.toLowerCase());
+
+    if (isMatch) {
+      return {
+        ...i,
+        status: 'accepted' as const,
+        accepted_at: new Date().toISOString(),
+        expires_at: new Date(0).toISOString() // Expire immediately upon redemption!
+      };
+    }
+    return i;
+  });
   setLocal(STORAGE_KEYS.INVITATIONS, updated);
 }
 

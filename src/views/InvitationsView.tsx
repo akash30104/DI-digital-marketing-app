@@ -295,7 +295,7 @@ export const InvitationsView: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-zinc-400">
                           {inv.status === 'accepted' ? (
-                            <span className="text-zinc-500">Redeemed</span>
+                            <span className="text-zinc-500 font-bold">Redeemed &amp; Expired</span>
                           ) : expired ? (
                             <span className="text-zinc-500 font-bold">Expired</span>
                           ) : (
@@ -307,8 +307,8 @@ export const InvitationsView: React.FC = () => {
                         </td>
                         <td className="py-3 px-4">
                           {inv.status === 'accepted' ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white text-black">
-                              Accepted
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-zinc-800 text-zinc-400 border border-zinc-700">
+                              Redeemed (Expired)
                             </span>
                           ) : inv.status === 'revoked' ? (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-500">
