@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
-import { Navbar, BottomNav } from './components/NavigationBars';
+import { Sidebar } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
 import { AuthView } from './views/AuthView';
 import { FounderDashboard } from './views/FounderDashboard';
 import { FounderApprovals } from './views/FounderApprovals';
@@ -17,12 +18,16 @@ import { ClientPortal } from './views/ClientPortal';
 import { ClientsView } from './views/ClientsView';
 import { PublishedVideosView } from './views/PublishedVideosView';
 import { PrivacyPolicyView } from './views/PrivacyPolicyView';
+import { ProjectsView } from './views/ProjectsView';
+import { InvitationsView } from './views/InvitationsView';
+import { AuditLogsView } from './views/AuditLogsView';
+import { CreateTaskModal } from './components/CreateTaskModal';
 
 export const App: React.FC = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem('theme') !== 'light';
-  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState<boolean>(() => {
@@ -33,25 +38,16 @@ export const App: React.FC = () => {
     return path.includes('privacy') || hash.includes('privacy') || search.includes('privacy');
   });
 
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    if (darkMode) {
-      localStorage.setItem('theme', 'dark');
-    } else {
-      localStorage.setItem('theme', 'light');
-    }
-  }, [darkMode]);
-
   // Set default tab when role changes
   useEffect(() => {
     if (role === 'founder') {
-      setActiveTab('editing');
+      setActiveTab('dashboard');
     } else if (role === 'editor') {
       setActiveTab('my_tasks');
     } else if (role === 'social_media_manager') {
       setActiveTab('pipeline');
     } else if (role === 'client') {
-      setActiveTab('editing');
+      setActiveTab('portal_overview');
     }
   }, [role]);
 
@@ -86,21 +82,28 @@ export const App: React.FC = () => {
   const renderActiveScreen = () => {
     if (role === 'founder') {
       switch (activeTab) {
+        case 'dashboard':
+          return <FounderDashboard onNavigateTab={setActiveTab} />;
+        case 'projects':
+          return <ProjectsView onNavigateTab={setActiveTab} />;
         case 'editing':
         case 'production':
           return <ProductionBoard />;
-        case 'published':
-        case 'dashboard':
-          return <PublishedVideosView canEditInsights={true} />;
         case 'approvals':
           return <FounderApprovals />;
+        case 'published':
+          return <PublishedVideosView canEditInsights={true} />;
         case 'clients':
           return <ClientsView onNavigateTab={setActiveTab} />;
+        case 'team':
+          return <InvitationsView />;
+        case 'audit':
+          return <AuditLogsView />;
         case 'more':
         case 'settings':
           return <FounderMore />;
         default:
-          return <ProductionBoard />;
+          return <FounderDashboard onNavigateTab={setActiveTab} />;
       }
     } else if (role === 'editor') {
       switch (activeTab) {
@@ -120,8 +123,8 @@ export const App: React.FC = () => {
         case 'dashboard':
         case 'hub':
           return <FounderDashboard onNavigateTab={setActiveTab} />;
-        case 'clients':
-          return <ClientsView onNavigateTab={setActiveTab} />;
+        case 'projects':
+          return <ProjectsView onNavigateTab={setActiveTab} />;
         case 'footage':
           return <RecordingRegistration />;
         case 'pipeline':
@@ -130,33 +133,69 @@ export const App: React.FC = () => {
         case 'approvals':
         case 'approved':
           return <ManagerApprovals />;
-        case 'published':
         case 'publishing':
-          return <PublishedVideosView canEditInsights={true} />;
+        case 'published':
+          return <SocialMediaPublishing />;
+        case 'clients':
+          return <ClientsView onNavigateTab={setActiveTab} />;
         case 'history':
           return <PublishingHistory />;
-        case 'more':
         case 'settings':
+        case 'more':
           return <FounderMore />;
         default:
           return <ProductionBoard />;
       }
     } else if (role === 'client') {
-      return <ClientPortal activeTab={activeTab} onNavigateTab={setActiveTab} />;
+      // Map portal subtabs for client
+      const mappedPortalTab = 
+        activeTab === 'portal_approvals' ? 'approvals' :
+        activeTab === 'portal_published' ? 'published' :
+        activeTab === 'portal_channels' ? 'settings' : 'editing';
+
+      return <ClientPortal activeTab={mappedPortalTab} onNavigateTab={(tab) => {
+        if (tab === 'approvals') setActiveTab('portal_approvals');
+        else if (tab === 'published') setActiveTab('portal_published');
+        else if (tab === 'settings') setActiveTab('portal_channels');
+        else setActiveTab('portal_overview');
+      }} />;
     }
 
     return <ProductionBoard />;
   };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-white selection:text-black">
-      <Navbar onNavigateTab={setActiveTab} />
+    <div className="min-h-screen bg-black text-zinc-100 flex font-sans selection:bg-white selection:text-black">
+      {/* Desktop Sidebar */}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+      />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">
-        {renderActiveScreen()}
-      </main>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <TopBar
+          onSearchChange={setSearchQuery}
+          onNavigateTab={setActiveTab}
+        />
 
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+        <main className="flex-1 overflow-y-auto px-6 py-6 max-w-7xl w-full mx-auto">
+          {renderActiveScreen()}
+        </main>
+      </div>
+
+      {/* SMM / Founder Quick Create Task Modal */}
+      <CreateTaskModal
+        isOpen={showCreateTaskModal}
+        onClose={() => setShowCreateTaskModal(false)}
+        onTaskCreated={() => {
+          if (activeTab === 'editing' || activeTab === 'pipeline') {
+            window.location.reload();
+          }
+        }}
+      />
     </div>
   );
 };

@@ -19,6 +19,7 @@ import {
   purgeAllPublishingHistory, deleteSinglePublishingLog 
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, getCachedTargets, TargetConfig } from '../lib/targets';
+import { submitPublishingProof, createAuditLog } from '../lib/api';
 
 export const SocialMediaPublishing: React.FC = () => {
   const { currentUser } = useAuth();
@@ -321,6 +322,30 @@ export const SocialMediaPublishing: React.FC = () => {
           } catch (delSyncErr) {
             console.error('Failed to update deliverable on publish:', delSyncErr);
           }
+        }
+
+        // Record normalized publishing proof and audit log
+        try {
+          await submitPublishingProof({
+            task_id: finalDeliverableId,
+            publisher_id: currentUser.id,
+            published_by: currentUser.id,
+            platform: selectedPlatform,
+            channel_name: channelName.trim(),
+            post_url: postUrl.trim(),
+            published_at: new Date().toISOString(),
+            status: 'proof_submitted',
+          });
+          await createAuditLog(
+            'proof_submitted',
+            'deliverables',
+            finalDeliverableId,
+            currentUser.id,
+            currentUser.email,
+            { platform: selectedPlatform, channel: channelName.trim(), url: postUrl.trim() }
+          );
+        } catch (proofErr) {
+          console.warn('Normalized proof save note:', proofErr);
         }
 
         const newLog: PublishingLog = {

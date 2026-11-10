@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Users, Crown, ShieldAlert, ArrowRight, CheckCircle2, Briefcase, Film } from 'lucide-react';
+import { Lock, Users, Crown, ShieldAlert, ArrowRight, CheckCircle2, Briefcase, Film, Mail, KeyRound, Sparkles } from 'lucide-react';
+import { getInvitationByToken } from '../lib/api';
+import { Invitation } from '../types';
 
 interface AuthViewProps {
   onShowPrivacy?: () => void;
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
-  const { signIn, signUp, refreshFounderStatus } = useAuth();
+  const { signIn, signUp, acceptInvitation, resetPassword, refreshFounderStatus } = useAuth();
+
+  // Mode: 'login' | 'invite' | 'forgot_password'
+  const [authMode, setAuthMode] = useState<'login' | 'invite' | 'forgot_password'>('login');
 
   // All-in-one Hosting: Toggle between Studio Team and Client Portal
   const [portalType, setPortalType] = useState<'studio' | 'client'>('studio');
@@ -21,6 +26,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
 
+  // Invitation state
+  const [inviteToken, setInviteToken] = useState('');
+  const [foundInvitation, setFoundInvitation] = useState<Invitation | null>(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -28,6 +37,37 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
   const resetMessages = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
+  };
+
+  // Check URL query for ?invite=token
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tokenParam = params.get('invite') || params.get('token');
+      if (tokenParam) {
+        setInviteToken(tokenParam);
+        setAuthMode('invite');
+        lookupInvite(tokenParam);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const lookupInvite = async (t: string) => {
+    if (!t.trim()) return;
+    setIsLoading(true);
+    resetMessages();
+    const inv = await getInvitationByToken(t.trim());
+    setIsLoading(false);
+    if (inv) {
+      setFoundInvitation(inv);
+      setEmail(inv.email);
+      if (inv.full_name) setFullName(inv.full_name);
+    } else {
+      setErrorMessage('Invitation token not found or already redeemed.');
+      setFoundInvitation(null);
+    }
   };
 
   const sanitizeError = (err: string | undefined): string => {
@@ -83,7 +123,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     }
     setIsLoading(true);
     resetMessages();
-    // Pass allowMultipleFounders = true
     const res = await signUp(email, password, fullName.trim(), 'founder', true);
     setIsLoading(false);
     if (res.error) {
@@ -91,6 +130,45 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     } else {
       setSuccessMessage(`New Founder account created for ${fullName}! You can now sign in.`);
       setDevFounderAction('signIn');
+    }
+  };
+
+  const handleAcceptInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage('Passwords do not match.');
+      return;
+    }
+
+    setIsLoading(true);
+    resetMessages();
+    const res = await acceptInvitation(inviteToken.trim(), password, fullName.trim());
+    setIsLoading(false);
+    if (res.error) {
+      setErrorMessage(res.error);
+    } else {
+      setSuccessMessage('Invitation accepted! Welcome to Digital Inertia.');
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      setErrorMessage('Please enter your account email address.');
+      return;
+    }
+    setIsLoading(true);
+    resetMessages();
+    const res = await resetPassword(email.trim());
+    setIsLoading(false);
+    if (res.error) {
+      setErrorMessage(sanitizeError(res.error));
+    } else {
+      setSuccessMessage(`Password reset link sent to ${email.trim()}! Please check your email inbox.`);
     }
   };
 
@@ -133,38 +211,58 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
 
         {/* ALL-IN-ONE HOSTING: TOGGLE BUTTON (Hidden when in Dev Founder Mode) */}
         {!isDevFounderMode && (
-          <div className="p-1 bg-zinc-900 border border-zinc-800 rounded-2xl mb-4 flex gap-1 shadow-xl">
-            <button
-              type="button"
-              onClick={() => {
-                setPortalType('studio');
-                resetMessages();
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                portalType === 'studio'
-                  ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Studio Team</span>
-            </button>
+          <div className="space-y-2 mb-4">
+            <div className="p-1 bg-zinc-900 border border-zinc-800 rounded-2xl flex gap-1 shadow-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setPortalType('studio');
+                  resetMessages();
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  authMode === 'login' && portalType === 'studio'
+                    ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Studio Team</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setPortalType('client');
-                resetMessages();
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                portalType === 'client'
-                  ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
-              }`}
-            >
-              <Briefcase className="w-3.5 h-3.5" />
-              <span>Client Portal</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setPortalType('client');
+                  resetMessages();
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  authMode === 'login' && portalType === 'client'
+                    ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>Client Portal</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('invite');
+                  resetMessages();
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  authMode === 'invite'
+                    ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Accept Invite</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -346,7 +444,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
           ) : (
             <>
               {/* ==================== PORTAL: STUDIO TEAM (SIGN IN ONLY) ==================== */}
-              {portalType === 'studio' && (
+              {authMode === 'login' && portalType === 'studio' && (
                 <div className="space-y-4">
                   <div className="text-center pb-2 border-b border-zinc-800">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white mb-1.5">
@@ -374,9 +472,18 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                        Password
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-zinc-300">
+                          Password
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { setAuthMode('forgot_password'); resetMessages(); }}
+                          className="text-[11px] font-semibold text-zinc-400 hover:text-white transition-colors"
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
                       <input
                         type="password"
                         required
@@ -404,7 +511,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
               )}
 
               {/* ==================== PORTAL: CLIENT PORTAL (SIGN IN ONLY) ==================== */}
-              {portalType === 'client' && (
+              {authMode === 'login' && portalType === 'client' && (
                 <div className="space-y-4">
                   <div className="text-center pb-2 border-b border-zinc-800">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white mb-1.5">
@@ -432,9 +539,18 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                        Password
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-zinc-300">
+                          Password
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { setAuthMode('forgot_password'); resetMessages(); }}
+                          className="text-[11px] font-semibold text-zinc-400 hover:text-white transition-colors"
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
                       <input
                         type="password"
                         required
@@ -456,6 +572,198 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
 
                     <div className="pt-2 text-center text-xs text-zinc-500">
                       Client brand accounts are provisioned exclusively by Digital Inertia management.
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* ==================== ACCEPT INVITATION FLOW ==================== */}
+              {authMode === 'invite' && (
+                <div className="space-y-4">
+                  <div className="text-center pb-2 border-b border-zinc-800">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white mb-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-zinc-200" />
+                      <span>Accept Invitation</span>
+                    </div>
+                    <p className="text-xs text-zinc-400">
+                      Activate your account using your one-time 24-hour invitation token.
+                    </p>
+                  </div>
+
+                  {!foundInvitation ? (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                          Invitation Token or Link
+                        </label>
+                        <input
+                          type="text"
+                          value={inviteToken}
+                          onChange={(e) => setInviteToken(e.target.value)}
+                          placeholder="Paste token or ?invite=... link"
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-mono text-xs"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          let cleanToken = inviteToken.trim();
+                          if (cleanToken.includes('invite=')) {
+                            cleanToken = cleanToken.split('invite=')[1]?.split('&')[0] || cleanToken;
+                          }
+                          lookupInvite(cleanToken);
+                        }}
+                        disabled={isLoading || !inviteToken.trim()}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                      >
+                        {isLoading ? 'Verifying Token...' : 'Verify Invitation Token'}
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+
+                      <div className="text-center">
+                        <button
+                          type="button"
+                          onClick={() => { setAuthMode('login'); resetMessages(); }}
+                          className="text-xs text-zinc-400 hover:text-white underline"
+                        >
+                          Already have an account? Sign In
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleAcceptInvite} className="space-y-4">
+                      <div className="p-3 bg-black border border-zinc-800 rounded-xl space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Target Role</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-black">
+                            {foundInvitation.role.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Email</span>
+                          <span className="font-semibold text-white truncate max-w-[200px]">{foundInvitation.email}</span>
+                        </div>
+                        {foundInvitation.client_brand && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Brand</span>
+                            <span className="font-bold text-white">{foundInvitation.client_brand}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                          Your Full Name
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="e.g. Alex Morgan"
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Min. 6 chars"
+                            className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                            Confirm Password
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Confirm"
+                            className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                      >
+                        {isLoading ? 'Activating Account...' : 'Activate & Enter Workspace'}
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+
+                      <div className="text-center">
+                        <button
+                          type="button"
+                          onClick={() => { setFoundInvitation(null); setInviteToken(''); resetMessages(); }}
+                          className="text-xs text-zinc-500 hover:text-white"
+                        >
+                          Use a different invitation token
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {/* ==================== FORGOT PASSWORD FLOW ==================== */}
+              {authMode === 'forgot_password' && (
+                <div className="space-y-4">
+                  <div className="text-center pb-2 border-b border-zinc-800">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white mb-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-zinc-200" />
+                      <span>Password Reset</span>
+                    </div>
+                    <p className="text-xs text-zinc-400">
+                      Enter your account email to receive a secure password recovery link.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Registered Email
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="your-email@studio.com"
+                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                    >
+                      {isLoading ? 'Sending...' : 'Send Password Reset Link'}
+                      <Mail className="w-4 h-4" />
+                    </button>
+
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode('login'); resetMessages(); }}
+                        className="text-xs text-zinc-400 hover:text-white underline"
+                      >
+                        Back to Sign In
+                      </button>
                     </div>
                   </form>
                 </div>

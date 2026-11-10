@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { filterDeliverables, filterRecordings, deleteSingleDeliverable, deleteSingleRecording } from '../lib/deletionFilter';
 import { getClientBrandName } from '../lib/clientIsolation';
+import { recordTaskVersion, createNotification, createAuditLog } from '../lib/api';
 
 interface EditorWorkspaceProps {
   mode?: 'all' | 'my';
@@ -355,7 +356,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         progress_percentage: val,
         editing_status: (val === 100 
           ? (d.editing_status === 'approved' ? 'approved' : d.editing_status) 
-          : (d.editing_status === 'submitted_for_approval' ? 'editing_in_progress' : d.editing_status))
+          : (d.editing_status === 'submitted_for_approval' ? 'editing_in_progress' : d.editing_status)) as EditingStatus
       } : d);
 
       const completedCuts = updatedDelivs.filter(d => (d.progress_percentage || 0) === 100).length;
@@ -449,6 +450,35 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         .eq('id', driveModalCut.id);
 
       if (error) throw error;
+
+      // Record in video_versions
+      try {
+        await recordTaskVersion({
+          task_id: driveModalCut.id,
+          version_number: 1,
+          google_drive_link: finalLink,
+          video_url: finalLink,
+          notes: driveNotes.trim() || undefined,
+          editor_id: currentUser.id,
+          submitted_by: currentUser.id,
+        });
+      } catch (verErr) {
+        console.warn('Version record note:', verErr);
+      }
+
+      // Record audit log
+      try {
+        await createAuditLog(
+          'video_submitted',
+          'deliverables',
+          driveModalCut.id,
+          currentUser.id,
+          currentUser.email,
+          { title: driveModalCut.title, url: finalLink, notes: driveNotes }
+        );
+      } catch (auditErr) {
+        console.warn('Audit log note:', auditErr);
+      }
 
       showToast(`🚀 "${driveModalCut.title}" saved & sent to Social Media Manager for approval!`);
       setDriveModalCut(null);
