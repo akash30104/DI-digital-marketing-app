@@ -104,10 +104,17 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={() => setShowRoleMenu(!showRoleMenu)}
             className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 hover:text-white transition"
-            title="Switch testing role view"
+            title="Role"
           >
-            <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold hidden sm:inline">View as:</span>
-            <span className="text-white capitalize">{role.replace(/_/g, ' ')}</span>
+            <span className="text-white font-bold">
+              {role === 'founder'
+                ? 'Founder'
+                : role === 'social_media_manager'
+                ? 'Social Media Manager'
+                : role === 'editor'
+                ? 'Video Editor'
+                : 'Client Partner'}
+            </span>
             <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
           </button>
 
