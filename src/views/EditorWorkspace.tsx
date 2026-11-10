@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { filterDeliverables, filterRecordings, deleteSingleDeliverable, deleteSingleRecording } from '../lib/deletionFilter';
 import { getClientBrandName } from '../lib/clientIsolation';
-import { recordTaskVersion, createNotification, createAuditLog } from '../lib/api';
+import { recordTaskVersion, createNotification, createAuditLog, getProjects } from '../lib/api';
 
 interface EditorWorkspaceProps {
   mode?: 'all' | 'my';
@@ -38,6 +38,24 @@ const saveAcceptedPodcastId = (userId: string, podcastId: string) => {
     localStorage.setItem(`${ACCEPTED_PODCASTS_KEY_PREFIX}${userId}`, JSON.stringify(Array.from(set)));
   } catch (e) {
     console.warn('Failed to save accepted podcast to local storage:', e);
+  }
+};
+
+const updateDeliverableCache = (cutId: string, updates: Record<string, any>) => {
+  try {
+    const raw = localStorage.getItem('di_deliverable_progress_cache') || '{}';
+    const cache = JSON.parse(raw);
+    cache[cutId] = { ...(cache[cutId] || {}), ...updates, updated_at: new Date().toISOString() };
+    localStorage.setItem('di_deliverable_progress_cache', JSON.stringify(cache));
+
+    const rawP = localStorage.getItem('di_project_deliverables');
+    if (rawP) {
+      const pDelivs: Deliverable[] = JSON.parse(rawP);
+      const updated = pDelivs.map(d => d.id === cutId ? { ...d, ...updates } : d);
+      localStorage.setItem('di_project_deliverables', JSON.stringify(updated));
+    }
+  } catch (e) {
+    console.warn('Local deliverable cache update note:', e);
   }
 };
 
@@ -165,7 +183,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     if (showSpinner) setIsLoading(true);
 
     try {
-      const [recsRes, delivRes, clientsRes] = await Promise.all([
+      const [recsRes, delivRes, clientsRes, projectsList] = await Promise.all([
         supabase
           .from('recordings')
           .select('*')
@@ -181,11 +199,25 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         supabase
           .from('profiles')
           .select('id, full_name, email, role')
-          .eq('role', 'client')
+          .eq('role', 'client'),
+        getProjects()
       ]);
 
       const clientProfiles = (clientsRes.data || []) as Profile[];
       const recs = filterRecordings(recsRes.data || []);
+
+      let cachedProjectDelivs: Deliverable[] = [];
+      try {
+        const raw = localStorage.getItem('di_project_deliverables');
+        if (raw) cachedProjectDelivs = JSON.parse(raw);
+      } catch {}
+
+      let progressCache: Record<string, any> = {};
+      try {
+        const raw = localStorage.getItem('di_deliverable_progress_cache');
+        if (raw) progressCache = JSON.parse(raw);
+      } catch {}
+
       const rawDels: Deliverable[] = (delivRes.data || []).map((d: any) => ({
         ...d,
         recording_title: d.recordings?.title,
@@ -194,11 +226,28 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         folder_path: d.recordings?.folder_path,
         editor_name: d.profiles?.full_name || 'Unassigned'
       }));
+
+      // Combine with locally cached project deliverables
+      const seenDelivIds = new Set(rawDels.map(d => d.id));
+      for (const cd of cachedProjectDelivs) {
+        if (!seenDelivIds.has(cd.id)) {
+          rawDels.push(cd);
+          seenDelivIds.add(cd.id);
+        }
+      }
+
+      // Apply any progress/status overrides from cache
+      for (const d of rawDels) {
+        if (progressCache[d.id]) {
+          Object.assign(d, progressCache[d.id]);
+        }
+      }
+
       const dels = filterDeliverables(rawDels);
-
       const acceptedSet = getAcceptedPodcastIds(currentUser.id);
-
       const items: PodcastItem[] = [];
+      const handledProjectIds = new Set<string>();
+
       for (const rec of recs as any[]) {
         const podDelivs = dels.filter(d => d.recording_id === rec.id);
 
@@ -252,11 +301,119 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           isClientWork,
           clientBrandName
         });
+
+        // Mark associated project handled
+        if (rec.notes) {
+          const match = rec.notes.match(/\[Project:\s*([^\]]+)\]/i);
+          if (match && match[1]) handledProjectIds.add(match[1].trim());
+        }
+        for (const p of (projectsList || [])) {
+          if (p.name && rec.title && rec.title.toLowerCase().includes(p.name.toLowerCase())) {
+            handledProjectIds.add(p.id);
+          }
+        }
       }
 
-      // Also include deliverables from projects or standalone deliverables that aren't tied to an existing recording
+      // Ensure every project created by SMM/Founder is present in Editor Workspace
+      for (const proj of (projectsList || [])) {
+        if (handledProjectIds.has(proj.id)) continue;
+
+        let projDelivs = dels.filter(d => 
+          d.project_id === proj.id || 
+          d.recording_id === proj.id || 
+          (d.title && proj.name && d.title.toLowerCase().startsWith(proj.name.toLowerCase()))
+        );
+
+        const videoCount = Math.max(1, proj.required_video_count || proj.required_videos_count || 1);
+        const projPlatforms = (proj.platforms as string[]) || [];
+        const isFullVideo = 
+          projPlatforms.includes('youtube_full') || 
+          projPlatforms.includes('full') || 
+          proj.name.toLowerCase().includes('full video') || 
+          proj.name.toLowerCase().includes('full episode');
+
+        const primaryEditorId = proj.assigned_editor_ids?.[0] || undefined;
+        const editorName = primaryEditorId === currentUser.id ? currentUser.full_name : (primaryEditorId ? 'Assigned Editor' : 'Unassigned');
+
+        // Synthesize deliverables if not created yet
+        if (projDelivs.length === 0) {
+          const generated: Deliverable[] = [];
+          for (let i = 1; i <= videoCount; i++) {
+            const dTitle = videoCount === 1 
+              ? `${proj.name} - ${isFullVideo ? 'Full Episode Video (16:9)' : 'Reel (9:16)'}`
+              : `${proj.name} - ${isFullVideo ? 'Full Video Cut' : 'Reel'} #${i}`;
+            
+            const dId = `deliv-${proj.id}-${i}`;
+            const cachedProps = progressCache[dId] || {};
+
+            generated.push({
+              id: dId,
+              recording_id: proj.id,
+              project_id: proj.id,
+              client_id: proj.client_id,
+              client_name: proj.client_name,
+              client_brand: proj.client_name,
+              title: dTitle,
+              deliverable_type: isFullVideo ? 'full_length_video' : 'reel',
+              aspect_ratio: isFullVideo ? '16:9' : '9:16',
+              assigned_editor_id: primaryEditorId,
+              editor_name: editorName,
+              editing_status: primaryEditorId ? 'assigned' : 'not_started',
+              priority: isFullVideo ? 'high' : 'medium',
+              deadline: proj.deadline || null,
+              progress_percentage: 0,
+              created_at: proj.created_at || new Date().toISOString(),
+              ...cachedProps
+            });
+          }
+          projDelivs = generated;
+        }
+
+        const isAssignedDirectly = 
+          (proj.assigned_editor_ids && proj.assigned_editor_ids.includes(currentUser.id)) ||
+          projDelivs.some(d => d.assigned_editor_id === currentUser.id);
+        const isAccepted = acceptedSet.has(proj.id);
+        const isMyPodcast = isAssignedDirectly || isAccepted;
+
+        const completedCuts = projDelivs.filter(d => 
+          (d.progress_percentage || 0) === 100 || 
+          d.editing_status === 'approved' || 
+          d.editing_status === 'submitted_for_approval'
+        ).length;
+
+        const totalCuts = projDelivs.length;
+        const progressPercentage = totalCuts > 0
+          ? Math.round(projDelivs.reduce((acc, d) => acc + (d.progress_percentage || 0), 0) / totalCuts)
+          : 0;
+
+        items.push({
+          id: proj.id,
+          title: proj.name,
+          recording_date: proj.start_date || (proj.created_at ? proj.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+          hard_disk_name: proj.client_name || 'Project Production',
+          folder_path: `/projects/${proj.name.replace(/\s+/g, '_')}`,
+          notes: `[Project: ${proj.id}] ${proj.description || ''}`,
+          deadline: proj.deadline || null,
+          assigned_editor_id: primaryEditorId,
+          editor_name: editorName,
+          deliverables: projDelivs,
+          totalCuts,
+          completedCuts,
+          progressPercentage,
+          isMyPodcast,
+          isClientWork: !!proj.client_id && proj.client_id !== 'internal',
+          clientBrandName: proj.client_name || 'Client'
+        });
+
+        handledProjectIds.add(proj.id);
+      }
+
+      // Also include deliverables from standalone items that aren't tied to an existing recording or handled project
       const matchedRecIds = new Set((recs as any[]).map(r => r.id));
-      const unmatchedDelivs = dels.filter(d => !matchedRecIds.has(d.recording_id));
+      const unmatchedDelivs = dels.filter(d => 
+        !matchedRecIds.has(d.recording_id) && 
+        (!d.project_id || !handledProjectIds.has(d.project_id))
+      );
 
       if (unmatchedDelivs.length > 0) {
         const projectGroups = new Map<string, Deliverable[]>();
@@ -368,6 +525,15 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
     saveAcceptedPodcastId(currentUser.id, podcast.id);
 
+    // Update in local cache
+    for (const d of podcast.deliverables) {
+      updateDeliverableCache(d.id, {
+        assigned_editor_id: currentUser.id,
+        editor_name: currentUser.full_name,
+        editing_status: 'editing_in_progress'
+      });
+    }
+
     // Update in Supabase: assign all deliverables of this podcast to this editor
     try {
       const now = new Date().toISOString();
@@ -446,6 +612,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         updatePayload.editing_status = 'editing_in_progress';
       }
 
+      updateDeliverableCache(cut.id, updatePayload);
+
       const { error } = await supabase
         .from('deliverables')
         .update(updatePayload)
@@ -491,6 +659,15 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     setIsSubmittingDrive(true);
     const now = new Date().toISOString();
     const finalLink = driveUrl.trim();
+
+    updateDeliverableCache(driveModalCut.id, {
+      progress_percentage: 100,
+      final_video_link: finalLink,
+      preview_link: finalLink,
+      editing_status: 'submitted_for_approval',
+      approval_notes: `Submitted by Editor (${currentUser.full_name || 'Editor'}) with Google Drive link for Social Media Manager Review`,
+      assigned_editor_id: currentUser.id
+    });
 
     try {
       const { error } = await supabase

@@ -57,7 +57,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
   const [requiredVideoCount, setRequiredVideoCount] = useState(10);
   const [platforms, setPlatforms] = useState<string[]>(['instagram_reels', 'youtube_shorts']);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
-  const [clientApprovalRequired, setClientApprovalRequired] = useState(true);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -139,9 +138,29 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
         }
 
         try {
-          await supabase.from('deliverables').insert(backfilledDelivs);
+          const dbDelivs = backfilledDelivs.map(d => ({
+            recording_id: d.recording_id,
+            title: d.title,
+            deliverable_type: d.deliverable_type,
+            assigned_editor_id: d.assigned_editor_id || null,
+            editing_status: d.editing_status,
+            priority: d.priority,
+            deadline: d.deadline || null,
+            progress_percentage: 0
+          }));
+          await supabase.from('deliverables').insert(dbDelivs);
         } catch {}
       }
+    }
+
+    if (backfilledDelivs.length > 0) {
+      try {
+        const raw = localStorage.getItem('di_project_deliverables');
+        const list: Deliverable[] = raw ? JSON.parse(raw) : [];
+        const existingIds = new Set(list.map(d => d.id));
+        const toAdd = backfilledDelivs.filter(d => !existingIds.has(d.id));
+        localStorage.setItem('di_project_deliverables', JSON.stringify([...toAdd, ...list]));
+      } catch {}
     }
 
     const allDelivs = filterDeliverables([...backfilledDelivs, ...existingDelivs]);
@@ -258,11 +277,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
       platforms: platforms as any,
       channels: selectedChannelIds,
       channel_ids: selectedChannelIds,
-      requires_client_approval: clientApprovalRequired,
+      requires_client_approval: true,
       approval_requirements: {
         smm_approval_required: true,
         founder_approval_required: true,
-        client_approval_required: clientApprovalRequired,
+        client_approval_required: true,
       },
       status: 'active',
     });
@@ -277,10 +296,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
       const finalDeadline = deadline || todayStr;
       const clientName = clientObj?.brand_name || clientObj?.company_name || clientObj?.name || 'Internal Studio';
 
-      const recId = crypto.randomUUID ? crypto.randomUUID() : `rec-${newProj.id}`;
+      let recId = newProj.id;
       try {
-        await supabase.from('recordings').insert([{
-          id: recId,
+        const { data: recData } = await supabase.from('recordings').insert([{
           title: newProj.name,
           recording_date: todayStr,
           date_received: todayStr,
@@ -288,7 +306,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
           folder_path: `/projects/${newProj.name.replace(/\s+/g, '_')}`,
           notes: `[Project: ${newProj.id}] [Client: ${clientName}] [Deadline: ${finalDeadline}] ${newProj.description || ''}`,
           registered_by: currentUser.id
-        }]);
+        }]).select().maybeSingle();
+
+        if (recData?.id) {
+          recId = recData.id;
+        }
       } catch (e) {
         console.warn('Project recording insert note:', e);
       }
@@ -309,7 +331,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
           : `${newProj.name} - ${isFullVideo ? 'Full Video Cut' : 'Reel'} #${i}`;
 
         deliverablesToInsert.push({
-          id: crypto.randomUUID ? crypto.randomUUID() : `deliv-${Date.now()}-${i}`,
+          id: `deliv-${newProj.id}-${i}`,
           recording_id: recId,
           project_id: newProj.id,
           client_id: newProj.client_id,
@@ -328,8 +350,29 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
         });
       }
 
+      // Persist in localStorage so EditorWorkspace can immediately discover all project tasks
       try {
-        await supabase.from('deliverables').insert(deliverablesToInsert);
+        const existingRaw = localStorage.getItem('di_project_deliverables');
+        const existingList: Deliverable[] = existingRaw ? JSON.parse(existingRaw) : [];
+        const mergedList = [...deliverablesToInsert, ...existingList.filter(d => d.project_id !== newProj.id)];
+        localStorage.setItem('di_project_deliverables', JSON.stringify(mergedList));
+      } catch (e) {
+        console.warn('Local deliverables caching note:', e);
+      }
+
+      // Try database insert with schema-compliant payload
+      try {
+        const dbPayload = deliverablesToInsert.map(d => ({
+          recording_id: recId,
+          title: d.title,
+          deliverable_type: d.deliverable_type,
+          assigned_editor_id: d.assigned_editor_id || null,
+          editing_status: d.editing_status,
+          priority: d.priority,
+          deadline: d.deadline || null,
+          progress_percentage: 0
+        }));
+        await supabase.from('deliverables').insert(dbPayload);
       } catch (e) {
         console.warn('Project deliverables insert note:', e);
       }
@@ -1119,21 +1162,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
                 </div>
               </div>
 
-              {/* Client Approval Toggle */}
-              <div className="p-3 bg-black border border-zinc-800 rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-white block">Require Client Approval</span>
-                  <span className="text-[11px] text-zinc-400">
-                    If checked, videos approved by Founder will be sent to the Client Portal for final client approval before publishing.
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={clientApprovalRequired}
-                  onChange={(e) => setClientApprovalRequired(e.target.checked)}
-                  className="w-4 h-4 accent-white rounded cursor-pointer"
-                />
-              </div>
+
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
                 <button
