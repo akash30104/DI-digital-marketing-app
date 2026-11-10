@@ -878,14 +878,6 @@ Digital Inertia Production Team`;
                   </button>
 
                   <button
-                    onClick={() => { window.location.href = createdInviteInfo.mailto_url; }}
-                    className="py-3 px-4 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition border border-zinc-700 flex items-center justify-center gap-1.5"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Re-Open Email</span>
-                  </button>
-
-                  <button
                     onClick={resetRegisterModal}
                     className="py-3 px-5 rounded-xl bg-zinc-900 text-zinc-300 hover:text-white font-bold text-xs hover:bg-zinc-800 transition border border-zinc-800"
                   >
