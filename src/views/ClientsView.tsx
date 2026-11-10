@@ -652,94 +652,94 @@ Digital Inertia Production Team`;
         </div>
       )}
 
-      {/* CLIENT WORKS DRILLDOWN SECTION */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-black text-white">
-              {selectedSummary ? `${selectedSummary.brand} Production Works` : 'All Client Production Works'}
-            </h2>
+      {/* CLIENT WORKS DRILLDOWN SECTION (REMOVED FOR FOUNDER) */}
+      {!isFounder && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-black text-white">
+                {selectedSummary ? `${selectedSummary.brand} Production Works` : 'All Client Production Works'}
+              </h2>
+              {selectedSummary && (
+                <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
+                  Filtered: {selectedSummary.client.full_name}
+                </span>
+              )}
+            </div>
             {selectedSummary && (
-              <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
-                Filtered: {selectedSummary.client.full_name}
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetClientId(selectedSummary.client.id);
+                  setTargetBrandName(selectedSummary.brand);
+                  setShowAddWorkModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Work for {selectedSummary.brand}</span>
+              </button>
             )}
           </div>
-          {selectedSummary && (
-            <button
-              type="button"
-              onClick={() => {
-                setTargetClientId(selectedSummary.client.id);
-                setTargetBrandName(selectedSummary.brand);
-                setShowAddWorkModal(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Work for {selectedSummary.brand}</span>
-            </button>
-          )}
-        </div>
 
-        {/* Editing Tab Redirection Notice */}
-        <div className="p-3.5 rounded-2xl bg-[#121214] border border-[#27272A] flex items-center justify-between text-xs flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Film className="w-4 h-4 text-zinc-400 shrink-0" />
-            <span className="text-zinc-300">
-              Active video editing deliverables and review progress are managed exclusively in the <strong className="text-white">Editing</strong> tab.
-            </span>
-          </div>
-          {onNavigateTab && (
-            <button
-              type="button"
-              onClick={() => onNavigateTab(isFounder ? 'production' : 'pipeline')}
-              className="text-xs font-bold text-black bg-white hover:bg-zinc-200 px-3 py-1.5 rounded-xl transition shadow-sm"
-            >
-              Open Editing Tab ↗
-            </button>
-          )}
-        </div>
-
-        {/* WORK ITEMS DISPLAY */}
-        {(() => {
-          // Resolve current scope items
-          const targetRecs = selectedSummary ? selectedSummary.recordings : recordings;
-
-          return (
-            <div className="space-y-4">
-              {/* SHOOTS */}
-              {targetRecs.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                    <Film className="w-3.5 h-3.5 text-zinc-300" />
-                    <span>Podcast Shoots &amp; Source Footage ({targetRecs.length})</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {targetRecs.map(rec => (
-                      <div key={rec.id} className="p-4 rounded-2xl bg-[#121214] border border-[#27272A] space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-white truncate">
-                            {rec.title}
-                          </span>
-                          <span className="text-[10px] font-bold text-zinc-400 bg-black px-2 py-0.5 rounded border border-zinc-800">
-                            {rec.recording_date}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-zinc-400 space-y-0.5">
-                          <div>Storage: <strong className="text-zinc-200">{rec.hard_disk_name}</strong></div>
-                          <div className="truncate">Folder: <span className="font-mono text-zinc-500">{rec.folder_path}</span></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-
+          {/* Editing Tab Redirection Notice */}
+          <div className="p-3.5 rounded-2xl bg-[#121214] border border-[#27272A] flex items-center justify-between text-xs flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Film className="w-4 h-4 text-zinc-400 shrink-0" />
+              <span className="text-zinc-300">
+                Active video editing deliverables and review progress are managed exclusively in the <strong className="text-white">Editing</strong> tab.
+              </span>
             </div>
-          );
-        })()}
-      </div>
+            {onNavigateTab && (
+              <button
+                type="button"
+                onClick={() => onNavigateTab(isFounder ? 'production' : 'pipeline')}
+                className="text-xs font-bold text-black bg-white hover:bg-zinc-200 px-3 py-1.5 rounded-xl transition shadow-sm"
+              >
+                Open Editing Tab ↗
+              </button>
+            )}
+          </div>
+
+          {/* WORK ITEMS DISPLAY */}
+          {(() => {
+            // Resolve current scope items
+            const targetRecs = selectedSummary ? selectedSummary.recordings : recordings;
+
+            return (
+              <div className="space-y-4">
+                {/* SHOOTS */}
+                {targetRecs.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                      <Film className="w-3.5 h-3.5 text-zinc-300" />
+                      <span>Podcast Shoots &amp; Source Footage ({targetRecs.length})</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {targetRecs.map(rec => (
+                        <div key={rec.id} className="p-4 rounded-2xl bg-[#121214] border border-[#27272A] space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-white truncate">
+                              {rec.title}
+                            </span>
+                            <span className="text-[10px] font-bold text-zinc-400 bg-black px-2 py-0.5 rounded border border-zinc-800">
+                              {rec.recording_date}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-zinc-400 space-y-0.5">
+                            <div>Storage: <strong className="text-zinc-200">{rec.hard_disk_name}</strong></div>
+                            <div className="truncate">Folder: <span className="font-mono text-zinc-500">{rec.folder_path}</span></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* MODAL: ADD WORK FOR CLIENT */}
       {showAddWorkModal && (
