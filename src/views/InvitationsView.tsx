@@ -433,7 +433,6 @@ export const InvitationsView: React.FC = () => {
                     <option value="social_media_manager">Social Media Manager (SMM)</option>
                     <option value="editor">Video Editor</option>
                     <option value="client">External Client Partner</option>
-                    <option value="founder">Co-Founder (Admin)</option>
                   </select>
                 </div>
 

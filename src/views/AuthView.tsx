@@ -17,9 +17,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
   // All-in-one Hosting: Toggle between Studio Team and Client Portal
   const [portalType, setPortalType] = useState<'studio' | 'client'>('studio');
   
-  // Developer / Co-Founder Option (unlocked by clicking the logo)
+  // Developer / Founder Option (unlocked by clicking the logo)
   const [isDevFounderMode, setIsDevFounderMode] = useState(false);
-  const [devFounderAction, setDevFounderAction] = useState<'signIn' | 'register'>('signIn');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -104,32 +103,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));
-    }
-  };
-
-  const handleDevFounderSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName.trim() || !email.trim() || !password) {
-      setErrorMessage('Please fill in all details for the new founder.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
-      return;
-    }
-    if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
-      return;
-    }
-    setIsLoading(true);
-    resetMessages();
-    const res = await signUp(email, password, fullName.trim(), 'founder', true);
-    setIsLoading(false);
-    if (res.error) {
-      setErrorMessage(sanitizeError(res.error));
-    } else {
-      setSuccessMessage(`New Founder account created for ${fullName}! You can now sign in.`);
-      setDevFounderAction('signIn');
     }
   };
 
@@ -282,7 +255,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
             </div>
           )}
 
-          {/* ==================== DEVELOPER / CO-FOUNDER ACCESS (ACTIVATED VIA LOGO CLICK) ==================== */}
+          {/* ==================== DEVELOPER / FOUNDER ACCESS (ACTIVATED VIA LOGO CLICK) ==================== */}
           {isDevFounderMode ? (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="p-3 bg-black border border-zinc-800 rounded-2xl flex items-center justify-between text-xs">
@@ -290,10 +263,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                   <Crown className="w-4 h-4 text-white shrink-0" />
                   <div>
                     <span className="font-black text-white block text-[11px] uppercase tracking-wider">
-                      Developer &amp; Founder Access
+                      Founder Access
                     </span>
                     <span className="text-[10px] text-zinc-400">
-                      Sign in or add another founder account
+                      Sign in to Founder Super Admin account
                     </span>
                   </div>
                 </div>
@@ -309,137 +282,44 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                 </button>
               </div>
 
-              {/* Dev Sub-Toggle: Sign In vs Add Another Founder */}
-              <div className="flex bg-black border border-zinc-800 rounded-xl p-1">
+              <form onSubmit={handleDevFounderSignIn} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                    Founder Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="founder@studio.com"
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                  />
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => { setDevFounderAction('signIn'); resetMessages(); }}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    devFounderAction === 'signIn' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
                 >
-                  Founder Sign In
+                  {isLoading ? 'Signing In...' : 'Sign In as Founder'}
+                  <Crown className="w-4 h-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { setDevFounderAction('register'); resetMessages(); }}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    devFounderAction === 'register' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  Add Another Founder
-                </button>
-              </div>
-
-              {devFounderAction === 'signIn' ? (
-                <form onSubmit={handleDevFounderSignIn} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Founder Email
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="founder@studio.com"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
-                  >
-                    {isLoading ? 'Signing In...' : 'Sign In as Founder'}
-                    <Crown className="w-4 h-4" />
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleDevFounderSignUp} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Founder Full Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Co-Founder Name"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                      Founder Email
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="newfounder@studio.com"
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                        Password
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Min. 6 chars"
-                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                        Confirm
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm"
-                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
-                  >
-                    {isLoading ? 'Registering Founder...' : 'Register New Founder Account'}
-                    <Crown className="w-4 h-4" />
-                  </button>
-                </form>
-              )}
+              </form>
             </div>
           ) : (
             <>

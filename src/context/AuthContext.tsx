@@ -112,12 +112,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {};
   };
 
-  const signUp = async (email: string, pass: string, name: string, roleToRegister: UserRole, allowMultipleFounders = false) => {
-    // Check if founder already claimed unless bypassed via developer founder option
-    if (roleToRegister === 'founder' && !allowMultipleFounders) {
+  const signUp = async (email: string, pass: string, name: string, roleToRegister: UserRole) => {
+    // Strictly only ONE founder is permitted in the entire company platform
+    if (roleToRegister === 'founder') {
       const alreadyClaimed = await checkFounderExists();
       if (alreadyClaimed) {
-        return { error: 'A primary founder account already exists. Tap the logo above for the Developer Option to add another founder.' };
+        return { error: 'Only one Founder account is permitted for this platform.' };
       }
     }
 
