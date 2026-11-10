@@ -225,8 +225,147 @@ export const getInAppNotifications = fetchNotifications;
 export const markNotificationAsRead = markNotificationRead;
 
 // ==============================================================================
-// 3. INVITATIONS SERVICE (24-Hour Expiration, One-Time Token)
+// 3. INVITATIONS SERVICE (Self-Contained 24-Hour Expiration, Universal Cross-Device)
 // ==============================================================================
+
+function toUrlSafeBase64(str: string): string {
+  try {
+    const utf8Bytes = new TextEncoder().encode(str);
+    let binary = '';
+    for (let i = 0; i < utf8Bytes.length; i++) {
+      binary += String.fromCharCode(utf8Bytes[i]);
+    }
+    const b64 = typeof window !== 'undefined' && window.btoa 
+      ? window.btoa(binary) 
+      : (typeof Buffer !== 'undefined' ? Buffer.from(binary, 'binary').toString('base64') : '');
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  } catch (e) {
+    console.error('Base64 encoding error:', e);
+    return '';
+  }
+}
+
+function fromUrlSafeBase64(base64: string): string {
+  try {
+    let standard = base64.replace(/-/g, '+').replace(/_/g, '/');
+    while (standard.length % 4 !== 0) {
+      standard += '=';
+    }
+    const binary = typeof window !== 'undefined' && window.atob 
+      ? window.atob(standard) 
+      : (typeof Buffer !== 'undefined' ? Buffer.from(standard, 'base64').toString('binary') : '');
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  } catch (e) {
+    return '';
+  }
+}
+
+export function extractInvitationToken(input: string): string {
+  if (!input) return '';
+  let cleaned = input.trim();
+  
+  if (cleaned.includes('?')) {
+    const queryPart = cleaned.split('?')[1] || '';
+    const match = queryPart.match(/(?:invite|token)=([^&#\s]+)/i);
+    if (match && match[1]) {
+      cleaned = match[1];
+    }
+  } else if (cleaned.includes('invite=')) {
+    cleaned = cleaned.split('invite=')[1]?.split('&')[0] || cleaned;
+  } else if (cleaned.includes('token=')) {
+    cleaned = cleaned.split('token=')[1]?.split('&')[0] || cleaned;
+  }
+  
+  try {
+    cleaned = decodeURIComponent(cleaned);
+  } catch {}
+  cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+  return cleaned;
+}
+
+export function encodeInvitationToken(inv: {
+  id: string;
+  email: string;
+  role: UserRole;
+  fullName?: string;
+  clientBrand?: string;
+  invitedBy?: string;
+  createdAt: number;
+  expiresAt: number;
+}): string {
+  const payload = {
+    v: 1,
+    id: inv.id,
+    e: inv.email,
+    r: inv.role,
+    n: inv.fullName || '',
+    b: inv.clientBrand || '',
+    by: inv.invitedBy || 'founder',
+    c: inv.createdAt,
+    x: inv.expiresAt
+  };
+  return 'inv_' + toUrlSafeBase64(JSON.stringify(payload));
+}
+
+export function decodeInvitationToken(rawToken: string): Invitation | null {
+  const token = extractInvitationToken(rawToken);
+  if (!token) return null;
+
+  // 1. Try decoding self-contained modern token (starts with inv_ followed by base64)
+  if (token.startsWith('inv_')) {
+    const rawPayload = token.substring(4);
+    try {
+      const jsonStr = fromUrlSafeBase64(rawPayload);
+      if (jsonStr) {
+        const p = JSON.parse(jsonStr);
+        if (p && p.e && p.r && p.x) {
+          const isExpired = Date.now() > p.x;
+          return {
+            id: p.id || `inv-${p.c || Date.now()}`,
+            email: (p.e || '').trim().toLowerCase(),
+            role: p.r as UserRole,
+            full_name: p.n || undefined,
+            client_brand: p.b || undefined,
+            client_name: p.b || undefined,
+            invited_by: p.by || 'founder',
+            token: token,
+            expires_at: new Date(p.x).toISOString(),
+            status: isExpired ? 'expired' : 'pending',
+            created_at: new Date(p.c || (p.x - 24 * 60 * 60 * 1000)).toISOString()
+          };
+        }
+      }
+    } catch {
+      // Not base64 json, fall through to legacy check
+    }
+
+    // 2. Try decoding legacy timestamp-based token: inv_<timestamp>_<random>
+    const parts = token.split('_');
+    const ts = parseInt(parts[1], 10);
+    if (!isNaN(ts) && ts > 1700000000000) {
+      const expiresAtMs = ts + 24 * 60 * 60 * 1000;
+      const isExpired = Date.now() > expiresAtMs;
+      return {
+        id: `legacy-${ts}`,
+        email: '',
+        role: 'social_media_manager',
+        invited_by: 'founder',
+        token: token,
+        expires_at: new Date(expiresAtMs).toISOString(),
+        status: isExpired ? 'expired' : 'pending',
+        created_at: new Date(ts).toISOString(),
+        is_legacy: true
+      };
+    }
+  }
+
+  return null;
+}
+
 export async function createInvitation(
   arg1: {
     email: string;
@@ -260,11 +399,25 @@ export async function createInvitation(
     clientName = clientBrand;
   }
 
-  const token = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}`;
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+  const now = Date.now();
+  const expiresAtMs = now + 24 * 60 * 60 * 1000; // 24 hours
+  const expiresAt = new Date(expiresAtMs).toISOString();
+  const invId = crypto.randomUUID ? crypto.randomUUID() : `inv-${now}`;
+
+  // Self-contained universal token readable on any browser/device without DB query
+  const token = encodeInvitationToken({
+    id: invId,
+    email: email.trim().toLowerCase(),
+    role: r,
+    fullName: fullName?.trim(),
+    clientBrand: clientName?.trim(),
+    invitedBy: invBy,
+    createdAt: now,
+    expiresAt: expiresAtMs
+  });
 
   const inv: Invitation = {
-    id: crypto.randomUUID ? crypto.randomUUID() : `inv-${Date.now()}`,
+    id: invId,
     email: email.trim().toLowerCase(),
     role: r,
     full_name: fullName?.trim(),
@@ -274,21 +427,18 @@ export async function createInvitation(
     token,
     expires_at: expiresAt,
     status: 'pending',
-    created_at: new Date().toISOString()
+    created_at: new Date(now).toISOString()
   };
 
+  // Always store in localStorage for local device dashboard
+  const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  invs.unshift(inv);
+  setLocal(STORAGE_KEYS.INVITATIONS, invs);
+
+  // Attempt to write to Supabase if table exists
   try {
-    const { error } = await supabase.from('invitations').insert([inv]);
-    if (error && error.message.includes('schema cache')) {
-      const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
-      invs.unshift(inv);
-      setLocal(STORAGE_KEYS.INVITATIONS, invs);
-    }
-  } catch {
-    const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
-    invs.unshift(inv);
-    setLocal(STORAGE_KEYS.INVITATIONS, invs);
-  }
+    await supabase.from('invitations').insert([inv]);
+  } catch {}
 
   return inv;
 }
@@ -300,7 +450,7 @@ export async function fetchInvitations(): Promise<Invitation[]> {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       return data as Invitation[];
     }
   } catch {
@@ -311,33 +461,84 @@ export async function fetchInvitations(): Promise<Invitation[]> {
 
 export const getInvitations = fetchInvitations;
 
-export async function getInvitationByToken(token: string): Promise<Invitation | null> {
+export async function getInvitationByToken(rawToken: string): Promise<Invitation | null> {
+  const cleanToken = extractInvitationToken(rawToken);
+  if (!cleanToken) return null;
+
+  // Check if token was marked redeemed locally
+  const redeemed = getLocal<string[]>('di_redeemed_tokens', []);
+  const isRedeemed = redeemed.includes(cleanToken);
+
+  // 1. Try decoding self-contained / legacy token
+  const decoded = decodeInvitationToken(cleanToken);
+
+  // 2. Also check local storage (origin device has full record)
+  const localInvs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  const localMatch = localInvs.find(i => i.token === cleanToken || i.token === rawToken);
+
+  // 3. Try database if available
+  let dbMatch: Invitation | null = null;
   try {
     const { data, error } = await supabase
       .from('invitations')
       .select('*')
-      .eq('token', token)
+      .eq('token', cleanToken)
       .maybeSingle();
 
     if (!error && data) {
-      return data as Invitation;
+      dbMatch = data as Invitation;
     }
-  } catch {
-    // fallback
+  } catch {}
+
+  const finalInv = dbMatch || localMatch || decoded;
+  if (!finalInv) return null;
+
+  // Check revocation locally
+  const revoked = getLocal<string[]>('di_revoked_tokens', []);
+  if (revoked.includes(cleanToken) || finalInv.status === 'revoked') {
+    return { ...finalInv, status: 'revoked' };
   }
-  const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
-  return invs.find(i => i.token === token) || null;
+
+  // Check redeemed status
+  if (isRedeemed || finalInv.status === 'accepted') {
+    return { ...finalInv, status: 'accepted' };
+  }
+
+  // Check expiration
+  if (new Date(finalInv.expires_at).getTime() < Date.now()) {
+    return { ...finalInv, status: 'expired' };
+  }
+
+  return finalInv;
 }
 
-export async function revokeInvitation(id: string): Promise<boolean> {
-  try {
-    await supabase.from('invitations').update({ status: 'revoked' }).eq('id', id);
-  } catch {
-    // fallback
+export function markInvitationAccepted(token: string): void {
+  const clean = extractInvitationToken(token);
+  const redeemed = getLocal<string[]>('di_redeemed_tokens', []);
+  if (!redeemed.includes(clean)) {
+    redeemed.push(clean);
+    setLocal('di_redeemed_tokens', redeemed);
   }
   const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
-  const updated = invs.map(i => i.id === id ? { ...i, status: 'revoked' as const } : i);
+  const updated = invs.map(i => (i.token === clean || i.token === token) ? { ...i, status: 'accepted' as const, accepted_at: new Date().toISOString() } : i);
   setLocal(STORAGE_KEYS.INVITATIONS, updated);
+}
+
+export async function revokeInvitation(idOrToken: string): Promise<boolean> {
+  const clean = extractInvitationToken(idOrToken);
+  const revoked = getLocal<string[]>('di_revoked_tokens', []);
+  if (!revoked.includes(clean)) {
+    revoked.push(clean);
+    setLocal('di_revoked_tokens', revoked);
+  }
+
+  const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  const updated = invs.map(i => (i.id === idOrToken || i.token === clean || i.token === idOrToken) ? { ...i, status: 'revoked' as const } : i);
+  setLocal(STORAGE_KEYS.INVITATIONS, updated);
+
+  try {
+    await supabase.from('invitations').update({ status: 'revoked' }).or(`id.eq.${idOrToken},token.eq.${clean}`);
+  } catch {}
   return true;
 }
 

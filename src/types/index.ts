@@ -71,6 +71,7 @@ export interface Invitation {
   accepted_at?: string;
   status: 'pending' | 'accepted' | 'expired' | 'revoked';
   created_at: string;
+  is_legacy?: boolean;
 }
 
 export interface Client {

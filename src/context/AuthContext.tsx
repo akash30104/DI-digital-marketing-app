@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, checkFounderExists } from '../lib/supabase';
 import { Profile, UserRole, Invitation } from '../types';
-import { getInvitationByToken, logAuditEvent } from '../lib/api';
+import { getInvitationByToken, markInvitationAccepted, extractInvitationToken, logAuditEvent } from '../lib/api';
 
 interface AuthContextType {
   currentUser: Profile | null;
@@ -16,7 +16,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   switchRole: (newRole: UserRole) => Promise<void>;
-  acceptInvitation: (token: string, password: string, fullName?: string) => Promise<{ error?: string; user?: Profile }>;
+  acceptInvitation: (token: string, password: string, fullName?: string, emailOverride?: string, roleOverride?: UserRole) => Promise<{ error?: string; user?: Profile }>;
   resetPassword: (email: string) => Promise<{ error?: string; success?: boolean }>;
 }
 
@@ -285,8 +285,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {};
   };
 
-  const acceptInvitation = async (token: string, pass: string, fullName?: string): Promise<{ error?: string; user?: Profile }> => {
-    const cleanToken = token.trim();
+  const acceptInvitation = async (
+    token: string, 
+    pass: string, 
+    fullName?: string,
+    emailOverride?: string,
+    roleOverride?: UserRole
+  ): Promise<{ error?: string; user?: Profile }> => {
+    const cleanToken = extractInvitationToken(token);
     const cleanPass = pass.trim();
 
     const inv = await getInvitationByToken(cleanToken);
@@ -294,15 +300,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: 'Invalid invitation link or token not found.' };
     }
 
-    if (inv.status !== 'pending') {
-      return { error: 'This invitation has already been accepted or revoked.' };
+    if (inv.status === 'revoked') {
+      return { error: 'This invitation has been revoked by the founder.' };
+    }
+
+    if (inv.status === 'accepted') {
+      return { error: 'This invitation has already been accepted or redeemed.' };
     }
 
     if (new Date(inv.expires_at).getTime() < Date.now()) {
       return { error: 'This invitation link expired (valid for 24 hours). Please ask the Founder to resend an invite.' };
     }
 
-    const cleanEmail = inv.email.trim().toLowerCase();
+    const cleanEmail = (inv.email || emailOverride || '').trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { error: 'Please enter a valid email address to complete registration.' };
+    }
+
+    const roleToUse = inv.role || roleOverride || 'editor';
     const nameToUse = fullName?.trim() || inv.full_name || cleanEmail.split('@')[0];
 
     // Attempt Sign Up or Session creation
@@ -314,7 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             full_name: nameToUse,
-            role: inv.role
+            role: roleToUse
           }
         }
       });
@@ -361,7 +376,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: authUserId,
       email: cleanEmail,
       full_name: nameToUse,
-      role: inv.role
+      role: roleToUse
     };
 
     // 1. Upsert Profile in database
@@ -371,7 +386,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Profile upsert on invitation accept:', e);
     }
 
-    // 2. Mark invitation as accepted (one-time use)
+    // 2. Mark invitation as accepted (one-time use) locally & in DB
+    markInvitationAccepted(cleanToken);
     try {
       await supabase.from('invitations').update({
         status: 'accepted',

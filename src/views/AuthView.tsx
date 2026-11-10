@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, isFounderEmail } from '../context/AuthContext';
 import { Lock, Users, Crown, ShieldAlert, ArrowRight, CheckCircle2, Briefcase, Film, Mail, KeyRound, Sparkles } from 'lucide-react';
-import { getInvitationByToken } from '../lib/api';
+import { getInvitationByToken, extractInvitationToken } from '../lib/api';
 import { Invitation } from '../types';
 
 interface AuthViewProps {
@@ -52,9 +52,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
       const params = new URLSearchParams(window.location.search);
       const tokenParam = params.get('invite') || params.get('token');
       if (tokenParam) {
-        setInviteToken(tokenParam);
+        const clean = extractInvitationToken(tokenParam);
+        setInviteToken(clean);
         setAuthMode('invite');
-        lookupInvite(tokenParam);
+        lookupInvite(clean);
       }
     } catch {
       // ignore
@@ -62,17 +63,33 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
   }, []);
 
   const lookupInvite = async (t: string) => {
-    if (!t.trim()) return;
+    const clean = extractInvitationToken(t);
+    if (!clean) return;
     setIsLoading(true);
     resetMessages();
-    const inv = await getInvitationByToken(t.trim());
+    const inv = await getInvitationByToken(clean);
     setIsLoading(false);
     if (inv) {
+      if (inv.status === 'revoked') {
+        setErrorMessage('This invitation link has been revoked by the founder.');
+        setFoundInvitation(null);
+        return;
+      }
+      if (inv.status === 'expired') {
+        setErrorMessage('This invitation link has expired (valid for 24 hours). Please ask the founder for a new invite.');
+        setFoundInvitation(null);
+        return;
+      }
+      if (inv.status === 'accepted') {
+        setErrorMessage('This invitation has already been redeemed. Please sign in with your credentials.');
+        setFoundInvitation(null);
+        return;
+      }
       setFoundInvitation(inv);
-      setEmail(inv.email);
+      if (inv.email) setEmail(inv.email);
       if (inv.full_name) setFullName(inv.full_name);
     } else {
-      setErrorMessage('Invitation token not found or already redeemed.');
+      setErrorMessage('Invitation token not found or invalid. Please check your link or ask the founder to resend.');
       setFoundInvitation(null);
     }
   };
@@ -145,6 +162,11 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
 
   const handleAcceptInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailToUse = (foundInvitation?.email || email || '').trim().toLowerCase();
+    if (!emailToUse || !emailToUse.includes('@')) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
     if (password.length < 6) {
       setErrorMessage('Password must be at least 6 characters.');
       return;
@@ -156,7 +178,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
 
     setIsLoading(true);
     resetMessages();
-    const res = await acceptInvitation(inviteToken.trim(), password.trim(), fullName.trim());
+    const cleanToken = extractInvitationToken(inviteToken);
+    const res = await acceptInvitation(
+      cleanToken,
+      password.trim(),
+      fullName.trim(),
+      emailToUse,
+      foundInvitation?.role
+    );
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(res.error);
@@ -629,10 +658,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                       <button
                         type="button"
                         onClick={() => {
-                          let cleanToken = inviteToken.trim();
-                          if (cleanToken.includes('invite=')) {
-                            cleanToken = cleanToken.split('invite=')[1]?.split('&')[0] || cleanToken;
-                          }
+                          const cleanToken = extractInvitationToken(inviteToken);
                           lookupInvite(cleanToken);
                         }}
                         disabled={isLoading || !inviteToken.trim()}
@@ -661,10 +687,12 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                             {foundInvitation.role.replace(/_/g, ' ')}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Email</span>
-                          <span className="font-semibold text-white truncate max-w-[200px]">{foundInvitation.email}</span>
-                        </div>
+                        {foundInvitation.email ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Email</span>
+                            <span className="font-semibold text-white truncate max-w-[200px]">{foundInvitation.email}</span>
+                          </div>
+                        ) : null}
                         {foundInvitation.client_brand && (
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Brand</span>
@@ -672,6 +700,22 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                           </div>
                         )}
                       </div>
+
+                      {!foundInvitation.email && (
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                            Your Email Address
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="e.g. yourname@company.com"
+                            className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-xs font-bold text-zinc-300 mb-1.5">
