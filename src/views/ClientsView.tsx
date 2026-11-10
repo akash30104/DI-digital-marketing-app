@@ -655,40 +655,7 @@ Digital Inertia Production Team`;
                 </div>
               )}
 
-              {/* PUBLISHED POSTS */}
-              {targetLogs.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                    <Share2 className="w-3.5 h-3.5 text-zinc-300" />
-                    <span>Live Published Social Media Posts ({targetLogs.length})</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {targetLogs.map((log: any) => (
-                      <div key={log.id} className="p-3.5 rounded-2xl bg-[#121214] border border-[#27272A] space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-white truncate">
-                            {log.deliverables?.title || log.channel_name || 'Social Post'}
-                          </span>
-                          <span className="text-[10px] font-bold text-zinc-400 bg-black px-2 py-0.5 rounded border border-zinc-800 uppercase">
-                            {log.platform.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        {log.post_url && (
-                          <a
-                            href={log.post_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] text-white hover:underline font-bold truncate max-w-full"
-                          >
-                            <span>Open Live Post</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+
             </div>
           );
         })()}
