@@ -166,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const founderClaimed = await checkFounderExists();
         if (!founderClaimed) {
           // If no founder account has been claimed yet, auto-register Akash as the initial founder!
-          const regRes = await signUp(cleanEmail, cleanPass, 'Akash Sharma', 'founder');
+          const regRes = await signUp(cleanEmail, cleanPass, 'Akash', 'founder');
           if (!regRes.error) {
             return {};
           }

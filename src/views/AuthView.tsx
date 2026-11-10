@@ -148,7 +148,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     const res = await signUp(
       email.trim().toLowerCase(),
       password.trim(),
-      fullName.trim() || 'Akash Sharma',
+      fullName.trim() || 'Akash',
       'founder'
     );
     setIsLoading(false);
@@ -390,7 +390,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                       required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Akash Sharma"
+                      placeholder="e.g. Akash"
                       className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-medium"
                     />
                   </div>
