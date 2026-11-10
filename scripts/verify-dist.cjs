@@ -16,6 +16,9 @@ if (fs.existsSync(distDir)) {
   // Mirror 1: ./build
   try {
     const buildDir = path.resolve(cwd, 'build');
+    if (fs.existsSync(buildDir)) {
+      fs.rmSync(buildDir, { recursive: true, force: true });
+    }
     fs.cpSync(distDir, buildDir, { recursive: true });
     console.log('>>> [RENDER DIAGNOSTIC] Mirrored to: ./build');
   } catch (e) {
@@ -25,6 +28,9 @@ if (fs.existsSync(distDir)) {
   // Mirror 2: ../dist (in case Render checks /opt/render/project/dist)
   try {
     const parentDist = path.resolve(cwd, '..', 'dist');
+    if (fs.existsSync(parentDist)) {
+      fs.rmSync(parentDist, { recursive: true, force: true });
+    }
     fs.cpSync(distDir, parentDist, { recursive: true });
     console.log('>>> [RENDER DIAGNOSTIC] Mirrored to parent: ../dist');
   } catch (e) {
@@ -34,6 +40,9 @@ if (fs.existsSync(distDir)) {
   // Mirror 3: ../build (in case Render checks /opt/render/project/build)
   try {
     const parentBuild = path.resolve(cwd, '..', 'build');
+    if (fs.existsSync(parentBuild)) {
+      fs.rmSync(parentBuild, { recursive: true, force: true });
+    }
     fs.cpSync(distDir, parentBuild, { recursive: true });
     console.log('>>> [RENDER DIAGNOSTIC] Mirrored to parent: ../build');
   } catch (e) {
@@ -43,6 +52,9 @@ if (fs.existsSync(distDir)) {
   // Mirror 4: ./src/dist (in case Render checks src/dist)
   try {
     const srcDist = path.resolve(cwd, 'src', 'dist');
+    if (fs.existsSync(srcDist)) {
+      fs.rmSync(srcDist, { recursive: true, force: true });
+    }
     fs.cpSync(distDir, srcDist, { recursive: true });
     console.log('>>> [RENDER DIAGNOSTIC] Mirrored to: ./src/dist');
   } catch (e) {
