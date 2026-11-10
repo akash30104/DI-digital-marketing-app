@@ -39,15 +39,32 @@ function addManyToSet(key: string, ids: string[]) {
   }
 }
 
-export function isTaskDeleted(task: { id: string; created_at?: string; editing_status?: string }): boolean {
+export function isTaskDeleted(task: { 
+  id: string; 
+  created_at?: string; 
+  editing_status?: string;
+  updated_at?: string;
+  progress_percentage?: number;
+  final_video_link?: string;
+  preview_link?: string;
+}): boolean {
   if (!task || !task.id) return false;
   if (task.editing_status === 'cancelled' || task.editing_status === 'deleted') return true;
 
   const deletedIds = getSet(STORAGE_DELETED_DELIVERABLES_KEY);
   if (deletedIds.has(task.id)) return true;
 
+  // Active work with edited video links or progress is never deleted
+  if ((task.progress_percentage || 0) > 0 || task.final_video_link || task.preview_link) {
+    return false;
+  }
+
   const purgeAt = localStorage.getItem(STORAGE_PURGED_TASKS_KEY);
   if (purgeAt) {
+    // If updated after the purge, it is active
+    if (task.updated_at && new Date(task.updated_at).getTime() > new Date(purgeAt).getTime()) {
+      return false;
+    }
     if (!task.created_at || new Date(task.created_at).getTime() <= new Date(purgeAt).getTime()) {
       return true;
     }
