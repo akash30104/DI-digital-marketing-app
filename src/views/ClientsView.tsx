@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Deliverable, Recording, PublishingLog, Profile } from '../types';
-import { filterDeliverables, filterPublishingLogs, filterRecordings } from '../lib/deletionFilter';
+import { filterDeliverables, filterPublishingLogs, filterRecordings, filterClients, deleteSingleClient } from '../lib/deletionFilter';
 import { createInvitation, createClient, createAuditLog } from '../lib/api';
 import { 
   Briefcase, Film, CheckCircle2, Clock, ExternalLink, Search, 
@@ -38,6 +38,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
   const [newReelCount, setNewReelCount] = useState(3);
   const [newShootDate, setNewShootDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [targetClientId, setTargetClientId] = useState('');
+  const [targetBrandName, setTargetBrandName] = useState('');
   const [isCreatingWork, setIsCreatingWork] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -160,8 +161,7 @@ Digital Inertia Production Team`;
     if (!window.confirm(`Are you sure you want to delete client account "${clientName}"? This will remove the client profile and associated channels.`)) return;
     try {
       setClients(prev => prev.filter(c => c.id !== clientId));
-      await supabase.from('profiles').delete().eq('id', clientId);
-      await removeChannel(`client-${clientId}`, clientName, clientId);
+      await deleteSingleClient(clientId, clientName);
       showToast(`Client account "${clientName}" deleted.`);
       loadData();
     } catch (err: any) {
@@ -202,7 +202,7 @@ Digital Inertia Production Team`;
         const clientProfiles = profilesRes.data.filter(p => 
           p.role === 'client' || (p.full_name && p.full_name.includes('(') && p.role !== 'founder')
         );
-        setClients(clientProfiles);
+        setClients(filterClients(clientProfiles));
       }
 
       if (recsRes.data) {
@@ -245,9 +245,29 @@ Digital Inertia Production Team`;
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, () => loadData())
       .subscribe();
 
+    const rSub = supabase
+      .channel('clients-view-recordings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recordings' }, () => loadData())
+      .subscribe();
+
+    const lSub = supabase
+      .channel('clients-view-publishing')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'publishing_logs' }, () => loadData())
+      .subscribe();
+
+    const handleSync = () => loadData();
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('channels-updated', handleSync);
+    window.addEventListener('focus', handleSync);
+
     return () => {
       supabase.removeChannel(pSub);
       supabase.removeChannel(dSub);
+      supabase.removeChannel(rSub);
+      supabase.removeChannel(lSub);
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('channels-updated', handleSync);
+      window.removeEventListener('focus', handleSync);
     };
   }, []);
 
@@ -261,30 +281,67 @@ Digital Inertia Production Team`;
     return client.full_name;
   };
 
-  // Helper to match a deliverable or recording to a client
+  // Helper to match a deliverable or recording to a client with safe word-boundary matching
   const isWorkForClient = (title: string = '', notes: string = '', client: Profile): boolean => {
-    const brand = getClientBrandName(client).toLowerCase();
-    const clientName = (client.full_name || '').toLowerCase();
+    const brand = getClientBrandName(client).trim().toLowerCase();
+    const clientName = (client.full_name || '').trim().toLowerCase();
     const cleanTitle = title.toLowerCase();
     const cleanNotes = notes.toLowerCase();
 
-    if (brand && (cleanTitle.includes(brand) || cleanNotes.includes(brand))) {
+    if (client.id && cleanNotes.includes(`[client: ${client.id.toLowerCase()}]`)) {
       return true;
     }
-    if (clientName && (cleanTitle.includes(clientName) || cleanNotes.includes(clientName))) {
+
+    const matchesToken = (text: string, token: string): boolean => {
+      if (!text || !token) return false;
+      if (token.length > 3) {
+        return text.includes(token);
+      }
+      const regex = new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, 'i');
+      return regex.test(text);
+    };
+
+    if (brand && (matchesToken(cleanTitle, brand) || matchesToken(cleanNotes, brand))) {
       return true;
     }
-    if (cleanNotes.includes(`[client: ${client.id}]`)) {
+    if (clientName && (matchesToken(cleanTitle, clientName) || matchesToken(cleanNotes, clientName))) {
       return true;
     }
     return false;
   };
 
-  // Client summaries calculation
+  // Client summaries calculation supporting registered clients and direct brand recordings
   const clientSummaries = useMemo(() => {
-    return clients.map(client => {
-      const brand = getClientBrandName(client);
+    const brandMap = new Map<string, { client: Profile; brand: string }>();
 
+    // 1. Registered clients
+    clients.forEach(client => {
+      const bName = getClientBrandName(client);
+      brandMap.set(bName.toLowerCase(), { client, brand: bName });
+    });
+
+    // 2. Discover direct brands from recordings
+    recordings.forEach(rec => {
+      const brandMatch = rec.notes?.match(/\[Brand:\s*([^\]]+)\]/i);
+      let brandFromRec = brandMatch ? brandMatch[1].trim() : '';
+      if (!brandFromRec && rec.title.includes(' - ')) {
+        brandFromRec = rec.title.split(' - ')[0].trim();
+      }
+      if (brandFromRec && !brandMap.has(brandFromRec.toLowerCase())) {
+        brandMap.set(brandFromRec.toLowerCase(), {
+          client: {
+            id: `brand-${brandFromRec.toLowerCase().replace(/\s+/g, '-')}`,
+            email: `${brandFromRec.toLowerCase().replace(/\s+/g, '')}@brand.client`,
+            full_name: `${brandFromRec} (Client Partner)`,
+            role: 'client',
+            created_at: rec.created_at || new Date().toISOString()
+          },
+          brand: brandFromRec
+        });
+      }
+    });
+
+    return Array.from(brandMap.values()).map(({ client, brand }) => {
       const clientRecs = recordings.filter(r => isWorkForClient(r.title, r.notes || '', client));
       const clientRecIds = new Set(clientRecs.map(r => r.id));
 
@@ -328,17 +385,21 @@ Digital Inertia Production Team`;
     return clientSummaries.find(cs => cs.client.id === selectedClientId) || null;
   }, [clientSummaries, selectedClientId]);
 
-  // Handle Quick Create Shoot & Reels for this client
+  // Handle Quick Create Shoot & Reels for this client (typed or selected)
   const handleCreateClientWork = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newShootTitle.trim() || !currentUser) return;
+    const cleanBrand = targetBrandName.trim();
+    if (!newShootTitle.trim() || !cleanBrand || !currentUser) return;
     setIsCreatingWork(true);
 
     try {
-      const targetClient = clients.find(c => c.id === targetClientId) || selectedSummary?.client;
-      const brandName = targetClient ? getClientBrandName(targetClient) : '';
-      const fullShootTitle = brandName && !newShootTitle.toLowerCase().includes(brandName.toLowerCase())
-        ? `${brandName} - ${newShootTitle.trim()}`
+      const targetClient = clients.find(c => 
+        c.id === targetClientId || 
+        getClientBrandName(c).toLowerCase() === cleanBrand.toLowerCase()
+      );
+      
+      const fullShootTitle = !newShootTitle.toLowerCase().includes(cleanBrand.toLowerCase())
+        ? `${cleanBrand} - ${newShootTitle.trim()}`
         : newShootTitle.trim();
 
       // 1. Insert Recording
@@ -349,8 +410,8 @@ Digital Inertia Production Team`;
           recording_date: newShootDate,
           date_received: newShootDate,
           hard_disk_name: 'Cloud / Studio Drives',
-          folder_path: `/clients/${brandName.toLowerCase().replace(/\s+/g, '-') || 'general'}`,
-          notes: `[Client: ${targetClient ? targetClient.id : 'Direct'}] [Brand: ${brandName}] Created by ${isFounder ? 'Founder' : 'SMM'}`,
+          folder_path: `/clients/${cleanBrand.toLowerCase().replace(/\s+/g, '-') || 'general'}`,
+          notes: `[Client: ${targetClient ? targetClient.id : 'Direct'}] [Brand: ${cleanBrand}] Created by ${isFounder ? 'Founder' : 'SMM'}`,
           registered_by: currentUser.id
         }])
         .select()
@@ -367,7 +428,7 @@ Digital Inertia Production Team`;
           editing_status: 'not_started',
           progress_percentage: 0,
           priority: 'high',
-          description: `Full master episode for ${brandName || 'Client'}`
+          description: `Full master episode for ${cleanBrand}`
         }
       ];
 
@@ -380,7 +441,7 @@ Digital Inertia Production Team`;
           editing_status: 'not_started',
           progress_percentage: 0,
           priority: 'medium',
-          description: `Vertical 9:16 reel for ${brandName || 'Client'}`
+          description: `Vertical 9:16 reel for ${cleanBrand}`
         });
       }
 
@@ -390,9 +451,11 @@ Digital Inertia Production Team`;
 
       if (delError) throw delError;
 
-      showToast(`🚀 Shoot & ${newReelCount} reels created for ${brandName || 'Client'}!`);
+      showToast(`🚀 Shoot & ${newReelCount} reels created for ${cleanBrand}!`);
       setShowAddWorkModal(false);
       setNewShootTitle('');
+      setTargetBrandName('');
+      setTargetClientId('');
       loadData();
     } catch (err: any) {
       console.error('Failed to create client work:', err);
@@ -449,13 +512,17 @@ Digital Inertia Production Team`;
 
           <button
             onClick={() => {
-              setTargetClientId(selectedClientId !== 'all' ? selectedClientId : (clients[0]?.id || ''));
+              const matched = selectedClientId !== 'all' 
+                ? clients.find(c => c.id === selectedClientId) 
+                : clients[0];
+              setTargetClientId(matched?.id || '');
+              setTargetBrandName(matched ? getClientBrandName(matched) : '');
               setShowAddWorkModal(true);
             }}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-zinc-800 border border-zinc-700 text-white hover:bg-zinc-700 transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Add Work for Client</span>
+            <span>Add Work for Client</span>
           </button>
 
           <button
@@ -598,6 +665,20 @@ Digital Inertia Production Team`;
               </span>
             )}
           </div>
+          {selectedSummary && (
+            <button
+              type="button"
+              onClick={() => {
+                setTargetClientId(selectedSummary.client.id);
+                setTargetBrandName(selectedSummary.brand);
+                setShowAddWorkModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Work for {selectedSummary.brand}</span>
+            </button>
+          )}
         </div>
 
         {/* Editing Tab Redirection Notice */}
@@ -686,20 +767,64 @@ Digital Inertia Production Team`;
 
             <form onSubmit={handleCreateClientWork} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Select Client Brand
-                </label>
-                <select
-                  value={targetClientId}
-                  onChange={(e) => setTargetClientId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500"
-                >
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.full_name || getClientBrandName(c)} ({c.email})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-zinc-300">
+                    Client Brand Name *
+                  </label>
+                  <span className="text-[10px] text-zinc-500">Type or select brand</span>
+                </div>
+                <input
+                  type="text"
+                  required
+                  list="client-brand-options"
+                  placeholder="e.g. LLBS Podcast, Adidas, Nike..."
+                  value={targetBrandName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTargetBrandName(val);
+                    const matched = clients.find(c => 
+                      getClientBrandName(c).toLowerCase() === val.trim().toLowerCase() ||
+                      (c.full_name && c.full_name.toLowerCase() === val.trim().toLowerCase())
+                    );
+                    if (matched) {
+                      setTargetClientId(matched.id);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-medium"
+                />
+                <datalist id="client-brand-options">
+                  {clients.map(c => {
+                    const bName = getClientBrandName(c);
+                    return <option key={c.id} value={bName}>{c.full_name || bName} ({c.email})</option>;
+                  })}
+                </datalist>
+
+                {clients.length > 0 && (
+                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-zinc-500">Registered:</span>
+                    {clients.map(c => {
+                      const bName = getClientBrandName(c);
+                      const isSelected = targetBrandName.trim().toLowerCase() === bName.toLowerCase();
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setTargetBrandName(bName);
+                            setTargetClientId(c.id);
+                          }}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition ${
+                            isSelected
+                              ? 'bg-white text-black border-white'
+                              : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-700'
+                          }`}
+                        >
+                          {bName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div>

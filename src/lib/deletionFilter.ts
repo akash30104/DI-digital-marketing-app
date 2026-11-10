@@ -6,6 +6,8 @@ const STORAGE_PURGED_PUBLISHING_KEY = 'STUDIO_PURGED_ALL_PUBLISHING_AT';
 const STORAGE_DELETED_DELIVERABLES_KEY = 'STUDIO_DELETED_DELIVERABLE_IDS';
 const STORAGE_DELETED_RECORDINGS_KEY = 'STUDIO_DELETED_RECORDING_IDS';
 const STORAGE_DELETED_PUBLISHING_KEY = 'STUDIO_DELETED_PUBLISHING_IDS';
+const STORAGE_DELETED_CLIENTS_KEY = 'STUDIO_DELETED_CLIENT_IDS';
+const STORAGE_DELETED_CLIENT_NAMES_KEY = 'STUDIO_DELETED_CLIENT_NAMES';
 
 function getSet(key: string): Set<string> {
   try {
@@ -97,6 +99,59 @@ export function isPublishingLogDeleted(log: { id: string; published_at?: string;
 export function filterPublishingLogs<T extends { id: string; published_at?: string; created_at?: string }>(logs: T[]): T[] {
   if (!Array.isArray(logs)) return [];
   return logs.filter(l => !isPublishingLogDeleted(l));
+}
+
+export function isClientDeleted(client: { id?: string; full_name?: string; email?: string }): boolean {
+  if (!client) return false;
+  const deletedIds = getSet(STORAGE_DELETED_CLIENTS_KEY);
+  if (client.id && deletedIds.has(client.id)) return true;
+
+  const deletedNames = getSet(STORAGE_DELETED_CLIENT_NAMES_KEY);
+  if (client.full_name) {
+    const raw = client.full_name.trim().toLowerCase();
+    if (deletedNames.has(raw)) return true;
+    const match = client.full_name.match(/\(([^)]+)\)/);
+    if (match && match[1] && deletedNames.has(match[1].trim().toLowerCase())) return true;
+  }
+  if (client.email && deletedNames.has(client.email.trim().toLowerCase())) return true;
+
+  return false;
+}
+
+export function filterClients<T extends { id?: string; full_name?: string; email?: string }>(clients: T[]): T[] {
+  if (!Array.isArray(clients)) return [];
+  return clients.filter(c => !isClientDeleted(c));
+}
+
+export async function deleteSingleClient(clientId: string, clientName?: string): Promise<void> {
+  if (clientId) {
+    addToSet(STORAGE_DELETED_CLIENTS_KEY, clientId);
+  }
+  if (clientName) {
+    addToSet(STORAGE_DELETED_CLIENT_NAMES_KEY, clientName.trim().toLowerCase());
+    const match = clientName.match(/\(([^)]+)\)/);
+    if (match && match[1]) {
+      addToSet(STORAGE_DELETED_CLIENT_NAMES_KEY, match[1].trim().toLowerCase());
+    }
+  }
+
+  // Remove channel association
+  try {
+    const { removeChannel } = await import('./channels');
+    await removeChannel(`client-${clientId}`, clientName, clientId);
+  } catch (e) {
+    console.warn('Channel removal note on client delete:', e);
+  }
+
+  // Hard delete profile from Supabase
+  try {
+    await supabase.from('profiles').delete().eq('id', clientId);
+  } catch (e) {
+    console.warn('Delete profile note:', e);
+  }
+
+  window.dispatchEvent(new Event('storage'));
+  window.dispatchEvent(new CustomEvent('channels-updated'));
 }
 
 // ---------------- Action Helpers ----------------

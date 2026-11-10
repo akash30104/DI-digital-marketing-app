@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { Profile } from '../types';
+import { filterClients } from './deletionFilter';
 
 export interface ChannelItem {
   id: string;
@@ -244,8 +245,10 @@ export async function fetchAllChannels(): Promise<ChannelItem[]> {
       .order('created_at', { ascending: false });
 
     if (profiles) {
-      const clientProfiles = profiles.filter(p => 
-        p.role === 'client' || (p.full_name && p.full_name.includes('(') && p.role !== 'founder')
+      const clientProfiles = filterClients(
+        profiles.filter(p => 
+          p.role === 'client' || (p.full_name && p.full_name.includes('(') && p.role !== 'founder')
+        )
       );
 
       clientProfiles.forEach(client => {

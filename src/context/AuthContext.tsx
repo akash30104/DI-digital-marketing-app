@@ -22,6 +22,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export const isFounderEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return clean === 'akash30104@gmail.com' || clean === 'akash.uxui.design@gmail.com';
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return exists;
   };
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, requestedRole?: UserRole) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -41,19 +47,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
+      let resolved: Profile | null = null;
       if (!error && data) {
-        setCurrentUser(data as Profile);
+        resolved = data as Profile;
       } else {
         // Fallback profile if row not created yet
         const { data: authData } = await supabase.auth.getUser();
         if (authData.user) {
-          setCurrentUser({
+          resolved = {
             id: authData.user.id,
             email: authData.user.email || '',
             full_name: authData.user.user_metadata?.full_name || 'Team Member',
-            role: authData.user.user_metadata?.role || 'editor'
-          });
+            role: authData.user.user_metadata?.role || requestedRole || 'editor'
+          };
         }
+      }
+
+      if (resolved) {
+        // Guarantee founder role if recognized founder email or founder role requested
+        if (isFounderEmail(resolved.email) || requestedRole === 'founder') {
+          resolved.role = 'founder';
+          try {
+            await supabase.from('profiles').update({ role: 'founder' }).eq('id', resolved.id);
+          } catch (e) {}
+        }
+        setCurrentUser(resolved);
+        localStorage.setItem('di_authenticated_user_session', JSON.stringify(resolved));
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -68,7 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        const founderCheck = isFounderEmail(session.user.email) ? 'founder' : undefined;
+        await fetchProfile(session.user.id, founderCheck);
       } else {
         // Check local verified session backup so users stay seamlessly logged in
         try {
@@ -76,6 +96,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed && parsed.id && parsed.role) {
+              if (isFounderEmail(parsed.email)) {
+                parsed.role = 'founder';
+              }
               setCurrentUser(parsed);
             }
           }
@@ -91,7 +114,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen to auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        const founderCheck = isFounderEmail(session.user.email) ? 'founder' : undefined;
+        await fetchProfile(session.user.id, founderCheck);
       } else if (event === 'SIGNED_OUT') {
         localStorage.removeItem('di_authenticated_user_session');
         setCurrentUser(null);
@@ -107,6 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, pass: string, targetRole?: UserRole) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPass = pass.trim();
+    const forceFounder = targetRole === 'founder' || isFounderEmail(cleanEmail);
+    const effectiveTargetRole: UserRole | undefined = forceFounder ? 'founder' : targetRole;
 
     // 1. Attempt official Supabase authentication
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -121,7 +147,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedCredsRaw) {
           const storedCreds = JSON.parse(storedCredsRaw);
           if (storedCreds.password === cleanPass && storedCreds.profile) {
-            const userProfile: Profile = storedCreds.profile;
+            const userProfile: Profile = {
+              ...storedCreds.profile,
+              role: forceFounder ? 'founder' : (storedCreds.profile.role || 'social_media_manager')
+            };
             setCurrentUser(userProfile);
             localStorage.setItem('di_authenticated_user_session', JSON.stringify(userProfile));
             await logAuditEvent('user_signed_in', 'auth', userProfile.id, { email: cleanEmail, method: 'invitation_verified' });
@@ -137,7 +166,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         if (prof) {
-          const userProfile: Profile = prof as Profile;
+          const userProfile: Profile = {
+            ...(prof as Profile),
+            role: forceFounder ? 'founder' : (prof as Profile).role
+          };
+          if (forceFounder) {
+            try {
+              await supabase.from('profiles').update({ role: 'founder' }).eq('id', userProfile.id);
+            } catch (e) {}
+          }
           setCurrentUser(userProfile);
           localStorage.setItem('di_authenticated_user_session', JSON.stringify(userProfile));
           await logAuditEvent('user_signed_in', 'auth', userProfile.id, { email: cleanEmail, fallback: true });
@@ -151,14 +188,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (data.user) {
-      if (targetRole) {
+      if (effectiveTargetRole) {
         try {
-          await supabase.from('profiles').update({ role: targetRole }).eq('id', data.user.id);
+          await supabase.from('profiles').update({ role: effectiveTargetRole }).eq('id', data.user.id);
         } catch (e) {
           console.warn('Update role on signIn error:', e);
         }
       }
-      await fetchProfile(data.user.id);
+      await fetchProfile(data.user.id, effectiveTargetRole);
       await logAuditEvent('user_signed_in', 'auth', data.user.id, { email: cleanEmail });
     }
     return {};
