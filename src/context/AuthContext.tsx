@@ -141,7 +141,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (error) {
-      // 2. Fallback verification for invited team members (SMM, Editor, Client)
+      // If error occurs, check if this is founder logging in
+      if (forceFounder) {
+        const founderClaimed = await checkFounderExists();
+        if (!founderClaimed) {
+          // If no founder account has been claimed yet, auto-register Akash as the initial founder!
+          const regRes = await signUp(cleanEmail, cleanPass, 'Akash Sharma', 'founder');
+          if (!regRes.error) {
+            return {};
+          }
+        }
+      }
+
+      // 2. Fallback verification for invited team members (SMM, Editor, Client) & Founder
       try {
         const storedCredsRaw = localStorage.getItem(`di_team_creds_${cleanEmail}`);
         if (storedCredsRaw) {
@@ -224,25 +236,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
+    const userId = data?.user?.id || (crypto.randomUUID ? crypto.randomUUID() : `founder-${Date.now()}`);
+    const userProfile: Profile = {
+      id: userId,
+      email: cleanEmail,
+      full_name: name.trim() || 'Founder',
+      role: roleToRegister
+    };
+
+    try {
+      await supabase.from('profiles').upsert(userProfile);
+    } catch (e) {
+      console.warn('Upsert profile error:', e);
+    }
+
+    try {
+      localStorage.setItem(`di_team_creds_${cleanEmail}`, JSON.stringify({
+        password: cleanPass,
+        profile: userProfile
+      }));
+      if (roleToRegister === 'founder') {
+        localStorage.setItem('DI_PLATFORM_FOUNDER_CLAIMED', 'true');
+        localStorage.setItem('DI_PLATFORM_FOUNDER_EMAIL', cleanEmail);
+      }
+    } catch (e) {}
+
+    // If Supabase returned an error like unconfirmed email or rate limit, but profile is created, log in:
+    if (error && !error.message.includes('already registered')) {
+      setCurrentUser(userProfile);
+      localStorage.setItem('di_authenticated_user_session', JSON.stringify(userProfile));
+      await refreshFounderStatus();
+      return {};
+    }
+
     if (error) {
       return { error: error.message };
     }
 
-    if (data.user) {
-      try {
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          email: cleanEmail,
-          full_name: name.trim(),
-          role: roleToRegister
-        });
-      } catch (e) {
-        console.warn('Upsert profile error:', e);
-      }
-      await fetchProfile(data.user.id);
-      await refreshFounderStatus();
-      await logAuditEvent('user_registered', 'auth', data.user.id, { email: cleanEmail, role: roleToRegister });
+    if (data?.user) {
+      await fetchProfile(data.user.id, roleToRegister);
+    } else {
+      setCurrentUser(userProfile);
+      localStorage.setItem('di_authenticated_user_session', JSON.stringify(userProfile));
     }
+
+    await refreshFounderStatus();
+    await logAuditEvent('user_registered', 'auth', userId, { email: cleanEmail, role: roleToRegister });
     return {};
   };
 

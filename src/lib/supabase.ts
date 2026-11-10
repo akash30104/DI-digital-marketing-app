@@ -37,13 +37,20 @@ export function reconfigureSupabase(url: string, key: string) {
   });
 }
 
-// Security Helper: Check if Founder exists (public RPC / query)
+// Security Helper: Check if Founder exists (public RPC / query / persistent flag)
 export async function checkFounderExists(): Promise<boolean> {
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('DI_PLATFORM_FOUNDER_CLAIMED') === 'true') {
+      return true;
+    }
+  } catch (e) {}
+
   try {
     // 1. Try public RPC
     const { data, error } = await supabase.rpc('check_founder_exists');
-    if (!error && typeof data === 'boolean') {
-      return data;
+    if (!error && typeof data === 'boolean' && data) {
+      try { localStorage.setItem('DI_PLATFORM_FOUNDER_CLAIMED', 'true'); } catch (e) {}
+      return true;
     }
   } catch (e) {
     // Fall through to query profiles table
@@ -57,6 +64,7 @@ export async function checkFounderExists(): Promise<boolean> {
       .limit(1);
 
     if (!error && data && data.length > 0) {
+      try { localStorage.setItem('DI_PLATFORM_FOUNDER_CLAIMED', 'true'); } catch (e) {}
       return true;
     }
   } catch (e) {

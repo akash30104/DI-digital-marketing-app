@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isFounderEmail } from '../context/AuthContext';
 import { Lock, Users, Crown, ShieldAlert, ArrowRight, CheckCircle2, Briefcase, Film, Mail, KeyRound, Sparkles } from 'lucide-react';
 import { getInvitationByToken } from '../lib/api';
 import { Invitation } from '../types';
@@ -9,7 +9,7 @@ interface AuthViewProps {
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
-  const { signIn, signUp, acceptInvitation, resetPassword, refreshFounderStatus } = useAuth();
+  const { signIn, signUp, acceptInvitation, resetPassword, refreshFounderStatus, founderExists } = useAuth();
 
   // Mode: 'login' | 'invite' | 'forgot_password'
   const [authMode, setAuthMode] = useState<'login' | 'invite' | 'forgot_password'>('login');
@@ -17,13 +17,21 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
   // All-in-one Hosting: Toggle between Studio Team and Client Portal
   const [portalType, setPortalType] = useState<'studio' | 'client'>('studio');
   
-  // Developer / Founder Option (unlocked by clicking the logo)
+  // Developer / Founder Option (Available ONLY during initial setup before founder exists)
   const [isDevFounderMode, setIsDevFounderMode] = useState(false);
+  const [devTab, setDevTab] = useState<'setup' | 'signin'>('setup');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+
+  // Automatically lock and exit dev mode once founder account exists
+  useEffect(() => {
+    if (founderExists) {
+      setIsDevFounderMode(false);
+    }
+  }, [founderExists]);
 
   // Invitation state
   const [inviteToken, setInviteToken] = useState('');
@@ -87,8 +95,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     e.preventDefault();
     setIsLoading(true);
     resetMessages();
-    const targetRole = portalType === 'client' ? 'client' : undefined;
-    const res = await signIn(email.trim().toLowerCase(), password.trim(), targetRole);
+    const clean = email.trim().toLowerCase();
+    const targetRole = portalType === 'client' ? 'client' : (isFounderEmail(clean) ? 'founder' : undefined);
+    const res = await signIn(clean, password.trim(), targetRole);
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));
@@ -103,6 +112,34 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
     setIsLoading(false);
     if (res.error) {
       setErrorMessage(sanitizeError(res.error));
+    }
+  };
+
+  const handleCreateFounder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage('Passwords do not match.');
+      return;
+    }
+
+    setIsLoading(true);
+    resetMessages();
+    const res = await signUp(
+      email.trim().toLowerCase(),
+      password.trim(),
+      fullName.trim() || 'Akash Sharma',
+      'founder'
+    );
+    setIsLoading(false);
+    if (res.error) {
+      setErrorMessage(sanitizeError(res.error));
+    } else {
+      setIsDevFounderMode(false);
+      setSuccessMessage('Founder account created successfully! Entering workspace...');
     }
   };
 
@@ -151,20 +188,28 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
   return (
     <div className="min-h-screen bg-black flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md">
-        {/* Brand Header - Clicking Logo activates Developer / New Founder option */}
+        {/* Brand Header */}
         <div className="text-center mb-6">
           <div 
             onClick={() => {
-              setIsDevFounderMode(prev => !prev);
-              resetMessages();
+              if (!founderExists) {
+                setIsDevFounderMode(prev => !prev);
+                resetMessages();
+              }
             }}
-            className="w-20 h-20 mx-auto rounded-3xl bg-white p-2.5 flex items-center justify-center shadow-2xl mb-3 overflow-hidden border border-zinc-200 cursor-pointer hover:scale-105 active:scale-95 transition-all group relative select-none"
-            title="Click logo for Developer / Co-Founder Option"
+            className={`w-20 h-20 mx-auto rounded-3xl bg-white p-2.5 flex items-center justify-center shadow-2xl mb-3 overflow-hidden border border-zinc-200 select-none ${
+              !founderExists 
+                ? 'cursor-pointer hover:scale-105 active:scale-95 transition-all group relative' 
+                : ''
+            }`}
+            title={!founderExists ? 'Initial Setup: Create Primary Founder Account' : 'Digital Inertia'}
           >
             <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain pointer-events-none" />
-            <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-center justify-center">
-              <span className="text-[9px] font-black uppercase text-black bg-white/95 px-1.5 py-0.5 rounded shadow">Dev 👑</span>
-            </div>
+            {!founderExists && (
+              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-center justify-center">
+                <span className="text-[9px] font-black uppercase text-black bg-white/95 px-1.5 py-0.5 rounded shadow">Setup 👑</span>
+              </div>
+            )}
           </div>
           <h1 className="text-xl font-black tracking-[0.16em] uppercase text-white">
             Digital Inertia
@@ -172,17 +217,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
           <p className="text-xs text-zinc-400 mt-0.5">
             Production &amp; Social Media Management App
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              setIsDevFounderMode(prev => !prev);
-              resetMessages();
-            }}
-            className="mt-2 text-[10px] text-zinc-500 hover:text-white transition flex items-center justify-center gap-1 mx-auto"
-          >
-            <Crown className="w-3 h-3 text-zinc-400" />
-            <span>{isDevFounderMode ? '← Back to standard login' : 'Tap logo for Developer / Founder Option'}</span>
-          </button>
+          {!founderExists && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsDevFounderMode(prev => !prev);
+                resetMessages();
+              }}
+              className="mt-2 text-[10px] text-zinc-400 hover:text-white transition flex items-center justify-center gap-1 mx-auto bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full shadow-sm"
+            >
+              <Crown className="w-3 h-3 text-zinc-300" />
+              <span>{isDevFounderMode ? '← Back to standard login' : 'Initial Setup: Create Founder Account'}</span>
+            </button>
+          )}
         </div>
 
         {/* ALL-IN-ONE HOSTING: TOGGLE BUTTON (Hidden when in Dev Founder Mode) */}
@@ -258,18 +305,18 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
             </div>
           )}
 
-          {/* ==================== DEVELOPER / FOUNDER ACCESS (ACTIVATED VIA LOGO CLICK) ==================== */}
-          {isDevFounderMode ? (
+          {/* ==================== INITIAL SETUP: FOUNDER ACCESS (LOCKED ONCE CREATED) ==================== */}
+          {isDevFounderMode && !founderExists ? (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="p-3 bg-black border border-zinc-800 rounded-2xl flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <Crown className="w-4 h-4 text-white shrink-0" />
                   <div>
                     <span className="font-black text-white block text-[11px] uppercase tracking-wider">
-                      Founder Access
+                      Setup Platform Founder
                     </span>
                     <span className="text-[10px] text-zinc-400">
-                      Sign in to Founder Super Admin account
+                      Create the one and only primary Founder account
                     </span>
                   </div>
                 </div>
@@ -281,48 +328,139 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                   }}
                   className="text-[10px] font-bold text-zinc-400 hover:text-white bg-zinc-800 px-2.5 py-1 rounded-lg border border-zinc-700 transition"
                 >
-                  Exit Dev Mode
+                  Back
                 </button>
               </div>
 
-              <form onSubmit={handleDevFounderSignIn} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                    Founder Email
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="founder@studio.com"
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
-                  />
-                </div>
-
+              {/* Sub-tabs: Setup vs Sign In */}
+              <div className="flex p-1 bg-black rounded-xl border border-zinc-800 gap-1 text-xs font-bold">
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                  type="button"
+                  onClick={() => { setDevTab('setup'); resetMessages(); }}
+                  className={`flex-1 py-1.5 rounded-lg transition ${devTab === 'setup' ? 'bg-white text-black font-black' : 'text-zinc-400 hover:text-white'}`}
                 >
-                  {isLoading ? 'Signing In...' : 'Sign In as Founder'}
-                  <Crown className="w-4 h-4" />
+                  Create Founder Account
                 </button>
-              </form>
+                <button
+                  type="button"
+                  onClick={() => { setDevTab('signin'); resetMessages(); }}
+                  className={`flex-1 py-1.5 rounded-lg transition ${devTab === 'signin' ? 'bg-white text-black font-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  Sign In Existing
+                </button>
+              </div>
+
+              {devTab === 'setup' ? (
+                <form onSubmit={handleCreateFounder} className="space-y-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Founder Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. Akash Sharma"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Founder Email *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="akash30104@gmail.com"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Password (min. 6 characters) *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Confirm Password *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-medium"
+                    />
+                  </div>
+
+                  <p className="text-[10px] text-zinc-400 bg-black/60 p-2.5 rounded-xl border border-zinc-800">
+                    🔒 <strong>Strict Single Founder Policy:</strong> Only ONE founder account is allowed. Once created, Dev Mode is permanently locked and cannot be reopened.
+                  </p>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-xl text-xs font-black shadow-md transition-all disabled:opacity-50"
+                  >
+                    {isLoading ? 'Creating Founder Account...' : 'Create Founder Account & Lock Dev Mode 👑'}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleDevFounderSignIn} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Founder Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="akash30104@gmail.com"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-medium"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-xl text-xs font-black shadow-md transition-all disabled:opacity-50"
+                  >
+                    {isLoading ? 'Signing In...' : 'Sign In as Founder 👑'}
+                  </button>
+                </form>
+              )}
             </div>
           ) : (
             <>
