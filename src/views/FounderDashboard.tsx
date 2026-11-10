@@ -24,7 +24,6 @@ import {
   extractYouTubeVideoId, isYouTubeUrl, fetchYouTubeLiveStats
 } from '../lib/insights';
 import { fetchAllChannels, ChannelItem } from '../lib/channels';
-import { ExecutiveKpiSection } from '../components/ExecutiveKpiSection';
 
 // Video embed and format helpers
 const getYouTubeEmbedUrl = (url?: string): string | null => {
@@ -771,14 +770,6 @@ interface ProjectTaskGroup {
           </div>
         </div>
       )}
-
-      {/* 11 Real Executive KPI Cards and Team Performance Breakdown */}
-      <ExecutiveKpiSection
-        activeTasks={activeEditingTasks}
-        publishedLogs={weekPublishedLogs}
-        totalAvailable={availableDeliverables}
-        onNavigateTab={onNavigateTab}
-      />
 
       {/* Social Media Manager Publishing Streak Overview */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 flex items-center justify-between gap-4 shadow-xl">
