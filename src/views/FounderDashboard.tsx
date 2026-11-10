@@ -771,33 +771,6 @@ interface ProjectTaskGroup {
         </div>
       )}
 
-      {/* Social Media Manager Publishing Streak Overview */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 flex items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-zinc-200 flex items-center justify-center shrink-0 border border-zinc-700/60">
-            <Flame className="w-6 h-6 text-zinc-200" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                Publishing Streak
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
-                {streak.currentStreak} {streak.currentStreak === 1 ? 'Day' : 'Days'}
-              </span>
-            </div>
-            <p className="text-xs text-zinc-300 font-medium mt-1">
-              {streak.statusMessage}
-            </p>
-          </div>
-        </div>
-
-        <div className="text-right">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.16em] block">Today's Output</span>
-          <span className="text-xl font-black text-white">{todayPublishedLogs.length} Verified</span>
-        </div>
-      </div>
-
       {/* Daily Publishing Goals (Read-Only Executive Overview) */}
       <div>
         <div className="flex items-center justify-between mb-3">
