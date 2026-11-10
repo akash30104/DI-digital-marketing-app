@@ -17,7 +17,11 @@ import {
   extractClientBrandName 
 } from '../lib/channels';
 
-export const FounderMore: React.FC = () => {
+interface FounderMoreProps {
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
   const { role } = useAuth();
   const isFounder = role === 'founder';
   const isSMM = role === 'social_media_manager';
@@ -617,14 +621,26 @@ export const FounderMore: React.FC = () => {
       {/* 2. Team Screen */}
       {activeSubTab === 'team' && (
         <div className="bg-zinc-900 rounded-3xl border border-zinc-800 p-6 shadow-xl">
-          <div className="mb-4">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Users className="w-5 h-5 text-white" />
-              Registered Team Accounts
-            </h2>
-            <p className="text-xs text-zinc-400 mt-1">
-              Active members authenticated via Supabase Row Level Security
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-white" />
+                Registered Team Accounts
+              </h2>
+              <p className="text-xs text-zinc-400 mt-1">
+                Active members authenticated via Supabase Row Level Security
+              </p>
+            </div>
+            {onNavigateTab && (
+              <button
+                type="button"
+                onClick={() => onNavigateTab('team')}
+                className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-zinc-200 text-black rounded-xl text-xs font-black shadow-md transition self-start sm:self-auto active:scale-[0.99]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Invite Member or SMM</span>
+              </button>
+            )}
           </div>
 
           <div className="divide-y divide-zinc-800">

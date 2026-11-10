@@ -73,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { id: 'approvals', label: 'SMM Approvals', icon: <CheckCheck className="w-4 h-4" />, badge: pendingApprovalsCount },
           { id: 'publishing', label: 'Social Publishing', icon: <Share2 className="w-4 h-4" /> },
           { id: 'clients', label: 'Clients & Channels', icon: <Briefcase className="w-4 h-4" /> },
+          { id: 'team', label: 'Team & Invitations', icon: <Users className="w-4 h-4" /> },
           { id: 'settings', label: 'Channel Settings', icon: <Settings className="w-4 h-4" /> },
         ];
       case 'editor':

@@ -12,7 +12,7 @@ import {
   Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight, 
   Share2, Plus, X, Check, Sparkles, Layers, Calendar, Clock,
   Play, Video, Trash2, Eye, MessageSquare, Heart, Edit3,
-  Zap, Key, Loader2, AlertCircle
+  Zap, Key, Loader2, AlertCircle, Users
 } from 'lucide-react';
 import { 
   filterDeliverables, filterPublishingLogs, deleteSingleDeliverable, 
@@ -759,6 +759,17 @@ interface ProjectTaskGroup {
               <Share2 className="w-4 h-4" />
               <span>+ Update Published Video Link</span>
             </button>
+            {onNavigateTab && (
+              <button
+                type="button"
+                onClick={() => onNavigateTab('team')}
+                className="px-4 py-3 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-zinc-700 shadow-md active:scale-95 transition-all shrink-0"
+                title="Invite New SMM or Team Member"
+              >
+                <Users className="w-4 h-4 text-white" />
+                <span>+ Invite SMM</span>
+              </button>
+            )}
             <button
               onClick={loadData}
               disabled={isLoading}

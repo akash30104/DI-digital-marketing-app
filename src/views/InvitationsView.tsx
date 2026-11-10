@@ -111,13 +111,14 @@ export const InvitationsView: React.FC = () => {
   };
 
   const handleDeleteMember = async (member: Profile) => {
+    if (member.role === 'founder') {
+      alert('The Founder account is protected and cannot be deleted.');
+      return;
+    }
     if (!window.confirm(`Are you sure you want to permanently delete profile "${member.full_name || member.email}"?`)) return;
     try {
       await supabase.from('profiles').delete().eq('id', member.id);
     } catch {}
-    if (member.role === 'founder') {
-      await deleteFounderProfile();
-    }
     setTeamMembers(prev => prev.filter(m => m.id !== member.id));
     if (currentUser) {
       await createAuditLog('profile_deleted', 'profiles', member.id, currentUser.id, currentUser.email, { email: member.email, role: member.role });

@@ -101,7 +101,7 @@ export const App: React.FC = () => {
           return <AuditLogsView />;
         case 'more':
         case 'settings':
-          return <FounderMore />;
+          return <FounderMore onNavigateTab={setActiveTab} />;
         default:
           return <FounderDashboard onNavigateTab={setActiveTab} />;
       }
@@ -138,11 +138,13 @@ export const App: React.FC = () => {
           return <SocialMediaPublishing />;
         case 'clients':
           return <ClientsView onNavigateTab={setActiveTab} />;
+        case 'team':
+          return <InvitationsView />;
         case 'history':
           return <PublishingHistory />;
         case 'settings':
         case 'more':
-          return <FounderMore />;
+          return <FounderMore onNavigateTab={setActiveTab} />;
         default:
           return <ProductionBoard />;
       }
