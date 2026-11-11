@@ -6,7 +6,7 @@ import {
   getClients, getProfiles, getSocialChannels, createAuditLog, createNotification 
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { filterDeliverables, filterClients, isClientDeleted } from '../lib/deletionFilter';
+import { filterDeliverables, filterClients, isClientDeleted, isInternalBrand } from '../lib/deletionFilter';
 import { 
   FolderKanban, Plus, Calendar, CheckCircle2, Clock, 
   Users, Briefcase, Share2, AlertCircle, ArrowUpRight,
@@ -99,14 +99,16 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
 
         // Insert recording so editor workspace can load it
         try {
+          const isInternalP = isInternalBrand(proj.client_name) || !proj.client_id || proj.client_id === 'internal';
+          const cTag = isInternalP ? '[Studio Internal]' : `[Client: ${proj.client_name || ''}]`;
           await supabase.from('recordings').insert([{
             id: recId,
             title: proj.name,
             recording_date: todayStr,
             date_received: todayStr,
-            hard_disk_name: proj.client_name || 'Studio Production',
+            hard_disk_name: isInternalP ? 'Internal Studio' : (proj.client_name || 'Studio Production'),
             folder_path: `/projects/${proj.name.replace(/\s+/g, '_')}`,
-            notes: `[Project: ${proj.id}] [Client: ${proj.client_name || ''}] [Deadline: ${proj.deadline || todayStr}]`,
+            notes: `[Project: ${proj.id}] ${cTag} [Deadline: ${proj.deadline || todayStr}]`,
             registered_by: currentUser?.id
           }]);
         } catch {}
@@ -295,7 +297,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
       const editorObj = teamMembers.find(m => m.id === primaryEditorId);
       const todayStr = new Date().toISOString().split('T')[0];
       const finalDeadline = deadline || todayStr;
-      const clientName = clientObj?.brand_name || clientObj?.company_name || clientObj?.name || 'Internal Studio';
+      const isInternal = !clientId || clientId === 'internal' || isInternalBrand(clientObj?.brand_name || clientObj?.company_name || clientObj?.name);
+      const clientName = isInternal ? 'Internal Studio' : (clientObj?.brand_name || clientObj?.company_name || clientObj?.name || 'Client');
+      const clientTag = isInternal ? '[Studio Internal]' : `[Client: ${clientName}]`;
 
       let recId = newProj.id;
       try {
@@ -305,7 +309,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
           date_received: todayStr,
           hard_disk_name: clientName,
           folder_path: `/projects/${newProj.name.replace(/\s+/g, '_')}`,
-          notes: `[Project: ${newProj.id}] [Client: ${clientName}] [Deadline: ${finalDeadline}] [Editor: ${editorObj?.full_name || 'Unassigned'}] [EditorId: ${primaryEditorId || ''}] ${newProj.description || ''}`,
+          notes: `[Project: ${newProj.id}] ${clientTag} [Deadline: ${finalDeadline}] [Editor: ${editorObj?.full_name || 'Unassigned'}] [EditorId: ${primaryEditorId || ''}] ${newProj.description || ''}`,
           registered_by: currentUser.id
         }]).select().maybeSingle();
 
@@ -481,7 +485,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
             className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-300 font-semibold focus:outline-none"
           >
             <option value="all">All Clients</option>
-            {clients.filter(c => !isClientDeleted(c)).map(c => (
+            {clients.filter(c => !isClientDeleted(c) && !isInternalBrand(c.brand_name || c.company_name || c.name)).map(c => (
               <option key={c.id} value={c.id}>{c.brand_name || c.company_name || c.name}</option>
             ))}
           </select>
@@ -1027,7 +1031,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-semibold"
                   >
                     <option value="">Internal Studio Production</option>
-                    {clients.filter(c => !isClientDeleted(c)).map(c => (
+                    {clients.filter(c => !isClientDeleted(c) && !isInternalBrand(c.brand_name || c.company_name || c.name)).map(c => (
                       <option key={c.id} value={c.id}>{c.brand_name || c.company_name || c.name}</option>
                     ))}
                   </select>

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { filterProjects, filterClients, deleteSingleProject } from './deletionFilter';
+import { filterProjects, filterClients, deleteSingleProject, deleteSingleClient, isInternalBrand } from './deletionFilter';
 import { 
   Client, Project, SocialChannel, Invitation, Deliverable, 
   VideoVersion, ApprovalFeedback, PublishingProof, NotificationItem, 
@@ -675,11 +675,22 @@ export async function revokeInvitation(idOrToken: string): Promise<boolean> {
   }
 
   const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
-  const updated = invs.map(i => (i.id === idOrToken || i.token === clean || i.token === idOrToken) ? { ...i, status: 'revoked' as const } : i);
+  const targetInv = invs.find(i => i.id === idOrToken || i.token === clean || i.token === idOrToken);
+
+  // If this invitation was for a client partner, purge the client workspace immediately
+  if (targetInv && (targetInv.role === 'client' || targetInv.client_brand || targetInv.client_name)) {
+    const brandName = targetInv.client_brand || targetInv.client_name;
+    deleteSingleClient('', brandName);
+    if (targetInv.email) deleteSingleClient('', targetInv.email);
+  }
+
+  // Remove revoked invitation completely from local list so it disappears permanently
+  const updated = invs.filter(i => i.id !== idOrToken && i.token !== clean && i.token !== idOrToken);
   setLocal(STORAGE_KEYS.INVITATIONS, updated);
 
   try {
     await supabase.from('invitations').update({ status: 'revoked' }).or(`id.eq.${idOrToken},token.eq.${clean}`);
+    await supabase.from('invitations').delete().or(`id.eq.${idOrToken},token.eq.${clean}`);
   } catch {}
   return true;
 }
@@ -699,8 +710,15 @@ export async function deleteInvitation(idOrToken: string, tokenParam?: string): 
   if (clean && !deletedInvs.includes(clean)) deletedInvs.push(clean);
   setLocal('STUDIO_DELETED_INVITATION_IDS', deletedInvs);
 
-  // 3. Remove from local storage
+  // 3. Remove from local storage & purge any associated client workspace
   const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  const targetInv = invs.find(i => i.id === idOrToken || i.token === clean || i.token === idOrToken);
+  if (targetInv && (targetInv.role === 'client' || targetInv.client_brand || targetInv.client_name)) {
+    const brandName = targetInv.client_brand || targetInv.client_name;
+    deleteSingleClient('', brandName);
+    if (targetInv.email) deleteSingleClient('', targetInv.email);
+  }
+
   const filtered = invs.filter(i => i.id !== idOrToken && i.token !== clean && i.token !== idOrToken);
   setLocal(STORAGE_KEYS.INVITATIONS, filtered);
 

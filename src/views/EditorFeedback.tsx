@@ -6,7 +6,7 @@ import {
   MessageSquare, AlertCircle, RefreshCw, Send, CheckCircle2, 
   ExternalLink, Film, ArrowRight, HardDrive, Clock, Briefcase
 } from 'lucide-react';
-import { filterDeliverables } from '../lib/deletionFilter';
+import { filterDeliverables, isInternalBrand } from '../lib/deletionFilter';
 
 export const EditorFeedback: React.FC = () => {
   const { currentUser } = useAuth();
@@ -136,10 +136,13 @@ export const EditorFeedback: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {items.map(item => {
-            const isClientWork = /\[Client/i.test(`${item.approval_notes || ''} ${item.description || ''}`) ||
+            const notesAndDesc = `${item.approval_notes || ''} ${item.description || ''} ${item.recording_title || ''}`;
+            const isInternal = isInternalBrand(item.client_brand) || isInternalBrand(item.client_name) || notesAndDesc.toLowerCase().includes('internal studio') || notesAndDesc.toLowerCase().includes('studio internal');
+            const isClientWork = !isInternal && (
+              /\[Client:\s*(?!internal)[^\]]+\]/i.test(`${item.approval_notes || ''} ${item.description || ''}`) ||
               /\[Brand/i.test(`${item.approval_notes || ''} ${item.description || ''}`) ||
-              /Client/i.test(item.recording_title || '') ||
-              /\([A-Z0-9_-]+\)/i.test(item.recording_title || '');
+              (/\([A-Z0-9_-]+\)/i.test(item.recording_title || '') && !/internal/i.test(item.recording_title || ''))
+            );
 
             return (
               <div

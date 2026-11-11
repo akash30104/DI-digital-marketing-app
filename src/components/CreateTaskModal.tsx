@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Client, Project, Profile, Priority, AspectRatio, DeliverableType } from '../types';
 import { getClients, getProjects, getProfiles, createNotification, createAuditLog } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { filterClients, isClientDeleted } from '../lib/deletionFilter';
+import { filterClients, isClientDeleted, isInternalBrand } from '../lib/deletionFilter';
 import { Plus, Film, Link as LinkIcon, Calendar, Clock, AlertTriangle, Sparkles, Check } from 'lucide-react';
 
 interface CreateTaskModalProps {
@@ -219,7 +219,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-semibold"
               >
                 <option value="">Studio In-House Production</option>
-                {clients.filter(c => !isClientDeleted(c)).map(c => (
+                {clients.filter(c => !isClientDeleted(c) && !isInternalBrand(c.brand_name || c.company_name || c.name)).map(c => (
                   <option key={c.id} value={c.id}>{c.brand_name || c.company_name || c.name}</option>
                 ))}
               </select>

@@ -9,7 +9,7 @@ import {
   UserCheck, X, ChevronRight, ChevronLeft, ArrowRight, ListTodo, 
   CheckSquare, Plus, ArrowLeft, Cloud, Film, Calendar, RefreshCw, User, Trash2, Briefcase
 } from 'lucide-react';
-import { filterDeliverables, filterRecordings, deleteSingleDeliverable, deleteSingleRecording } from '../lib/deletionFilter';
+import { filterDeliverables, filterRecordings, deleteSingleDeliverable, deleteSingleRecording, isInternalBrand, isClientDeleted } from '../lib/deletionFilter';
 import { getClientBrandName } from '../lib/clientIsolation';
 import { recordTaskVersion, createNotification, createAuditLog, getProjects } from '../lib/api';
 
@@ -124,27 +124,50 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     const notes = (recNotes || '').trim();
     const title = (recTitle || '').trim();
 
+    // If explicit studio internal indicator, NEVER treat as client work
+    if (
+      notes.toLowerCase().includes('internal studio') ||
+      notes.toLowerCase().includes('studio internal') ||
+      title.toLowerCase().includes('internal studio') ||
+      title.toLowerCase().includes('studio internal')
+    ) {
+      return { isClientWork: false, clientBrandName: '' };
+    }
+
     // 1. Tag [Brand: XYZ] in notes
     const brandMatch = notes.match(/\[Brand:\s*([^\]]+)\]/i);
     if (brandMatch && brandMatch[1]) {
-      return { isClientWork: true, clientBrandName: brandMatch[1].trim() };
+      const b = brandMatch[1].trim();
+      if (!isInternalBrand(b)) {
+        return { isClientWork: true, clientBrandName: b };
+      }
     }
 
     // 2. Tag [Client: XYZ] in notes
     const clientMatch = notes.match(/\[Client:\s*([^\]]+)\]/i);
     if (clientMatch && clientMatch[1]) {
       const rawVal = clientMatch[1].trim();
-      const matchedProfile = clientProfiles.find(c => c.id === rawVal);
-      if (matchedProfile) {
-        return { isClientWork: true, clientBrandName: getClientBrandName(matchedProfile) };
+      if (!isInternalBrand(rawVal)) {
+        const matchedProfile = clientProfiles.find(c => c.id === rawVal);
+        if (matchedProfile && !isClientDeleted(matchedProfile)) {
+          const brand = getClientBrandName(matchedProfile);
+          if (!isInternalBrand(brand)) {
+            return { isClientWork: true, clientBrandName: brand };
+          }
+        } else {
+          return { isClientWork: true, clientBrandName: rawVal };
+        }
       }
-      return { isClientWork: true, clientBrandName: rawVal };
     }
 
     // 3. Match against known client profiles (full_name, brand parentheses e.g. "LLBS")
     for (const client of clientProfiles) {
+      if (isClientDeleted(client)) continue;
       const brand = getClientBrandName(client);
+      if (isInternalBrand(brand)) continue;
       const clientName = client.full_name || '';
+      if (isInternalBrand(clientName)) continue;
+
       if (brand && (title.toLowerCase().includes(brand.toLowerCase()) || notes.toLowerCase().includes(brand.toLowerCase()))) {
         return { isClientWork: true, clientBrandName: brand };
       }
@@ -156,23 +179,35 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       }
     }
 
-    // 4. Check deliverables notes or title
+    // 4. Check deliverables notes, client_brand, client_name, or title
     for (const d of podDelivs) {
+      if (d.client_brand && !isInternalBrand(d.client_brand)) {
+        return { isClientWork: true, clientBrandName: d.client_brand };
+      }
+      if (d.client_name && !isInternalBrand(d.client_name)) {
+        return { isClientWork: true, clientBrandName: d.client_name };
+      }
       const dNotes = `${d.approval_notes || ''} ${d.description || ''}`;
       const dBrandMatch = dNotes.match(/\[Brand:\s*([^\]]+)\]/i);
-      if (dBrandMatch && dBrandMatch[1]) {
+      if (dBrandMatch && dBrandMatch[1] && !isInternalBrand(dBrandMatch[1])) {
         return { isClientWork: true, clientBrandName: dBrandMatch[1].trim() };
       }
       for (const client of clientProfiles) {
+        if (isClientDeleted(client)) continue;
         const brand = getClientBrandName(client);
+        if (isInternalBrand(brand)) continue;
         if (brand && (d.title.toLowerCase().includes(brand.toLowerCase()) || dNotes.toLowerCase().includes(brand.toLowerCase()))) {
           return { isClientWork: true, clientBrandName: brand };
         }
       }
     }
 
-    // 5. Keyword heuristic
-    if (/\[Client/i.test(notes) || /Client Work/i.test(notes) || /Client Work/i.test(title)) {
+    // 5. Keyword heuristic (exclude internal studio)
+    if (
+      !isInternalBrand(notes) &&
+      !isInternalBrand(title) &&
+      (/\[Client:\s*(?!internal)[^\]]+\]/i.test(notes) || /Client Work/i.test(notes) || /Client Work/i.test(title))
+    ) {
       return { isClientWork: true, clientBrandName: 'Client Brand' };
     }
 
@@ -357,7 +392,11 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           ? Math.round(podDelivs.reduce((acc, d) => acc + (d.progress_percentage || 0), 0) / totalCuts)
           : 0;
 
-        const { isClientWork, clientBrandName } = extractClientBrandInfo(rec.notes, rec.title, podDelivs, clientProfiles);
+        let { isClientWork, clientBrandName } = extractClientBrandInfo(rec.notes, rec.title, podDelivs, clientProfiles);
+        if (isInternalBrand(rec.hard_disk_name) || isInternalBrand(clientBrandName)) {
+          isClientWork = false;
+          clientBrandName = '';
+        }
 
         items.push({
           id: rec.id,
@@ -484,8 +523,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           completedCuts,
           progressPercentage,
           isMyPodcast,
-          isClientWork: !!proj.client_id && proj.client_id !== 'internal',
-          clientBrandName: proj.client_name || 'Client'
+          isClientWork: !isInternalBrand(proj.client_name) && Boolean(proj.client_id && proj.client_id !== 'internal'),
+          clientBrandName: !isInternalBrand(proj.client_name) ? (proj.client_name || 'Client') : ''
         });
 
         handledProjectIds.add(proj.id);
@@ -546,8 +585,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             completedCuts,
             progressPercentage,
             isMyPodcast,
-            isClientWork: !!firstDel.client_id || !!firstDel.client_name,
-            clientBrandName: firstDel.client_name || 'Client'
+            isClientWork: !isInternalBrand(firstDel.client_brand || firstDel.client_name) && Boolean(firstDel.client_id && firstDel.client_id !== 'internal'),
+            clientBrandName: !isInternalBrand(firstDel.client_brand || firstDel.client_name) ? (firstDel.client_brand || firstDel.client_name || 'Client') : ''
           });
         }
       }
@@ -614,13 +653,14 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   }, [podcasts, mode, currentUser]);
 
   // Client work vs Studio work counts and filtering
-  const clientWorksCount = useMemo(() => displayedPodcasts.filter(p => p.isClientWork).length, [displayedPodcasts]);
-  const studioWorksCount = useMemo(() => displayedPodcasts.filter(p => !p.isClientWork).length, [displayedPodcasts]);
+  const clientWorksCount = useMemo(() => displayedPodcasts.filter(p => p.isClientWork && !isInternalBrand(p.clientBrandName)).length, [displayedPodcasts]);
+  const studioWorksCount = useMemo(() => displayedPodcasts.filter(p => !p.isClientWork || isInternalBrand(p.clientBrandName)).length, [displayedPodcasts]);
 
   const filteredPodcasts = useMemo(() => {
     return displayedPodcasts.filter(p => {
-      if (workFilter === 'client') return p.isClientWork;
-      if (workFilter === 'studio') return !p.isClientWork;
+      const isClient = p.isClientWork && !isInternalBrand(p.clientBrandName);
+      if (workFilter === 'client') return isClient;
+      if (workFilter === 'studio') return !isClient;
       return true;
     });
   }, [displayedPodcasts, workFilter]);
@@ -1008,7 +1048,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         </div>
 
         {/* CLIENT WORK BANNER (WHITE STYLING) */}
-        {activePodcast.isClientWork && (
+        {activePodcast.isClientWork && !isInternalBrand(activePodcast.clientBrandName) && (
           <div className="p-4 sm:p-5 rounded-3xl bg-white text-black shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-2 border-white animate-in slide-in-from-top-2">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-black text-white flex items-center justify-center shrink-0 shadow-md">
@@ -1178,11 +1218,12 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           {activePodcast.deliverables.map((cut) => {
             const isCompleted = (cut.progress_percentage || 0) === 100 || cut.editing_status === 'approved' || cut.editing_status === 'submitted_for_approval';
 
+            const isRealClient = activePodcast.isClientWork && !isInternalBrand(activePodcast.clientBrandName);
             return (
               <div
                 key={cut.id}
                 className={`p-5 rounded-3xl bg-zinc-900 border space-y-4 transition-all ${
-                  activePodcast.isClientWork
+                  isRealClient
                     ? 'border-zinc-700 hover:border-white shadow-[0_0_15px_rgba(255,255,255,0.06)]'
                     : 'border-zinc-800 hover:border-zinc-700 shadow-sm'
                 }`}
@@ -1190,7 +1231,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                 {/* Cut Header */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {activePodcast.isClientWork && (
+                    {isRealClient && (
                       <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-white text-black border border-white flex items-center gap-1 shadow-sm">
                         <Briefcase className="w-3 h-3 text-black" />
                         <span>CLIENT WORK: {activePodcast.clientBrandName || 'Deliverable'}</span>
@@ -1595,7 +1636,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             const completedReels = reels.filter(r => (r.progress_percentage || 0) === 100).length;
             const completedFull = fullVideos.filter(f => (f.progress_percentage || 0) === 100).length;
 
-            if (podcast.isClientWork) {
+            if (podcast.isClientWork && !isInternalBrand(podcast.clientBrandName)) {
               return (
                 <div
                   key={podcast.id}

@@ -7,7 +7,7 @@ import {
   Folder, Check, AlertCircle, X, Film, CheckCircle2, 
   Clock, ArrowRight, Sparkles, Layers, ExternalLink, User, Trash2
 } from 'lucide-react';
-import { filterDeliverables, filterRecordings, purgeAllRecordings } from '../lib/deletionFilter';
+import { filterDeliverables, filterRecordings, purgeAllRecordings, filterClients, isClientDeleted, isInternalBrand } from '../lib/deletionFilter';
 import { getClientBrandName } from '../lib/clientIsolation';
 
 interface RecordingWithDeliverables {
@@ -97,7 +97,7 @@ export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ on
         const clientProfiles = clientsRes.data.filter((p: Profile) => 
           p.role === 'client' || (p.full_name && p.full_name.includes('(') && p.role !== 'founder')
         );
-        setClients(clientProfiles);
+        setClients(filterClients(clientProfiles));
       }
     } catch (e) {
       console.error('Failed to load recordings:', e);
@@ -474,7 +474,7 @@ export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ on
                   className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
                 >
                   <option value="">Studio General (No specific client)</option>
-                  {clients.map((c) => (
+                  {clients.filter(c => !isClientDeleted(c) && !isInternalBrand(c.full_name)).map((c) => (
                     <option key={c.id} value={c.id}>
                       🏢 {c.full_name} {c.email ? `(${c.email})` : ''}
                     </option>

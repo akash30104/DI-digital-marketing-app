@@ -642,9 +642,8 @@ interface ProductionProjectGroup {
         <div 
           onClick={() => {
             setActiveTab('today');
-            setTimeout(() => {
-              document.getElementById('production-deliverables-section')?.scrollIntoView({ behavior: 'smooth' });
-            }, 50);
+            setEditorModalTab('today');
+            setShowEditorModal(true);
           }}
           className={`bg-[#121214] border p-4 rounded-2xl transition-all cursor-pointer group shadow-sm ${
             activeTab === 'today'
@@ -680,7 +679,7 @@ interface ProductionProjectGroup {
           <div className="text-[10px] text-zinc-500 mt-1 flex items-center justify-between">
             <span>Reels &amp; full videos with editor progress</span>
             <span className="text-zinc-400 group-hover:text-white transition-colors">
-              {activeTab === 'today' ? 'Viewing cuts below ↓' : 'Tap to view'}
+              Tap to open Editor Overview ↗
             </span>
           </div>
         </div>
@@ -689,9 +688,8 @@ interface ProductionProjectGroup {
         <div 
           onClick={() => {
             setActiveTab('pending');
-            setTimeout(() => {
-              document.getElementById('production-deliverables-section')?.scrollIntoView({ behavior: 'smooth' });
-            }, 50);
+            setEditorModalTab('pending');
+            setShowEditorModal(true);
           }}
           className={`bg-[#121214] border p-4 rounded-2xl transition-all cursor-pointer group shadow-sm ${
             activeTab === 'pending'
@@ -727,7 +725,7 @@ interface ProductionProjectGroup {
           <div className="text-[10px] text-zinc-500 mt-1 flex items-center justify-between">
             <span>Assigned, in-progress &amp; revision tasks</span>
             <span className="text-zinc-400 group-hover:text-white transition-colors">
-              {activeTab === 'pending' ? 'Viewing tasks below ↓' : 'Tap to view'}
+              Tap to open Editor Overview ↗
             </span>
           </div>
         </div>

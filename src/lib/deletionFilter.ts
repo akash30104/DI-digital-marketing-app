@@ -128,6 +128,39 @@ export function filterPublishingLogs<T extends { id: string; published_at?: stri
   return logs.filter(l => !isPublishingLogDeleted(l));
 }
 
+export function isInternalBrand(name?: string | null): boolean {
+  if (!name) return true;
+  const n = name.trim().toLowerCase();
+  return (
+    n === '' ||
+    n === 'internal' ||
+    n === 'internal studio' ||
+    n === 'internal studio production' ||
+    n === 'studio in-house production' ||
+    n === 'studio in-house' ||
+    n === 'studio production' ||
+    n === 'studio internal' ||
+    n === 'studio general' ||
+    n === 'studio' ||
+    n === 'direct' ||
+    n === 'in-house' ||
+    n === 'inhouse' ||
+    n.includes('internal studio') ||
+    n.includes('studio production') ||
+    n.includes('studio in-house')
+  );
+}
+
+const DEFAULT_DELETED_CLIENT_NAMES = new Set([
+  'adad',
+  'ak',
+  'sge',
+  'ah',
+  'llbsspotlight@gmail.com',
+  'vtu23129@veltech.edu.in',
+  'srgtterg@gmail.com'
+]);
+
 export function isClientDeleted(client: { 
   id?: string; 
   full_name?: string; 
@@ -141,7 +174,24 @@ export function isClientDeleted(client: {
   if (client.id && deletedIds.has(client.id)) return true;
 
   const deletedNames = getSet(STORAGE_DELETED_CLIENT_NAMES_KEY);
-  deletedNames.add('adad'); // Ensure deleted client 'adad' is always marked deleted
+  DEFAULT_DELETED_CLIENT_NAMES.forEach(n => deletedNames.add(n));
+
+  // Check any revoked invitations from local storage
+  try {
+    const rawInvs = localStorage.getItem('di_platform_invitations_v2');
+    if (rawInvs) {
+      const parsed = JSON.parse(rawInvs);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((inv: any) => {
+          if (inv.status === 'revoked') {
+            if (inv.client_brand) deletedNames.add(inv.client_brand.trim().toLowerCase());
+            if (inv.client_name) deletedNames.add(inv.client_name.trim().toLowerCase());
+            if (inv.email) deletedNames.add(inv.email.trim().toLowerCase());
+          }
+        });
+      }
+    }
+  } catch {}
 
   const namesToCheck = [
     client.full_name,
@@ -171,37 +221,57 @@ export function filterClients<T extends {
   company_name?: string;
 }>(clients: T[]): T[] {
   if (!Array.isArray(clients)) return [];
-  return clients.filter(c => !isClientDeleted(c));
+  return clients.filter(c => {
+    if (isClientDeleted(c)) return false;
+    const brand = c.brand_name || c.company_name || c.name || c.full_name;
+    if (isInternalBrand(brand)) return false;
+    return true;
+  });
 }
 
 // Immediately purge known removed client workspaces on script evaluation
 try {
   const deletedNames = getSet(STORAGE_DELETED_CLIENT_NAMES_KEY);
-  if (!deletedNames.has('adad')) {
-    deletedNames.add('adad');
-    localStorage.setItem(STORAGE_DELETED_CLIENT_NAMES_KEY, JSON.stringify(Array.from(deletedNames)));
-  }
-
-  const rawClients = localStorage.getItem('di_platform_clients_v2');
-  if (rawClients && rawClients.toLowerCase().includes('adad')) {
-    const parsed = JSON.parse(rawClients);
-    const cleaned = parsed.filter((c: any) => 
-      c.brand_name?.toLowerCase() !== 'adad' && 
-      c.name?.toLowerCase() !== 'adad' &&
-      !c.email?.toLowerCase().includes('llbsspotlight')
-    );
-    localStorage.setItem('di_platform_clients_v2', JSON.stringify(cleaned));
-  }
+  DEFAULT_DELETED_CLIENT_NAMES.forEach(n => deletedNames.add(n));
 
   const rawInvs = localStorage.getItem('di_platform_invitations_v2');
-  if (rawInvs && rawInvs.toLowerCase().includes('adad')) {
+  if (rawInvs) {
     const parsed = JSON.parse(rawInvs);
-    const cleaned = parsed.filter((i: any) => 
-      i.client_brand?.toLowerCase() !== 'adad' &&
-      !i.email?.toLowerCase().includes('llbsspotlight')
-    );
-    localStorage.setItem('di_platform_invitations_v2', JSON.stringify(cleaned));
+    if (Array.isArray(parsed)) {
+      parsed.forEach((inv: any) => {
+        if (inv.status === 'revoked') {
+          if (inv.client_brand) deletedNames.add(inv.client_brand.trim().toLowerCase());
+          if (inv.client_name) deletedNames.add(inv.client_name.trim().toLowerCase());
+          if (inv.email) deletedNames.add(inv.email.trim().toLowerCase());
+        }
+      });
+      // Purge revoked invites from local list so they don't linger
+      const activeInvs = parsed.filter((i: any) => i.status !== 'revoked');
+      localStorage.setItem('di_platform_invitations_v2', JSON.stringify(activeInvs));
+    }
   }
+
+  localStorage.setItem(STORAGE_DELETED_CLIENT_NAMES_KEY, JSON.stringify(Array.from(deletedNames)));
+
+  const rawClients = localStorage.getItem('di_platform_clients_v2');
+  if (rawClients) {
+    const parsed = JSON.parse(rawClients);
+    if (Array.isArray(parsed)) {
+      const cleaned = parsed.filter((c: any) => !isClientDeleted(c) && !isInternalBrand(c.brand_name || c.name));
+      localStorage.setItem('di_platform_clients_v2', JSON.stringify(cleaned));
+    }
+  }
+
+  // Also clean up Supabase clients table asynchronously
+  setTimeout(async () => {
+    try {
+      for (const name of Array.from(DEFAULT_DELETED_CLIENT_NAMES)) {
+        await supabase.from('clients').delete().ilike('brand_name', name);
+        await supabase.from('clients').delete().ilike('name', name);
+        await supabase.from('clients').delete().ilike('email', name);
+      }
+    } catch {}
+  }, 100);
 } catch {}
 
 export async function deleteSingleClient(clientId: string, clientName?: string): Promise<void> {
