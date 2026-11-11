@@ -341,19 +341,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const existingCreds = typeof localStorage !== 'undefined' ? localStorage.getItem(`di_team_creds_${cleanEmail}`) : null;
     if (existingCreds) {
       markInvitationAccepted(cleanToken);
-      return { error: `An account for ${cleanEmail} already exists. This invitation link has expired. Please sign in.` };
+      return { error: `An account for ${cleanEmail} already exists. This invitation link has expired (1 user per link). Please sign in.` };
     }
 
     try {
-      const { data: existingProf } = await supabase
+      const { data: existingProfs } = await supabase
         .from('profiles')
-        .select('id, email')
-        .eq('email', cleanEmail)
-        .maybeSingle();
+        .select('id, email, avatar_url, bio');
 
-      if (existingProf) {
-        markInvitationAccepted(cleanToken);
-        return { error: `An account for ${cleanEmail} has already been registered. This invitation link has expired. Please sign in.` };
+      if (existingProfs && existingProfs.length > 0) {
+        const alreadyUsed = existingProfs.some(p => {
+          const pEmail = (p.email || '').trim().toLowerCase();
+          const pAvatar = p.avatar_url || '';
+          const pBio = p.bio || '';
+
+          if (cleanEmail && pEmail === cleanEmail) return true;
+          if (inv.id && (pAvatar.includes(inv.id) || pBio.includes(inv.id))) return true;
+          return false;
+        });
+
+        if (alreadyUsed) {
+          markInvitationAccepted(cleanToken);
+          return { error: 'This invitation link has expired because an account has already been registered with it (1 user per link). Please sign in.' };
+        }
       }
     } catch {}
 
@@ -412,12 +422,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       authUserId = crypto.randomUUID ? crypto.randomUUID() : `usr-${Date.now()}`;
     }
 
+    const tokenSignature = cleanToken.replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
     const newProfile: Profile = {
       id: authUserId,
       email: cleanEmail,
       full_name: nameToUse,
       role: roleToUse,
-      avatar_url: `token:${cleanToken.substring(0, 60)}`
+      avatar_url: `redeemed_invite:${inv.id}__token:${tokenSignature}`,
+      bio: `INV_REDEEMED:${inv.id}:${cleanEmail}`
     };
 
     // 1. Upsert Profile in database

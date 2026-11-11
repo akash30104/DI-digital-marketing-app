@@ -533,33 +533,58 @@ export async function getInvitationByToken(rawToken: string): Promise<Invitation
     }
   }
 
-  // 5. Cross-device check: Check if user already registered in Supabase profiles
+  // 5. Cross-device check: Check if token, invite ID, or user was already registered in Supabase
   try {
-    if (invEmail) {
-      const { data: profByEmail } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('email', invEmail)
-        .limit(1);
+    const safeInvId = invId ? invId.replace(/[^a-zA-Z0-9_-]/g, '') : '';
+    const safeTokenAlphanum = cleanToken.replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
 
-      if (profByEmail && profByEmail.length > 0) {
+    const { data: allProfs } = await supabase
+      .from('profiles')
+      .select('id, email, avatar_url, bio');
+
+    if (allProfs && allProfs.length > 0) {
+      const match = allProfs.find(p => {
+        const pEmail = (p.email || '').trim().toLowerCase();
+        const pAvatar = p.avatar_url || '';
+        const pBio = p.bio || '';
+
+        // 1. Matches fixed invite email
+        if (invEmail && pEmail === invEmail) return true;
+        // 2. Matches invitation ID in avatar_url or bio
+        if (safeInvId && (pAvatar.includes(safeInvId) || pBio.includes(safeInvId))) return true;
+        // 3. Matches token signature in avatar_url or bio
+        if (safeTokenAlphanum && (pAvatar.includes(safeTokenAlphanum) || pBio.includes(safeTokenAlphanum))) return true;
+
+        return false;
+      });
+
+      if (match) {
         markInvitationAccepted(cleanToken);
-        return { ...finalInv, status: 'accepted', expires_at: new Date(0).toISOString() };
+        if (invId) {
+          const rIds = getLocal<string[]>('di_redeemed_invitation_ids', []);
+          if (!rIds.includes(invId)) { rIds.push(invId); setLocal('di_redeemed_invitation_ids', rIds); }
+        }
+        return { 
+          ...finalInv, 
+          status: 'accepted', 
+          expires_at: new Date(0).toISOString() 
+        };
       }
     }
 
-    // Check if token was marked redeemed in profile avatar_url
-    const tokenProbe = cleanToken.length > 40 ? cleanToken.substring(0, 40) : cleanToken;
-    const { data: profByToken } = await supabase
-      .from('profiles')
-      .select('id, email, avatar_url')
-      .ilike('avatar_url', `%${tokenProbe}%`)
-      .limit(1);
+    // Also check invitations table if exists
+    try {
+      const { data: dbInv } = await supabase
+        .from('invitations')
+        .select('*')
+        .or(`id.eq.${invId},token.eq.${cleanToken}`)
+        .maybeSingle();
 
-    if (profByToken && profByToken.length > 0) {
-      markInvitationAccepted(cleanToken);
-      return { ...finalInv, status: 'accepted', expires_at: new Date(0).toISOString() };
-    }
+      if (dbInv && (dbInv.status === 'accepted' || dbInv.status === 'revoked')) {
+        markInvitationAccepted(cleanToken);
+        return { ...finalInv, status: dbInv.status, expires_at: new Date(0).toISOString() };
+      }
+    } catch {}
   } catch {}
 
   // Check revocation locally

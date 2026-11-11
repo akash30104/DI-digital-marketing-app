@@ -217,10 +217,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col justify-center items-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-black flex flex-col justify-center items-center p-3 sm:p-4">
+      <div className="w-full max-w-md mx-auto">
         {/* Brand Header */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-5">
           <div 
             onClick={() => {
               if (!founderExists) {
@@ -228,7 +228,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                 resetMessages();
               }
             }}
-            className={`w-20 h-20 mx-auto rounded-3xl bg-white p-2.5 flex items-center justify-center shadow-2xl mb-3 overflow-hidden border border-zinc-200 select-none ${
+            className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-2xl sm:rounded-3xl bg-white p-2 flex items-center justify-center shadow-2xl mb-2.5 overflow-hidden border border-zinc-200 select-none ${
               !founderExists 
                 ? 'cursor-pointer hover:scale-105 active:scale-95 transition-all group relative' 
                 : ''
@@ -237,15 +237,15 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
           >
             <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain pointer-events-none" />
             {!founderExists && (
-              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl sm:rounded-3xl flex items-center justify-center">
                 <span className="text-[9px] font-black uppercase text-black bg-white/95 px-1.5 py-0.5 rounded shadow">Setup 👑</span>
               </div>
             )}
           </div>
-          <h1 className="text-xl font-black tracking-[0.16em] uppercase text-white">
+          <h1 className="text-lg sm:text-xl font-black tracking-[0.16em] uppercase text-white">
             Digital Inertia
           </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-[11px] sm:text-xs text-zinc-400 mt-0.5">
             Production &amp; Social Media Management App
           </p>
           {!founderExists && (
@@ -263,10 +263,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
           )}
         </div>
 
-        {/* ALL-IN-ONE HOSTING: TOGGLE BUTTON (Hidden when in Dev Founder Mode) */}
+        {/* ALL-IN-ONE HOSTING: TOGGLE BUTTON (Responsive Mobile Grid) */}
         {!isDevFounderMode && (
-          <div className="space-y-2 mb-4">
-            <div className="p-1 bg-zinc-900 border border-zinc-800 rounded-2xl flex gap-1 shadow-xl">
+          <div className="mb-4">
+            <div className="p-1 bg-zinc-900 border border-zinc-800 rounded-2xl grid grid-cols-3 gap-1 shadow-xl">
               <button
                 type="button"
                 onClick={() => {
@@ -274,14 +274,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                   setPortalType('studio');
                   resetMessages();
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all text-center ${
                   authMode === 'login' && portalType === 'studio'
                     ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
                     : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
                 }`}
               >
-                <Users className="w-3.5 h-3.5" />
-                <span>Studio Team</span>
+                <Users className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Studio Team</span>
               </button>
 
               <button
@@ -291,14 +291,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                   setPortalType('client');
                   resetMessages();
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all text-center ${
                   authMode === 'login' && portalType === 'client'
                     ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
                     : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
                 }`}
               >
-                <Briefcase className="w-3.5 h-3.5" />
-                <span>Client Portal</span>
+                <Briefcase className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Client Portal</span>
               </button>
 
               <button
@@ -307,21 +307,21 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                   setAuthMode('invite');
                   resetMessages();
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all text-center ${
                   authMode === 'invite'
                     ? 'bg-white text-black font-black shadow-lg scale-[1.01]'
                     : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Accept Invite</span>
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Accept Invite</span>
               </button>
             </div>
           </div>
         )}
 
         {/* Form Card */}
-        <div className="bg-zinc-900 rounded-3xl shadow-xl border border-zinc-800 p-6">
+        <div className="bg-zinc-900 rounded-2xl sm:rounded-3xl shadow-xl border border-zinc-800 p-4 sm:p-6">
           {errorMessage && (
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs mb-4">
               <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-white" />
@@ -733,7 +733,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
                         <div>
                           <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                             New Password
@@ -741,9 +741,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                           <input
                             type="password"
                             required
+                            minLength={6}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Min. 6 chars"
+                            placeholder="Min. 6 characters"
                             className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                           />
                         </div>
@@ -755,18 +756,27 @@ export const AuthView: React.FC<AuthViewProps> = ({ onShowPrivacy }) => {
                           <input
                             type="password"
                             required
+                            minLength={6}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm"
+                            placeholder="Re-type password"
                             className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500"
                           />
                         </div>
                       </div>
 
+                      {/* 1 User Per Link Security Notice */}
+                      <div className="p-3 rounded-xl bg-black border border-zinc-800 text-[11px] text-zinc-400 flex items-start gap-2">
+                        <Lock className="w-4 h-4 text-white shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-white">1 User Per Link:</strong> This invitation is strictly for single use. It will immediately and permanently expire once your account is created.
+                        </span>
+                      </div>
+
                       <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white hover:bg-zinc-200 active:scale-[0.99] text-black rounded-xl sm:rounded-full text-sm font-black shadow-md transition-all disabled:opacity-50"
                       >
                         {isLoading ? 'Activating Account...' : 'Activate & Enter Workspace'}
                         <ArrowRight className="w-4 h-4" />
