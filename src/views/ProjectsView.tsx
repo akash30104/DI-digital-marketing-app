@@ -262,10 +262,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
     const clientObj = clients.find(c => c.id === clientId);
     const smmObj = teamMembers.find(m => m.id === smmId);
 
+    const isInternalChoice = !clientId || clientId === 'internal' || isInternalBrand(clientObj?.brand_name || clientObj?.company_name || clientObj?.name);
+    const chosenClientName = isInternalChoice ? 'Internal Studio' : (clientObj?.brand_name || clientObj?.company_name || clientObj?.name || 'Client');
+
     const newProj = await createProject({
       name: name.trim(),
-      client_id: clientId || '',
-      client_name: clientObj?.brand_name || clientObj?.company_name || clientObj?.name || 'Internal Studio',
+      client_id: isInternalChoice ? 'internal' : (clientId || 'internal'),
+      client_name: chosenClientName,
       smm_id: smmId || undefined,
       smm_name: smmObj?.full_name || undefined,
       assigned_editor_ids: assignedEditorIds,
@@ -336,9 +339,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
           id: `deliv-${newProj.id}-${i}`,
           recording_id: recId,
           project_id: newProj.id,
-          client_id: newProj.client_id,
-          client_name: newProj.client_name,
-          client_brand: newProj.client_name,
+          client_id: isInternal ? 'internal' : newProj.client_id,
+          client_name: clientName,
+          client_brand: clientName,
           title: dTitle,
           deliverable_type: isFullVideo ? 'full_length_video' : 'reel',
           aspect_ratio: isFullVideo ? '16:9' : '9:16',

@@ -87,8 +87,15 @@ export function filterDeliverables<T extends { id: string; created_at?: string; 
   return tasks.filter(t => !isTaskDeleted(t));
 }
 
-export function isRecordingDeleted(rec: { id: string; created_at?: string }): boolean {
+export function isRecordingDeleted(rec: { id: string; created_at?: string; folder_path?: string; title?: string }): boolean {
   if (!rec || !rec.id) return false;
+  if (
+    rec.id === 'system-channels-config' || 
+    rec.folder_path === '/system/channels' || 
+    (rec.title && rec.title.startsWith('[SystemConfig]'))
+  ) {
+    return true;
+  }
   const deletedIds = getSet(STORAGE_DELETED_RECORDINGS_KEY);
   if (deletedIds.has(rec.id)) return true;
 
@@ -107,8 +114,9 @@ export function filterRecordings<T extends { id: string; created_at?: string }>(
   return recs.filter(r => !isRecordingDeleted(r));
 }
 
-export function isPublishingLogDeleted(log: { id: string; published_at?: string; created_at?: string }): boolean {
+export function isPublishingLogDeleted(log: { id: string; published_at?: string; created_at?: string; notes?: string }): boolean {
   if (!log || !log.id) return false;
+  if (log.notes && log.notes.includes('[ChannelConfig]')) return true;
   const deletedIds = getSet(STORAGE_DELETED_PUBLISHING_KEY);
   if (deletedIds.has(log.id)) return true;
 
@@ -326,13 +334,26 @@ export async function deleteSingleClient(clientId: string, clientName?: string):
 
   // Hard delete profile from Supabase
   try {
-    await supabase.from('profiles').delete().eq('id', clientId);
+    if (clientId) {
+      await supabase.from('profiles').delete().eq('id', clientId);
+    }
+    if (clientName) {
+      await supabase.from('profiles').delete().ilike('full_name', `%${clientName}%`);
+      await supabase.from('profiles').delete().ilike('email', `%${clientName}%`);
+    }
   } catch (e) {
     console.warn('Delete profile note:', e);
   }
 
   // Also remove associated invitations for this client from local cache & Supabase
   try {
+    if (clientId) {
+      await supabase.from('invitations').delete().or(`id.eq.${clientId},token.eq.${clientId}`);
+    }
+    if (clientName) {
+      await supabase.from('invitations').delete().ilike('client_brand', clientName);
+      await supabase.from('invitations').delete().ilike('email', clientName);
+    }
     const raw = localStorage.getItem('di_platform_invitations_v2');
     if (raw) {
       const invs = JSON.parse(raw);

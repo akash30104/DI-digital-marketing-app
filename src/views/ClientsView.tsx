@@ -8,9 +8,9 @@ import {
   Briefcase, Film, CheckCircle2, Clock, ExternalLink, Search, 
   RefreshCw, User, Tv, Plus, Calendar, HardDrive, Folder, 
   MessageSquare, ChevronRight, X, Sparkles, AlertCircle, Share2,
-  Copy, Key, ShieldCheck, Eye, EyeOff, Check, Mail, Send, Trash2
+  Copy, Key, ShieldCheck, Eye, EyeOff, Check, Mail, Send, Trash2, Radio
 } from 'lucide-react';
-import { removeChannel } from '../lib/channels';
+import { fetchAllChannels, addNewChannel, removeChannel, filterChannelsForUser, ChannelItem } from '../lib/channels';
 
 interface ClientsViewProps {
   onNavigateTab?: (tab: string) => void;
@@ -58,6 +58,18 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigateTab }) => {
     mailto_url: string;
   } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Channels Management Sub-Tab
+  const [activeSubTab, setActiveSubTab] = useState<'clients' | 'channels'>('clients');
+  const [channelsList, setChannelsList] = useState<ChannelItem[]>([]);
+  const [channelFilter, setChannelFilter] = useState<'all' | 'inhouse' | 'client'>('all');
+  const [channelSearch, setChannelSearch] = useState('');
+  const [showAddChannelModal, setShowAddChannelModal] = useState(false);
+  const [newChannelName, setNewChannelName] = useState('');
+  const [channelOwnership, setChannelOwnership] = useState<'inhouse' | 'client'>('inhouse');
+  const [channelTargetClientId, setChannelTargetClientId] = useState('');
+  const [isAddingChannel, setIsAddingChannel] = useState(false);
+  const [channelError, setChannelError] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -193,9 +205,63 @@ Digital Inertia Production Team`;
     setCopiedLink(false);
   };
 
+  const loadChannels = async () => {
+    try {
+      const chans = await fetchAllChannels();
+      const filtered = filterChannelsForUser(chans, role, currentUser?.id, currentUser?.full_name);
+      setChannelsList(filtered);
+    } catch (e) {
+      console.warn('ClientsView channels load note:', e);
+    }
+  };
+
+  const handleAddNewChannel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChannelName.trim()) return;
+    setIsAddingChannel(true);
+    setChannelError(null);
+
+    try {
+      let clientObj: { id: string; name: string } | undefined;
+      if (channelOwnership === 'client' && channelTargetClientId) {
+        const found = clients.find(c => c.id === channelTargetClientId);
+        if (found) {
+          clientObj = {
+            id: found.id,
+            name: getClientBrandName(found) || found.full_name || 'Client'
+          };
+        }
+      }
+
+      await addNewChannel(newChannelName.trim(), clientObj);
+      showToast(`Channel "${newChannelName.trim()}" created & synced to all SMMs and Founder!`);
+      setNewChannelName('');
+      setChannelOwnership('inhouse');
+      setChannelTargetClientId('');
+      setShowAddChannelModal(false);
+      await loadChannels();
+    } catch (err: any) {
+      setChannelError(err.message || 'Failed to add channel.');
+    } finally {
+      setIsAddingChannel(false);
+    }
+  };
+
+  const handleDeleteChannel = async (ch: ChannelItem) => {
+    if (!window.confirm(`Are you sure you want to delete channel "${ch.name}"? This will remove it for all users.`)) return;
+    try {
+      await removeChannel(ch.id, ch.name, ch.client_id);
+      showToast(`Channel "${ch.name}" deleted.`);
+      await loadChannels();
+    } catch (err: any) {
+      showToast(`Error: ${err.message || 'Could not delete channel'}`);
+    }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     try {
+      await loadChannels();
       const [profilesRes, recsRes, delivRes, logsRes] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('recordings').select('*').order('recording_date', { ascending: false }),
@@ -268,6 +334,12 @@ Digital Inertia Production Team`;
       .on('postgres_changes', { event: '*', schema: 'public', table: 'publishing_logs' }, () => loadData())
       .subscribe();
 
+    const cSub = supabase
+      .channel('clients-view-realtime-chans')
+      .on('broadcast', { event: 'channel-added' }, () => loadChannels())
+      .on('broadcast', { event: 'channel-removed' }, () => loadChannels())
+      .subscribe();
+
     const handleSync = () => loadData();
     window.addEventListener('storage', handleSync);
     window.addEventListener('channels-updated', handleSync);
@@ -278,6 +350,7 @@ Digital Inertia Production Team`;
       supabase.removeChannel(dSub);
       supabase.removeChannel(rSub);
       supabase.removeChannel(lSub);
+      supabase.removeChannel(cSub);
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('channels-updated', handleSync);
       window.removeEventListener('focus', handleSync);
@@ -481,6 +554,20 @@ Digital Inertia Production Team`;
     }
   };
 
+  const filteredChannels = useMemo(() => {
+    return channelsList.filter(ch => {
+      if (channelFilter === 'inhouse' && (ch.client_id || ch.client_name)) return false;
+      if (channelFilter === 'client' && !ch.client_id && !ch.client_name) return false;
+      if (channelSearch.trim()) {
+        const q = channelSearch.toLowerCase();
+        const matchesName = ch.name.toLowerCase().includes(q);
+        const matchesClient = (ch.client_name || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesClient) return false;
+      }
+      return true;
+    });
+  }, [channelsList, channelFilter, channelSearch]);
+
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-200">
       {/* Toast */}
@@ -496,50 +583,85 @@ Digital Inertia Production Team`;
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-widest uppercase bg-zinc-800 border border-zinc-700 text-zinc-300">
-              Client Management
+              {activeSubTab === 'clients' ? 'Client Workspace' : 'Broadcast Networks'}
             </span>
             <span className="text-zinc-600">•</span>
             <span className="text-xs font-medium text-zinc-400">
-              {clients.length} Registered Brand {clients.length === 1 ? 'Client' : 'Clients'}
+              {activeSubTab === 'clients' 
+                ? `${clients.length} Registered Brand ${clients.length === 1 ? 'Client' : 'Clients'}`
+                : `${channelsList.length} Connected ${channelsList.length === 1 ? 'Channel' : 'Channels'}`}
             </span>
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <Briefcase className="w-6 h-6 text-zinc-300" />
-            <span>Client Partners &amp; Works</span>
+            {activeSubTab === 'clients' ? (
+              <>
+                <Briefcase className="w-6 h-6 text-zinc-300" />
+                <span>Client Partners &amp; Works</span>
+              </>
+            ) : (
+              <>
+                <Radio className="w-6 h-6 text-zinc-300" />
+                <span>Official &amp; Client Channels</span>
+              </>
+            )}
           </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Dedicated client overview: shoots, editing cut progress, Google Drive review links, and published works.
+            {activeSubTab === 'clients'
+              ? 'Dedicated client overview: shoots, editing cut progress, Google Drive review links, and published works.'
+              : 'Add, manage, and broadcast channels for in-house studio productions and client partner brands.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {(isFounder || isSMM) && (
-            <button
-              onClick={() => {
-                resetRegisterModal();
-                setShowRegisterClientModal(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black bg-white text-black hover:bg-zinc-200 transition shadow-sm"
-            >
-              <Mail className="w-4 h-4" />
-              <span>Invite Client Partner</span>
-            </button>
-          )}
+          {activeSubTab === 'clients' ? (
+            <>
+              {(isFounder || isSMM) && (
+                <button
+                  onClick={() => {
+                    resetRegisterModal();
+                    setShowRegisterClientModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black bg-white text-black hover:bg-zinc-200 transition shadow-sm"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Invite Client Partner</span>
+                </button>
+              )}
 
-          <button
-            onClick={() => {
-              const matched = selectedClientId !== 'all' 
-                ? clients.find(c => c.id === selectedClientId) 
-                : clients[0];
-              setTargetClientId(matched?.id || '');
-              setTargetBrandName(matched ? getClientBrandName(matched) : '');
-              setShowAddWorkModal(true);
-            }}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-zinc-800 border border-zinc-700 text-white hover:bg-zinc-700 transition shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Work for Client</span>
-          </button>
+              <button
+                onClick={() => {
+                  const matched = selectedClientId !== 'all' 
+                    ? clients.find(c => c.id === selectedClientId) 
+                    : clients[0];
+                  setTargetClientId(matched?.id || '');
+                  setTargetBrandName(matched ? getClientBrandName(matched) : '');
+                  setShowAddWorkModal(true);
+                }}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-zinc-800 border border-zinc-700 text-white hover:bg-zinc-700 transition shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Work for Client</span>
+              </button>
+            </>
+          ) : (
+            <>
+              {(isFounder || isSMM) && (
+                <button
+                  onClick={() => {
+                    setChannelError(null);
+                    setNewChannelName('');
+                    setChannelOwnership('inhouse');
+                    setChannelTargetClientId('');
+                    setShowAddChannelModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black bg-white text-black hover:bg-zinc-200 transition shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Channel</span>
+                </button>
+              )}
+            </>
+          )}
 
           <button
             onClick={() => { setRefreshing(true); loadData(); }}
@@ -551,7 +673,36 @@ Digital Inertia Production Team`;
         </div>
       </div>
 
-      {/* CLIENT CARDS SELECTOR / STRIP */}
+      {/* Sub-tab Switcher: Clients vs Channels */}
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
+        <button
+          onClick={() => setActiveSubTab('clients')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${
+            activeSubTab === 'clients'
+              ? 'bg-white text-black shadow-md'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
+          }`}
+        >
+          <Briefcase className="w-3.5 h-3.5" />
+          <span>Client Partners ({clients.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('channels')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${
+            activeSubTab === 'channels'
+              ? 'bg-white text-black shadow-md'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5" />
+          <span>Official &amp; Client Channels ({channelsList.length})</span>
+        </button>
+      </div>
+
+      {activeSubTab === 'clients' && (
+        <>
+          {/* CLIENT CARDS SELECTOR / STRIP */}
       {clients.length === 0 ? (
         <div className="p-8 rounded-3xl bg-zinc-900 border border-zinc-800 text-center space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 mx-auto flex items-center justify-center text-zinc-400">
@@ -771,6 +922,152 @@ Digital Inertia Production Team`;
               </div>
             );
           })()}
+        </div>
+      )}
+        </>
+      )}
+
+      {/* CHANNELS MANAGEMENT SUB-TAB */}
+      {activeSubTab === 'channels' && (
+        <div className="space-y-4">
+          {/* Channels Filter and Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900/60 p-3 rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setChannelFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                  channelFilter === 'all' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white bg-zinc-800'
+                }`}
+              >
+                All Channels ({channelsList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setChannelFilter('inhouse')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                  channelFilter === 'inhouse' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white bg-zinc-800'
+                }`}
+              >
+                Studio In-House ({channelsList.filter(c => !c.client_id && !c.client_name).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setChannelFilter('client')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                  channelFilter === 'client' ? 'bg-white text-black font-black shadow-sm' : 'text-zinc-400 hover:text-white bg-zinc-800'
+                }`}
+              >
+                Client Channels ({channelsList.filter(c => Boolean(c.client_id || c.client_name)).length})
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Search channels..."
+                value={channelSearch}
+                onChange={(e) => setChannelSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-black border border-zinc-800 text-white focus:outline-none focus:border-zinc-500 font-medium"
+              />
+            </div>
+          </div>
+
+          {/* Channels Cards Grid */}
+          {filteredChannels.length === 0 ? (
+            <div className="p-8 text-center bg-zinc-900 border border-zinc-800 rounded-3xl space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 mx-auto flex items-center justify-center text-zinc-400">
+                <Radio className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-white">No Channels Found</h3>
+              <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                {channelSearch ? 'No channels matched your search filter.' : 'Click "+ Add Channel" above to add your official broadcast channel.'}
+              </p>
+              {(isFounder || isSMM) && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddChannelModal(true)}
+                  className="px-4 py-2 rounded-xl text-xs font-black bg-white text-black hover:bg-zinc-200 transition shadow-sm"
+                >
+                  + Add Channel
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {filteredChannels.map(ch => {
+                const isDefault = ch.is_default || ch.source === 'default';
+                const isClient = Boolean(ch.client_id || ch.client_name);
+
+                return (
+                  <div
+                    key={ch.id}
+                    className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition space-y-3 group relative"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-bold shrink-0">
+                          <Radio className="w-4 h-4 text-zinc-300" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-black text-white text-sm truncate group-hover:text-zinc-200 transition">
+                            {ch.name}
+                          </h4>
+                          <span className="text-[10px] text-zinc-500 truncate block">
+                            {isDefault ? 'Official Studio Channel' : isClient ? `Client: ${ch.client_name || ch.name}` : 'In-House Studio Channel'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isDefault ? (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
+                            Studio
+                          </span>
+                        ) : isClient ? (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white text-black">
+                            Client
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
+                            In-House
+                          </span>
+                        )}
+
+                        {!isDefault && (isFounder || isSMM) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteChannel(ch)}
+                            className="p-1 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                            title="Delete Channel"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs">
+                      <span className="text-[10px] text-zinc-500">
+                        {isClient ? 'Visible to Client, Founder & SMM' : 'Visible to Founder & all SMMs'}
+                      </span>
+                      {onNavigateTab && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateTab('publishing')}
+                          className="flex items-center gap-1 text-[11px] font-bold text-zinc-300 hover:text-white transition"
+                        >
+                          <span>Publish</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1095,6 +1392,145 @@ Digital Inertia Production Team`;
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD CHANNEL (FOUNDER & SMM) */}
+      {showAddChannelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-white text-black flex items-center justify-center font-bold">
+                  <Radio className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-black text-white">Add Broadcast Channel</h3>
+              </div>
+              <button
+                onClick={() => setShowAddChannelModal(false)}
+                className="text-zinc-500 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {channelError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400">
+                {channelError}
+              </div>
+            )}
+
+            <form onSubmit={handleAddNewChannel} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Channel Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Unfiltered Podcast India or Tech Talk Shorts"
+                  value={newChannelName}
+                  onChange={(e) => setNewChannelName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-black border border-zinc-800 text-white font-medium focus:outline-none focus:border-zinc-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Channel Ownership &amp; Visibility *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChannelOwnership('inhouse');
+                      setChannelTargetClientId('');
+                    }}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      channelOwnership === 'inhouse'
+                        ? 'border-white bg-zinc-800 text-white'
+                        : 'border-zinc-800 bg-black text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>Studio In-House</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                      Visible only to Founder &amp; all SMMs. Clients never see it.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setChannelOwnership('client')}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      channelOwnership === 'client'
+                        ? 'border-white bg-zinc-800 text-white'
+                        : 'border-zinc-800 bg-black text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5" />
+                      <span>Client Brand</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                      Visible to Client, Founder &amp; all SMMs.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {channelOwnership === 'client' && (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                    Assign to Client Brand *
+                  </label>
+                  <select
+                    required
+                    value={channelTargetClientId}
+                    onChange={(e) => setChannelTargetClientId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-black border border-zinc-800 text-white font-medium focus:outline-none focus:border-zinc-500"
+                  >
+                    <option value="">Select Client Brand...</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {getClientBrandName(c) || c.full_name || c.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="p-3 rounded-xl bg-black border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+                <div className="font-bold text-zinc-300 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-white" />
+                  <span>Real-Time Database Sync</span>
+                </div>
+                <p>
+                  This channel will be saved immediately to the database and broadcasted in real time to all Social Media Managers and Founder.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddChannelModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-800 text-zinc-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAddingChannel || !newChannelName.trim()}
+                  className="px-5 py-2 rounded-xl text-xs font-black bg-white text-black hover:bg-zinc-200 transition shadow disabled:opacity-50"
+                >
+                  {isAddingChannel ? 'Saving Channel...' : 'Save & Broadcast Channel'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

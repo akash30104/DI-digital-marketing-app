@@ -20,7 +20,7 @@ import {
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, getCachedTargets, TargetConfig } from '../lib/targets';
 import { submitPublishingProof, createAuditLog } from '../lib/api';
-import { fetchAllChannels, ChannelItem } from '../lib/channels';
+import { fetchAllChannels, addNewChannel, ChannelItem } from '../lib/channels';
 
 export const SocialMediaPublishing: React.FC = () => {
   const { currentUser } = useAuth();
@@ -49,6 +49,11 @@ export const SocialMediaPublishing: React.FC = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Quick Channel Add
+  const [showInlineAddChannel, setShowInlineAddChannel] = useState(false);
+  const [quickChannelName, setQuickChannelName] = useState('');
+  const [isSavingQuickChannel, setIsSavingQuickChannel] = useState(false);
 
   const CHANNEL_PRESETS = [
     'Digital Inertia',
@@ -979,7 +984,7 @@ export const SocialMediaPublishing: React.FC = () => {
                 />
 
                 {/* Channel Suggestions */}
-                <div className="flex flex-wrap gap-1.5 mt-2">
+                <div className="flex flex-wrap gap-1.5 mt-2 items-center">
                   {(availableChannels.length > 0 ? availableChannels.map(c => c.name) : CHANNEL_PRESETS).map((preset) => (
                     <button
                       key={preset}
@@ -994,6 +999,58 @@ export const SocialMediaPublishing: React.FC = () => {
                       {preset}
                     </button>
                   ))}
+
+                  {showInlineAddChannel ? (
+                    <div className="flex items-center gap-1.5 mt-1 w-full sm:w-auto">
+                      <input
+                        type="text"
+                        placeholder="New channel name..."
+                        value={quickChannelName}
+                        onChange={(e) => setQuickChannelName(e.target.value)}
+                        className="px-2.5 py-1 text-xs rounded-lg bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-white font-medium"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        disabled={isSavingQuickChannel || !quickChannelName.trim()}
+                        onClick={async () => {
+                          if (!quickChannelName.trim()) return;
+                          setIsSavingQuickChannel(true);
+                          try {
+                            const updated = await addNewChannel(quickChannelName.trim());
+                            setAvailableChannels(updated);
+                            setChannelName(quickChannelName.trim());
+                            setQuickChannelName('');
+                            setShowInlineAddChannel(false);
+                            showToast(`Channel "${quickChannelName.trim()}" added & selected!`);
+                          } catch (e: any) {
+                            showToast(e.message || 'Failed to add channel');
+                          } finally {
+                            setIsSavingQuickChannel(false);
+                          }
+                        }}
+                        className="px-3 py-1 rounded-lg text-xs font-black bg-white text-black hover:bg-zinc-200 transition shrink-0 disabled:opacity-50"
+                      >
+                        {isSavingQuickChannel ? 'Adding...' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowInlineAddChannel(false); setQuickChannelName(''); }}
+                        className="p-1 text-zinc-400 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowInlineAddChannel(true)}
+                      className="text-[10px] font-bold px-2.5 py-1 rounded-full border border-dashed border-zinc-600 hover:border-white text-zinc-300 hover:text-white bg-zinc-900 flex items-center gap-1 transition"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                      <span>Add Channel</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

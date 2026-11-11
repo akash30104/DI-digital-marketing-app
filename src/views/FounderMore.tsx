@@ -272,6 +272,14 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
     fetchTargets();
     fetchTeam();
     loadChannels();
+
+    const handleSync = () => loadChannels();
+    window.addEventListener('channels-updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('channels-updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, []);
 
   const clientProfiles = profiles.filter(p => 

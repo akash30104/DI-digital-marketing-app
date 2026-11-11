@@ -88,7 +88,11 @@ export function cacheCustomChannels(channels: ChannelItem[]): void {
 }
 
 /**
- * Syncs custom channels and deleted blacklist to Supabase across Founder and SMM accounts
+ * Syncs custom channels and deleted blacklist to Supabase across Founder and SMM accounts.
+ * Uses 3-layer persistence:
+ * Layer 1: Dedicated row in public.recordings ('system-channels-config')
+ * Layer 2: public.profiles.avatar_url (guaranteed to exist in DB)
+ * Layer 3: public.publishing_logs with platform: 'other' and [ChannelConfig] tag
  */
 async function syncCustomChannelsToSupabase(
   customChannels: ChannelItem[],
@@ -97,62 +101,63 @@ async function syncCustomChannelsToSupabase(
   const channelsJson = JSON.stringify(customChannels);
   const delList = deletedChannels || getDeletedChannels();
   const deletedJson = JSON.stringify(delList);
+  const today = new Date().toISOString().split('T')[0];
 
-  // 1. Sync to the authenticated user's own profile bio (guaranteed allowed by Supabase RLS for any SMM or Founder)
+  let currentUserId: string | null = null;
   try {
     const { data: authData } = await supabase.auth.getUser();
-    const currentUserId = authData?.user?.id;
+    currentUserId = authData?.user?.id || null;
+  } catch {}
 
-    if (currentUserId) {
-      const { data: myProfile } = await supabase
-        .from('profiles')
-        .select('bio')
-        .eq('id', currentUserId)
-        .maybeSingle();
+  // 1. Layer 1: Dedicated row in public.recordings (guaranteed read/write for Founder & SMM)
+  try {
+    const configPayload = {
+      id: 'system-channels-config',
+      title: '[SystemConfig] Official & Client Channels',
+      recording_date: today,
+      date_received: today,
+      hard_disk_name: 'System Config',
+      folder_path: '/system/channels',
+      notes: JSON.stringify({ channels: customChannels, deleted: delList }),
+      registered_by: currentUserId || null
+    };
 
-      let existingBio = myProfile?.bio || '';
-      const targetsMatch = existingBio.match(/(TARGETS:[^\n]+)/);
-      const targetsPrefix = targetsMatch ? targetsMatch[1] : '';
-
-      const parts: string[] = [];
-      if (targetsPrefix) parts.push(targetsPrefix);
-      parts.push(`CHANNELS:${channelsJson}`);
-      parts.push(`DELETED_CHANNELS:${deletedJson}`);
-
-      await supabase
-        .from('profiles')
-        .update({ bio: parts.join('\n') })
-        .eq('id', currentUserId);
-    }
+    const { error: rErr } = await supabase.from('recordings').upsert([configPayload]);
+    if (rErr) console.warn('Recordings system-channels-config upsert note:', rErr);
   } catch (err) {
-    console.warn('Could not sync channels to current user profile bio:', err);
+    console.warn('Could not sync channels to recordings table:', err);
   }
 
-  // 2. Also try updating founder profile bio if founder is logged in
+  // 2. Layer 2: Sync to authenticated user's profile avatar_url (valid column, safe fallback)
+  if (currentUserId) {
+    try {
+      const payloadString = `CHANNELS:${encodeURIComponent(channelsJson)}__DELETED:${encodeURIComponent(deletedJson)}`;
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: payloadString, updated_at: new Date().toISOString() })
+        .eq('id', currentUserId);
+    } catch (err) {
+      console.warn('Could not sync channels to user profile avatar_url:', err);
+    }
+  }
+
+  // 3. Layer 3: Also update founder profile if founder is signed in
   try {
     const { data: founderProfile } = await supabase
       .from('profiles')
-      .select('id, bio')
+      .select('id')
       .eq('role', 'founder')
       .limit(1)
       .maybeSingle();
 
-    if (founderProfile) {
-      let existingBio = founderProfile.bio || '';
-      const targetsMatch = existingBio.match(/(TARGETS:[^\n]+)/);
-      const targetsPrefix = targetsMatch ? targetsMatch[1] : '';
-
-      const parts: string[] = [];
-      if (targetsPrefix) parts.push(targetsPrefix);
-      parts.push(`CHANNELS:${channelsJson}`);
-      parts.push(`DELETED_CHANNELS:${deletedJson}`);
-
+    if (founderProfile && founderProfile.id === currentUserId) {
+      const payloadString = `CHANNELS:${encodeURIComponent(channelsJson)}__DELETED:${encodeURIComponent(deletedJson)}`;
       await supabase
         .from('profiles')
-        .update({ bio: parts.join('\n') })
+        .update({ avatar_url: payloadString, updated_at: new Date().toISOString() })
         .eq('id', founderProfile.id);
     }
-  } catch (err) {}
+  } catch {}
 }
 
 /**
@@ -162,24 +167,54 @@ async function loadCustomChannelsFromSupabase(): Promise<{
   channels: ChannelItem[];
   deleted: string[];
 }> {
+  const channelMap = new Map<string, ChannelItem>();
+  const deletedSet = new Set<string>();
+
+  // 1. Load from public.recordings ('system-channels-config')
   try {
-    // Read profiles of all founders and social media managers
+    const { data: recs } = await supabase
+      .from('recordings')
+      .select('notes')
+      .eq('folder_path', '/system/channels')
+      .limit(5);
+
+    if (recs && recs.length > 0) {
+      recs.forEach(r => {
+        if (!r.notes) return;
+        try {
+          const parsed = JSON.parse(r.notes);
+          if (parsed.channels && Array.isArray(parsed.channels)) {
+            parsed.channels.forEach((c: ChannelItem) => {
+              if (c && c.name && !channelMap.has(c.name.toLowerCase())) {
+                channelMap.set(c.name.toLowerCase(), c);
+              }
+            });
+          }
+          if (parsed.deleted && Array.isArray(parsed.deleted)) {
+            parsed.deleted.forEach((d: string) => deletedSet.add(d));
+          }
+        } catch {}
+      });
+    }
+  } catch (err) {
+    console.warn('Could not read channels from recordings:', err);
+  }
+
+  // 2. Load from profiles avatar_url
+  try {
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, role, bio')
+      .select('id, role, avatar_url')
       .or('role.eq.founder,role.eq.social_media_manager');
 
     if (profiles && profiles.length > 0) {
-      const channelMap = new Map<string, ChannelItem>();
-      const deletedSet = new Set<string>();
-
       profiles.forEach(p => {
-        if (!p.bio) return;
-
-        const match = p.bio.match(/CHANNELS:([^\n]+)/);
-        if (match && match[1]) {
-          try {
-            const list: ChannelItem[] = JSON.parse(match[1]);
+        if (!p.avatar_url || !p.avatar_url.includes('CHANNELS:')) return;
+        try {
+          const cMatch = p.avatar_url.match(/CHANNELS:([^_]+)/);
+          if (cMatch && cMatch[1]) {
+            const raw = decodeURIComponent(cMatch[1]);
+            const list: ChannelItem[] = JSON.parse(raw);
             if (Array.isArray(list)) {
               list.forEach(c => {
                 if (c && c.name && !channelMap.has(c.name.toLowerCase())) {
@@ -187,29 +222,77 @@ async function loadCustomChannelsFromSupabase(): Promise<{
                 }
               });
             }
-          } catch (e) {}
-        }
+          }
 
-        const delMatch = p.bio.match(/DELETED_CHANNELS:([^\n]+)/);
-        if (delMatch && delMatch[1]) {
-          try {
-            const dList: string[] = JSON.parse(delMatch[1]);
+          const dMatch = p.avatar_url.match(/DELETED:([^\s]+)/);
+          if (dMatch && dMatch[1]) {
+            const rawD = decodeURIComponent(dMatch[1]);
+            const dList: string[] = JSON.parse(rawD);
             if (Array.isArray(dList)) {
               dList.forEach(d => deletedSet.add(d));
             }
-          } catch (e) {}
-        }
+          }
+        } catch {}
       });
-
-      return {
-        channels: Array.from(channelMap.values()),
-        deleted: Array.from(deletedSet)
-      };
     }
   } catch (err) {
-    console.warn('Could not read channels from Supabase profiles:', err);
+    console.warn('Could not read channels from profiles avatar_url:', err);
   }
-  return { channels: [], deleted: [] };
+
+  // 3. Load from publishing_logs with [ChannelConfig]
+  try {
+    const { data: logs } = await supabase
+      .from('publishing_logs')
+      .select('channel_name, notes, published_at')
+      .ilike('notes', '%[ChannelConfig]%')
+      .order('published_at', { ascending: false })
+      .limit(100);
+
+    if (logs && logs.length > 0) {
+      logs.forEach(l => {
+        const payloadMatch = l.notes?.match(/\[Payload:\s*([^\]]+)\]/i);
+        if (payloadMatch && payloadMatch[1]) {
+          try {
+            const parsed: ChannelItem = JSON.parse(decodeURIComponent(payloadMatch[1].trim()));
+            if (parsed && parsed.name && !channelMap.has(parsed.name.toLowerCase())) {
+              channelMap.set(parsed.name.toLowerCase(), parsed);
+              return;
+            }
+          } catch {}
+        }
+
+        const name = (l.channel_name || '').trim();
+        if (name && !channelMap.has(name.toLowerCase())) {
+          let clientId: string | null = null;
+          let clientName: string | null = null;
+          let isClient = false;
+          if (l.notes) {
+            const cMatch = l.notes.match(/\[Client:\s*([^\]]+)\]/i);
+            const idMatch = l.notes.match(/\[ClientId:\s*([^\]]+)\]/i);
+            const typeMatch = l.notes.match(/\[Type:\s*([^\]]+)\]/i);
+            if (cMatch && cMatch[1]) clientName = cMatch[1].trim();
+            if (idMatch && idMatch[1]) clientId = idMatch[1].trim();
+            if (typeMatch && typeMatch[1].trim() === 'client') isClient = true;
+          }
+          channelMap.set(name.toLowerCase(), {
+            id: `logged-${name.toLowerCase().replace(/\s+/g, '-')}`,
+            name,
+            client_id: clientId,
+            client_name: clientName,
+            is_default: false,
+            source: isClient ? 'client' : 'custom'
+          });
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Could not read channels from publishing_logs:', err);
+  }
+
+  return {
+    channels: Array.from(channelMap.values()),
+    deleted: Array.from(deletedSet)
+  };
 }
 
 /**
@@ -438,15 +521,29 @@ export async function addNewChannel(
   // Backup to publishing_logs with [ChannelConfig] tag (guaranteed write permissions for SMM and Founder)
   try {
     const isInternal = !client?.id && !client?.name;
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUserId = authData?.user?.id || null;
+
     await supabase.from('publishing_logs').insert([{
       channel_name: cleanName,
-      platform: 'youtube',
-      notes: `[ChannelConfig] [Type: ${isInternal ? 'inhouse' : 'client'}] [Client: ${client?.name || ''}] [ClientId: ${client?.id || ''}]`,
-      published_at: new Date().toISOString()
+      platform: 'other', // Must be 'other' to satisfy database platform check constraint!
+      notes: `[ChannelConfig] [Type: ${isInternal ? 'inhouse' : 'client'}] [Client: ${client?.name || ''}] [ClientId: ${client?.id || ''}] [Payload: ${encodeURIComponent(JSON.stringify(newChannel))}]`,
+      published_at: new Date().toISOString(),
+      published_by: currentUserId
     }]);
   } catch (e) {
     console.warn('Publishing logs channel sync note:', e);
   }
+
+  // Broadcast realtime event across all open tabs/devices
+  try {
+    const chan = supabase.channel('channels-realtime');
+    chan.send({
+      type: 'broadcast',
+      event: 'channel-added',
+      payload: { channel: newChannel }
+    });
+  } catch {}
 
   window.dispatchEvent(new Event('storage'));
   window.dispatchEvent(new CustomEvent('channels-updated'));
@@ -544,7 +641,17 @@ export async function removeChannel(
     }
   }
 
-  // 5. Notify all components
+  // 5. Broadcast realtime event
+  try {
+    const chan = supabase.channel('channels-realtime');
+    chan.send({
+      type: 'broadcast',
+      event: 'channel-removed',
+      payload: { channelId, channelName }
+    });
+  } catch {}
+
+  // 6. Notify all components
   window.dispatchEvent(new Event('storage'));
   window.dispatchEvent(new CustomEvent('channels-updated'));
 

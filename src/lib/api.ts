@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { filterProjects, filterClients, deleteSingleProject, deleteSingleClient, isInternalBrand } from './deletionFilter';
+import { filterProjects, filterClients, deleteSingleProject, deleteSingleClient, isInternalBrand, isClientDeleted } from './deletionFilter';
 import { 
   Client, Project, SocialChannel, Invitation, Deliverable, 
   VideoVersion, ApprovalFeedback, PublishingProof, NotificationItem, 
@@ -452,7 +452,8 @@ export async function fetchInvitations(): Promise<Invitation[]> {
   const cleanList = localList.filter(i => 
     i.status !== 'revoked' && 
     !deletedInvs.has(i.id) && 
-    !deletedInvs.has(i.token)
+    !deletedInvs.has(i.token) &&
+    !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email })
   );
 
   // Permanently purge revoked or deleted invitations from localStorage
@@ -494,7 +495,12 @@ export async function fetchInvitations(): Promise<Invitation[]> {
   });
 
   // Filter out any revoked or explicitly deleted items
-  return synced.filter(i => i.status !== 'revoked' && !deletedInvs.has(i.id) && !deletedInvs.has(i.token));
+  return synced.filter(i => 
+    i.status !== 'revoked' && 
+    !deletedInvs.has(i.id) && 
+    !deletedInvs.has(i.token) && 
+    !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email })
+  );
 }
 
 export const getInvitations = fetchInvitations;
@@ -734,6 +740,7 @@ export async function deleteInvitation(idOrToken: string, tokenParam?: string): 
 // USER PROFILES & SUSPENSION
 // ==============================================================================
 export async function fetchProfiles(): Promise<Profile[]> {
+  let list: Profile[] = [];
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -741,12 +748,15 @@ export async function fetchProfiles(): Promise<Profile[]> {
       .order('created_at', { ascending: false });
 
     if (!error && data && data.length > 0) {
-      return data as Profile[];
+      list = data as Profile[];
     }
   } catch {
     // fallback
   }
-  return getLocal<Profile[]>(STORAGE_KEYS.PROFILES, []);
+  if (list.length === 0) {
+    list = getLocal<Profile[]>(STORAGE_KEYS.PROFILES, []);
+  }
+  return list.filter(p => !isClientDeleted(p));
 }
 
 export const getProfiles = fetchProfiles;

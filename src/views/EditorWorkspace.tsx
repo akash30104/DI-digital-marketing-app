@@ -393,7 +393,15 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           : 0;
 
         let { isClientWork, clientBrandName } = extractClientBrandInfo(rec.notes, rec.title, podDelivs, clientProfiles);
-        if (isInternalBrand(rec.hard_disk_name) || isInternalBrand(clientBrandName)) {
+        if (
+          isInternalBrand(rec.hard_disk_name) || 
+          isInternalBrand(clientBrandName) || 
+          !clientBrandName || 
+          rec.notes?.toLowerCase().includes('studio internal') ||
+          rec.notes?.toLowerCase().includes('internal studio') ||
+          rec.title?.toLowerCase().includes('studio internal') ||
+          rec.title?.toLowerCase().includes('internal studio')
+        ) {
           isClientWork = false;
           clientBrandName = '';
         }
@@ -414,8 +422,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           completedCuts,
           progressPercentage,
           isMyPodcast,
-          isClientWork,
-          clientBrandName
+          isClientWork: isClientWork && !isInternalBrand(clientBrandName) && Boolean(clientBrandName),
+          clientBrandName: (isClientWork && !isInternalBrand(clientBrandName)) ? clientBrandName : ''
         });
 
         // Mark associated project handled
@@ -524,7 +532,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           progressPercentage,
           isMyPodcast,
           isClientWork: !isInternalBrand(proj.client_name) && Boolean(proj.client_id && proj.client_id !== 'internal'),
-          clientBrandName: !isInternalBrand(proj.client_name) ? (proj.client_name || 'Client') : ''
+          clientBrandName: (!isInternalBrand(proj.client_name) && Boolean(proj.client_id && proj.client_id !== 'internal')) ? (proj.client_name || 'Client') : ''
         });
 
         handledProjectIds.add(proj.id);
@@ -586,7 +594,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             progressPercentage,
             isMyPodcast,
             isClientWork: !isInternalBrand(firstDel.client_brand || firstDel.client_name) && Boolean(firstDel.client_id && firstDel.client_id !== 'internal'),
-            clientBrandName: !isInternalBrand(firstDel.client_brand || firstDel.client_name) ? (firstDel.client_brand || firstDel.client_name || 'Client') : ''
+            clientBrandName: (!isInternalBrand(firstDel.client_brand || firstDel.client_name) && Boolean(firstDel.client_id && firstDel.client_id !== 'internal')) ? (firstDel.client_brand || firstDel.client_name || 'Client') : ''
           });
         }
       }
