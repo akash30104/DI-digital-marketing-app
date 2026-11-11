@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { 
   purgeAllDeliverables, purgeAllRecordings, purgeAllPublishingHistory,
+  purgeAllProjects, purgeAllClients, purgeAllProjectsTasksAndClients,
   isClientDeleted, isInternalBrand
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, saveDailyTargets } from '../lib/targets';
@@ -245,14 +246,32 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
     }
   };
 
+  const handleDeleteProjectsTasksAndClients = async () => {
+    const ok = window.confirm('⚠️ Are you sure you want to delete ALL projects, all tasks (shoots/deliverables), and all clients? This will reset all project boards, tasks, and client lists to 0.');
+    if (!ok) return;
+
+    setIsCleaning(true);
+    try {
+      await purgeAllProjectsTasksAndClients();
+      showCleanToast('All projects, tasks, and clients permanently deleted! 🧹');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e: any) {
+      alert(`Failed to delete data: ${e.message}`);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   const handleFullReset = async () => {
-    const ok = window.confirm('🚨 FULL SYSTEM RESET: This will permanently delete ALL tasks, posted reels, recordings, and non-founder users. Are you absolutely sure?');
+    const ok = window.confirm('🚨 FULL SYSTEM RESET: This will permanently delete ALL tasks, posted reels, recordings, projects, clients, and non-founder users. Are you absolutely sure?');
     if (!ok) return;
     setIsCleaning(true);
     try {
       await purgeAllPublishingHistory();
       await purgeAllRecordings();
       await purgeAllDeliverables();
+      await purgeAllProjects();
+      await purgeAllClients();
 
       try {
         await supabase.from('profiles').delete().neq('role', 'founder');
@@ -261,6 +280,7 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
       }
       await fetchTeam();
       showCleanToast('System completely reset to fresh state! 🎉');
+      setTimeout(() => window.location.reload(), 1000);
     } catch (e: any) {
       alert(`Reset failed: ${e.message}`);
     } finally {
@@ -790,6 +810,26 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
                 >
                   <Trash2 className="w-3.5 h-3.5 inline mr-1" />
                   Delete Team Users
+                </button>
+              </div>
+
+              {/* Delete All Projects, Tasks & Clients */}
+              <div className="p-4 rounded-2xl bg-black border border-red-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-white text-sm flex items-center gap-1.5">
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                    <span>Delete All Projects, Tasks &amp; Clients</span>
+                  </h4>
+                  <p className="text-xs text-zinc-400">Permanently deletes all active projects, editor video tasks, footage shoots, and client accounts across the platform.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isCleaning}
+                  onClick={handleDeleteProjectsTasksAndClients}
+                  className="px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-white text-xs font-bold transition-all border border-red-500/40 active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                  Delete Projects, Tasks &amp; Clients
                 </button>
               </div>
 

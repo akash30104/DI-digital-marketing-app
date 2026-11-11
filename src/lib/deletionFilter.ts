@@ -3,6 +3,8 @@ import { supabase } from './supabase';
 const STORAGE_PURGED_TASKS_KEY = 'STUDIO_PURGED_ALL_TASKS_AT';
 const STORAGE_PURGED_RECORDINGS_KEY = 'STUDIO_PURGED_ALL_RECORDINGS_AT';
 const STORAGE_PURGED_PUBLISHING_KEY = 'STUDIO_PURGED_ALL_PUBLISHING_AT';
+const STORAGE_PURGED_PROJECTS_KEY = 'STUDIO_PURGED_ALL_PROJECTS_AT';
+const STORAGE_PURGED_CLIENTS_KEY = 'STUDIO_PURGED_ALL_CLIENTS_AT';
 const STORAGE_DELETED_DELIVERABLES_KEY = 'STUDIO_DELETED_DELIVERABLE_IDS';
 const STORAGE_DELETED_RECORDINGS_KEY = 'STUDIO_DELETED_RECORDING_IDS';
 const STORAGE_DELETED_PUBLISHING_KEY = 'STUDIO_DELETED_PUBLISHING_IDS';
@@ -54,6 +56,16 @@ export function isTaskDeleted(task: {
   const deletedIds = getSet(STORAGE_DELETED_DELIVERABLES_KEY);
   if (deletedIds.has(task.id)) return true;
 
+  const purgeAt = localStorage.getItem(STORAGE_PURGED_TASKS_KEY);
+  if (purgeAt) {
+    if (task.updated_at && new Date(task.updated_at).getTime() > new Date(purgeAt).getTime()) {
+      return false;
+    }
+    if (!task.created_at || new Date(task.created_at).getTime() <= new Date(purgeAt).getTime()) {
+      return true;
+    }
+  }
+
   // Active work with edited video links or progress is never deleted
   if ((task.progress_percentage || 0) > 0 || task.final_video_link || task.preview_link) {
     return false;
@@ -66,18 +78,6 @@ export function isTaskDeleted(task: {
       return false;
     }
   } catch {}
-
-  const purgeAt = localStorage.getItem(STORAGE_PURGED_TASKS_KEY);
-  if (purgeAt) {
-    // If updated after the purge, it is active
-    if (task.updated_at && new Date(task.updated_at).getTime() > new Date(purgeAt).getTime()) {
-      return false;
-    }
-    // Only purge tasks that have a created_at strictly older than the purge timestamp
-    if (task.created_at && new Date(task.created_at).getTime() <= new Date(purgeAt).getTime()) {
-      return true;
-    }
-  }
 
   return false;
 }
@@ -101,7 +101,7 @@ export function isRecordingDeleted(rec: { id: string; created_at?: string; folde
 
   const purgeAt = localStorage.getItem(STORAGE_PURGED_RECORDINGS_KEY);
   if (purgeAt) {
-    if (rec.created_at && new Date(rec.created_at).getTime() <= new Date(purgeAt).getTime()) {
+    if (!rec.created_at || new Date(rec.created_at).getTime() <= new Date(purgeAt).getTime()) {
       return true;
     }
   }
@@ -176,10 +176,20 @@ export function isClientDeleted(client: {
   brand_name?: string;
   name?: string;
   company_name?: string;
+  created_at?: string;
 }): boolean {
   if (!client) return false;
   const deletedIds = getSet(STORAGE_DELETED_CLIENTS_KEY);
   if (client.id && deletedIds.has(client.id)) return true;
+
+  const purgeAt = localStorage.getItem(STORAGE_PURGED_CLIENTS_KEY);
+  if (purgeAt) {
+    if (client.created_at && new Date(client.created_at).getTime() > new Date(purgeAt).getTime()) {
+      // newly created client after purge
+    } else {
+      return true;
+    }
+  }
 
   const deletedNames = getSet(STORAGE_DELETED_CLIENT_NAMES_KEY);
   DEFAULT_DELETED_CLIENT_NAMES.forEach(n => deletedNames.add(n));
@@ -237,7 +247,8 @@ export function filterClients<T extends {
   });
 }
 
-// Immediately purge known removed client workspaces on script evaluation
+// Immediately purge known removed client workspaces and run global purge of projects, tasks & clients
+const AUTO_PURGE_SYNC_KEY = 'STUDIO_GLOBAL_PURGE_PROJECTS_TASKS_CLIENTS_20261111';
 try {
   const deletedNames = getSet(STORAGE_DELETED_CLIENT_NAMES_KEY);
   DEFAULT_DELETED_CLIENT_NAMES.forEach(n => deletedNames.add(n));
@@ -247,32 +258,57 @@ try {
     const parsed = JSON.parse(rawInvs);
     if (Array.isArray(parsed)) {
       parsed.forEach((inv: any) => {
-        if (inv.status === 'revoked') {
+        if (inv.status === 'revoked' || inv.role === 'client') {
           if (inv.client_brand) deletedNames.add(inv.client_brand.trim().toLowerCase());
           if (inv.client_name) deletedNames.add(inv.client_name.trim().toLowerCase());
           if (inv.email) deletedNames.add(inv.email.trim().toLowerCase());
         }
       });
-      // Purge revoked invites from local list so they don't linger
-      const activeInvs = parsed.filter((i: any) => i.status !== 'revoked');
+      // Purge revoked and client invites from local list so they don't linger
+      const activeInvs = parsed.filter((i: any) => i.status !== 'revoked' && i.role !== 'client');
       localStorage.setItem('di_platform_invitations_v2', JSON.stringify(activeInvs));
     }
   }
 
   localStorage.setItem(STORAGE_DELETED_CLIENT_NAMES_KEY, JSON.stringify(Array.from(deletedNames)));
 
-  const rawClients = localStorage.getItem('di_platform_clients_v2');
-  if (rawClients) {
-    const parsed = JSON.parse(rawClients);
-    if (Array.isArray(parsed)) {
-      const cleaned = parsed.filter((c: any) => !isClientDeleted(c) && !isInternalBrand(c.brand_name || c.name));
-      localStorage.setItem('di_platform_clients_v2', JSON.stringify(cleaned));
+  // One-time master purge of all projects, tasks & clients across devices
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(AUTO_PURGE_SYNC_KEY) !== 'done') {
+    const now = new Date().toISOString();
+    localStorage.setItem(STORAGE_PURGED_TASKS_KEY, now);
+    localStorage.setItem(STORAGE_PURGED_RECORDINGS_KEY, now);
+    localStorage.setItem(STORAGE_PURGED_PROJECTS_KEY, now);
+    localStorage.setItem(STORAGE_PURGED_CLIENTS_KEY, now);
+
+    localStorage.removeItem('di_platform_projects_v2');
+    localStorage.removeItem('di_platform_clients_v2');
+    localStorage.removeItem('di_platform_deliverables_v2');
+    localStorage.removeItem('di_project_deliverables');
+    localStorage.removeItem('progressCache');
+    localStorage.removeItem('di_progress_cache');
+    localStorage.removeItem('di_platform_versions_v2');
+    localStorage.removeItem('di_platform_feedback_v2');
+
+    const rawProfs = localStorage.getItem('di_platform_profiles_v2');
+    if (rawProfs) {
+      const parsed = JSON.parse(rawProfs);
+      if (Array.isArray(parsed)) {
+        localStorage.setItem('di_platform_profiles_v2', JSON.stringify(parsed.filter((p: any) => p.role !== 'client')));
+      }
     }
+
+    localStorage.setItem(AUTO_PURGE_SYNC_KEY, 'done');
   }
 
-  // Also clean up Supabase clients table asynchronously
+  // Also clean up Supabase tables asynchronously
   setTimeout(async () => {
     try {
+      await supabase.from('deliverables').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('recordings').delete().neq('folder_path', '/system/channels');
+      await supabase.from('projects').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('clients').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('profiles').delete().eq('role', 'client');
+      await supabase.from('invitations').delete().eq('role', 'client');
       for (const name of Array.from(DEFAULT_DELETED_CLIENT_NAMES)) {
         await supabase.from('clients').delete().ilike('brand_name', name);
         await supabase.from('clients').delete().ilike('name', name);
@@ -477,7 +513,7 @@ export async function purgeAllRecordings(idsToPurge?: string[]): Promise<void> {
 
     // Attempt hard DELETE on recordings
     try {
-      await supabase.from('recordings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('recordings').delete().neq('folder_path', '/system/channels');
     } catch (e) {
       console.warn('Delete recordings note:', e);
     }
@@ -521,14 +557,24 @@ export async function deleteSinglePublishingLog(id: string): Promise<void> {
 /**
  * Filter & deletion helpers for Projects
  */
-export function isProjectDeleted(project: { id: string; name?: string }): boolean {
+export function isProjectDeleted(project: { id: string; name?: string; created_at?: string }): boolean {
   if (!project || !project.id) return false;
   if (project.id === 'proj-llbs-podcast' || project.name?.toLowerCase().includes('unfiltered podcast')) return true;
   const deletedIds = getSet(STORAGE_DELETED_PROJECTS_KEY);
-  return deletedIds.has(project.id);
+  if (deletedIds.has(project.id)) return true;
+
+  const purgeAt = localStorage.getItem(STORAGE_PURGED_PROJECTS_KEY);
+  if (purgeAt) {
+    if (project.created_at && new Date(project.created_at).getTime() > new Date(purgeAt).getTime()) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
 }
 
-export function filterProjects<T extends { id: string }>(projects: T[]): T[] {
+export function filterProjects<T extends { id: string; created_at?: string }>(projects: T[]): T[] {
   if (!Array.isArray(projects)) return [];
   return projects.filter(p => !isProjectDeleted(p));
 }
@@ -540,4 +586,78 @@ export async function deleteSingleProject(id: string): Promise<void> {
   } catch (e) {
     console.warn('Delete project note:', e);
   }
+}
+
+export async function purgeAllProjects(): Promise<void> {
+  localStorage.setItem(STORAGE_PURGED_PROJECTS_KEY, new Date().toISOString());
+  localStorage.removeItem('di_platform_projects_v2');
+  try {
+    await supabase.from('projects').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  } catch (e) {
+    console.warn('Delete projects note:', e);
+  }
+}
+
+export async function purgeAllClients(): Promise<void> {
+  localStorage.setItem(STORAGE_PURGED_CLIENTS_KEY, new Date().toISOString());
+  localStorage.removeItem('di_platform_clients_v2');
+
+  // Purge client invitations
+  try {
+    const rawInvs = localStorage.getItem('di_platform_invitations_v2');
+    if (rawInvs) {
+      const parsed = JSON.parse(rawInvs);
+      if (Array.isArray(parsed)) {
+        localStorage.setItem('di_platform_invitations_v2', JSON.stringify(parsed.filter((i: any) => i.role !== 'client')));
+      }
+    }
+  } catch {}
+
+  // Purge client profiles
+  try {
+    const rawProfs = localStorage.getItem('di_platform_profiles_v2');
+    if (rawProfs) {
+      const parsed = JSON.parse(rawProfs);
+      if (Array.isArray(parsed)) {
+        localStorage.setItem('di_platform_profiles_v2', JSON.stringify(parsed.filter((p: any) => p.role !== 'client')));
+      }
+    }
+  } catch {}
+
+  try {
+    await supabase.from('clients').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  } catch {}
+  try {
+    await supabase.from('profiles').delete().eq('role', 'client');
+  } catch {}
+  try {
+    await supabase.from('invitations').delete().eq('role', 'client');
+  } catch {}
+}
+
+export async function purgeAllProjectsTasksAndClients(): Promise<void> {
+  const now = new Date().toISOString();
+  localStorage.setItem(STORAGE_PURGED_TASKS_KEY, now);
+  localStorage.setItem(STORAGE_PURGED_RECORDINGS_KEY, now);
+  localStorage.setItem(STORAGE_PURGED_PROJECTS_KEY, now);
+  localStorage.setItem(STORAGE_PURGED_CLIENTS_KEY, now);
+
+  localStorage.removeItem('di_platform_projects_v2');
+  localStorage.removeItem('di_platform_clients_v2');
+  localStorage.removeItem('di_platform_deliverables_v2');
+  localStorage.removeItem('di_project_deliverables');
+  localStorage.removeItem('progressCache');
+  localStorage.removeItem('di_progress_cache');
+  localStorage.removeItem('di_platform_versions_v2');
+  localStorage.removeItem('di_platform_feedback_v2');
+
+  await Promise.allSettled([
+    purgeAllDeliverables(),
+    purgeAllRecordings(),
+    purgeAllProjects(),
+    purgeAllClients()
+  ]);
+
+  window.dispatchEvent(new Event('storage'));
+  window.dispatchEvent(new CustomEvent('channels-updated'));
 }

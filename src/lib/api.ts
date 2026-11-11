@@ -798,30 +798,7 @@ export async function fetchClients(): Promise<Client[]> {
   }
 
   if (clients.length === 0) {
-    clients = getLocal<Client[]>(STORAGE_KEYS.CLIENTS, [
-      {
-        id: 'client-llbs',
-        name: 'LLBS Media Group',
-        brand_name: 'LLBS',
-        contact_name: 'Arjun Kumar',
-        email: 'arjun@llbsmedia.com',
-        phone: '+91 98765 43210',
-        status: 'active',
-        notes: 'Weekly Podcast & Reel Production',
-        created_at: new Date(Date.now() - 30 * 86400000).toISOString()
-      },
-      {
-        id: 'client-pulse',
-        name: 'Pulse Fitness India',
-        brand_name: 'PulseFit',
-        contact_name: 'Sarah Mitchell',
-        email: 'marketing@pulsefit.in',
-        phone: '+91 98765 12345',
-        status: 'active',
-        notes: 'Daily Fitness Tips & YouTube Shorts',
-        created_at: new Date(Date.now() - 15 * 86400000).toISOString()
-      }
-    ]);
+    clients = getLocal<Client[]>(STORAGE_KEYS.CLIENTS, []);
   }
 
   return filterClients(clients);
@@ -992,36 +969,7 @@ export async function fetchSocialChannels(clientId?: string): Promise<SocialChan
     // fallback
   }
 
-  const all = getLocal<SocialChannel[]>(STORAGE_KEYS.CHANNELS, [
-    {
-      id: 'chan-1',
-      client_id: 'client-llbs',
-      client_name: 'LLBS Media Group',
-      platform: 'youtube',
-      channel_name: 'LLBS Podcast Official',
-      channel_url: 'https://youtube.com/@llbspodcast',
-      is_active: true,
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 'chan-2',
-      client_id: 'client-llbs',
-      client_name: 'LLBS Media Group',
-      platform: 'instagram',
-      channel_name: '@llbs.media',
-      channel_url: 'https://instagram.com/llbs.media',
-      is_active: true,
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 'chan-3',
-      platform: 'youtube',
-      channel_name: 'Digital Inertia Studio',
-      channel_url: 'https://youtube.com/@digitalinertia',
-      is_active: true,
-      created_at: new Date().toISOString()
-    }
-  ]);
+  const all = getLocal<SocialChannel[]>(STORAGE_KEYS.CHANNELS, []);
 
   return clientId ? all.filter(c => c.client_id === clientId) : all;
 }
