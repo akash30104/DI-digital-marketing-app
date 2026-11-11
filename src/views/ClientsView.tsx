@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Deliverable, Recording, PublishingLog, Profile } from '../types';
-import { filterDeliverables, filterPublishingLogs, filterRecordings, filterClients, deleteSingleClient } from '../lib/deletionFilter';
+import { filterDeliverables, filterPublishingLogs, filterRecordings, filterClients, deleteSingleClient, deleteSingleRecording } from '../lib/deletionFilter';
 import { createInvitation, createClient, createAuditLog } from '../lib/api';
 import { 
   Briefcase, Film, CheckCircle2, Clock, ExternalLink, Search, 
@@ -166,6 +166,19 @@ Digital Inertia Production Team`;
       loadData();
     } catch (err: any) {
       alert(`Failed to delete client: ${err.message}`);
+      loadData();
+    }
+  };
+
+  const handleDeleteRecording = async (recId: string, title?: string) => {
+    if (!window.confirm(`Delete shoot "${title || 'recording'}"? This will remove it from the list.`)) return;
+    try {
+      setRecordings(prev => prev.filter(r => r.id !== recId));
+      await deleteSingleRecording(recId);
+      showToast(`Shoot "${title || 'item'}" deleted.`);
+      loadData();
+    } catch (err: any) {
+      alert(`Failed to delete shoot: ${err.message}`);
       loadData();
     }
   };
@@ -717,14 +730,24 @@ Digital Inertia Production Team`;
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {targetRecs.map(rec => (
-                        <div key={rec.id} className="p-4 rounded-2xl bg-[#121214] border border-[#27272A] space-y-2">
+                        <div key={rec.id} className="p-4 rounded-2xl bg-[#121214] border border-[#27272A] space-y-2 group relative">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white truncate">
+                            <span className="text-xs font-bold text-white truncate pr-2">
                               {rec.title}
                             </span>
-                            <span className="text-[10px] font-bold text-zinc-400 bg-black px-2 py-0.5 rounded border border-zinc-800">
-                              {rec.recording_date}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] font-bold text-zinc-400 bg-black px-2 py-0.5 rounded border border-zinc-800">
+                                {rec.recording_date}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRecording(rec.id, rec.title)}
+                                className="p-1 rounded-md text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition active:scale-95"
+                                title="Delete Shoot"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                           <div className="text-[11px] text-zinc-400 space-y-0.5">
                             <div>Storage: <strong className="text-zinc-200">{rec.hard_disk_name}</strong></div>

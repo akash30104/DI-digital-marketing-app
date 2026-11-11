@@ -446,6 +446,9 @@ export async function createInvitation(
 
 export async function fetchInvitations(): Promise<Invitation[]> {
   const localList = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  const deletedInvs = new Set(getLocal<string[]>('STUDIO_DELETED_INVITATION_IDS', []));
+  const cleanList = localList.filter(i => !deletedInvs.has(i.id) && !deletedInvs.has(i.token));
+
   const redeemed = getLocal<string[]>('di_redeemed_tokens', []);
   const redeemedEmails = getLocal<string[]>('di_redeemed_emails', []);
   const redeemedIds = getLocal<string[]>('di_redeemed_invitation_ids', []);
@@ -459,7 +462,7 @@ export async function fetchInvitations(): Promise<Invitation[]> {
     }
   } catch {}
 
-  const synced = localList.map(inv => {
+  const synced = cleanList.map(inv => {
     const clean = extractInvitationToken(inv.token);
     const emailClean = (inv.email || '').trim().toLowerCase();
     const isRedeemed = 
@@ -669,6 +672,34 @@ export async function revokeInvitation(idOrToken: string): Promise<boolean> {
   return true;
 }
 
+export async function deleteInvitation(idOrToken: string, tokenParam?: string): Promise<boolean> {
+  const clean = extractInvitationToken(tokenParam || idOrToken);
+
+  // 1. Invalidate token permanently
+  const revoked = getLocal<string[]>('di_revoked_tokens', []);
+  if (clean && !revoked.includes(clean)) revoked.push(clean);
+  if (!revoked.includes(idOrToken)) revoked.push(idOrToken);
+  setLocal('di_revoked_tokens', revoked);
+
+  // 2. Mark as deleted in deletion set
+  const deletedInvs = getLocal<string[]>('STUDIO_DELETED_INVITATION_IDS', []);
+  if (!deletedInvs.includes(idOrToken)) deletedInvs.push(idOrToken);
+  if (clean && !deletedInvs.includes(clean)) deletedInvs.push(clean);
+  setLocal('STUDIO_DELETED_INVITATION_IDS', deletedInvs);
+
+  // 3. Remove from local storage
+  const invs = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  const filtered = invs.filter(i => i.id !== idOrToken && i.token !== clean && i.token !== idOrToken);
+  setLocal(STORAGE_KEYS.INVITATIONS, filtered);
+
+  // 4. Delete from Supabase invitations table if exists
+  try {
+    await supabase.from('invitations').delete().or(`id.eq.${idOrToken},token.eq.${clean}`);
+  } catch {}
+
+  return true;
+}
+
 // ==============================================================================
 // USER PROFILES & SUSPENSION
 // ==============================================================================
@@ -800,6 +831,9 @@ export async function deleteClient(id: string): Promise<void> {
 // 5. PROJECTS SERVICE
 // ==============================================================================
 export async function fetchProjects(clientId?: string): Promise<Project[]> {
+  const localProjects = getLocal<Project[]>(STORAGE_KEYS.PROJECTS, []);
+  let all: Project[] = [...localProjects];
+
   try {
     let q = supabase.from('projects').select('*').order('created_at', { ascending: false });
     if (clientId) {
@@ -807,16 +841,17 @@ export async function fetchProjects(clientId?: string): Promise<Project[]> {
     }
     const { data, error } = await q;
     if (!error && data && data.length > 0) {
-      return filterProjects(data as Project[]);
+      const dbIds = new Set(data.map((p: any) => p.id));
+      const localOnly = localProjects.filter(p => !dbIds.has(p.id));
+      all = [...(data as Project[]), ...localOnly];
     }
   } catch {
     // fallback
   }
 
-  const all = getLocal<Project[]>(STORAGE_KEYS.PROJECTS, []);
   // Purge any residual mock project from localStorage
   const cleanProjects = all.filter(p => p.id !== 'proj-llbs-podcast' && !p.name?.toLowerCase().includes('unfiltered podcast'));
-  if (cleanProjects.length !== all.length) {
+  if (cleanProjects.length !== localProjects.length) {
     setLocal(STORAGE_KEYS.PROJECTS, cleanProjects);
   }
 
@@ -833,18 +868,33 @@ export async function createProject(data: Omit<Project, 'id' | 'created_at' | 'u
     updated_at: new Date().toISOString()
   };
 
+  // 1. Immediately store in local cache so UI, board & editor workspace reflect it instantly
+  const list = getLocal<Project[]>(STORAGE_KEYS.PROJECTS, []);
+  const clean = list.filter(p => p.id !== proj.id);
+  clean.unshift(proj);
+  setLocal(STORAGE_KEYS.PROJECTS, clean);
+
+  // 2. Try Supabase insert with schema-compliant payload
   try {
-    const { error } = await supabase.from('projects').insert([proj]);
-    if (error && error.message.includes('schema cache')) {
-      const list = getLocal<Project[]>(STORAGE_KEYS.PROJECTS, []);
-      list.unshift(proj);
-      setLocal(STORAGE_KEYS.PROJECTS, list);
-    }
-  } catch {
-    const list = getLocal<Project[]>(STORAGE_KEYS.PROJECTS, []);
-    list.unshift(proj);
-    setLocal(STORAGE_KEYS.PROJECTS, list);
+    const isValidUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+    const dbPayload: Record<string, any> = {
+      name: proj.name,
+      description: proj.description || null,
+      status: proj.status || 'active',
+      start_date: proj.start_date || null,
+      deadline: proj.deadline || null,
+      platforms: proj.platforms || []
+    };
+    if (isValidUuid(proj.id)) dbPayload.id = proj.id;
+    if (isValidUuid(proj.client_id)) dbPayload.client_id = proj.client_id;
+    if (isValidUuid(proj.smm_id)) dbPayload.assigned_smm_id = proj.smm_id;
+    await supabase.from('projects').insert([dbPayload]);
+  } catch (e) {
+    console.warn('DB project insert note:', e);
   }
+
+  window.dispatchEvent(new Event('storage'));
+  window.dispatchEvent(new CustomEvent('channels-updated'));
 
   return proj;
 }

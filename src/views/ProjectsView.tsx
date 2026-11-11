@@ -305,7 +305,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
           date_received: todayStr,
           hard_disk_name: clientName,
           folder_path: `/projects/${newProj.name.replace(/\s+/g, '_')}`,
-          notes: `[Project: ${newProj.id}] [Client: ${clientName}] [Deadline: ${finalDeadline}] ${newProj.description || ''}`,
+          notes: `[Project: ${newProj.id}] [Client: ${clientName}] [Deadline: ${finalDeadline}] [Editor: ${editorObj?.full_name || 'Unassigned'}] [EditorId: ${primaryEditorId || ''}] ${newProj.description || ''}`,
           registered_by: currentUser.id
         }]).select().maybeSingle();
 
@@ -351,12 +351,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
         });
       }
 
-      // Persist in localStorage so EditorWorkspace can immediately discover all project tasks
+      // Persist in localStorage so EditorWorkspace & ProductionBoard can immediately discover all project tasks
       try {
         const existingRaw = localStorage.getItem('di_project_deliverables');
         const existingList: Deliverable[] = existingRaw ? JSON.parse(existingRaw) : [];
         const mergedList = [...deliverablesToInsert, ...existingList.filter(d => d.project_id !== newProj.id)];
         localStorage.setItem('di_project_deliverables', JSON.stringify(mergedList));
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new CustomEvent('channels-updated'));
       } catch (e) {
         console.warn('Local deliverables caching note:', e);
       }

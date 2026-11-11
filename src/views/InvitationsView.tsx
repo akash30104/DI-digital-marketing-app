@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole, Invitation, Profile } from '../types';
 import { 
-  createInvitation, getInvitations, revokeInvitation, 
+  createInvitation, getInvitations, revokeInvitation, deleteInvitation,
   createAuditLog, getProfiles, updateProfileRole, toggleUserSuspension,
   deleteFounderProfile
 } from '../lib/api';
@@ -78,14 +78,28 @@ export const InvitationsView: React.FC = () => {
     }
   };
 
-  const handleRevoke = async (id: string) => {
-    if (!confirm('Are you sure you want to revoke this invitation? The link will become immediately invalid.')) return;
-    const ok = await revokeInvitation(id);
-    if (ok) {
-      setInvitations(prev => prev.map(inv => inv.id === id ? { ...inv, status: 'revoked' } : inv));
-      if (currentUser) {
-        await createAuditLog('invite_revoked', 'invitations', id, currentUser.id, currentUser.email, { id });
-      }
+  const handleDeleteInvitation = async (inv: Invitation) => {
+    const displayName = inv.email || inv.client_brand || 'this invitation';
+    if (!window.confirm(`Delete invitation for "${displayName}"? This will permanently remove it from the list and immediately invalidate the link.`)) return;
+
+    setInvitations(prev => prev.filter(i => i.id !== inv.id && i.token !== inv.token));
+    await deleteInvitation(inv.id, inv.token);
+    if (currentUser) {
+      await createAuditLog('invite_deleted', 'invitations', inv.id, currentUser.id, currentUser.email, { id: inv.id, email: inv.email, role: inv.role });
+    }
+  };
+
+  const handleClearInactiveInvitations = async () => {
+    const inactive = invitations.filter(i => i.status === 'revoked' || i.status === 'accepted' || isExpired(i.expires_at));
+    if (inactive.length === 0) return;
+    if (!window.confirm(`Delete all ${inactive.length} revoked, redeemed, or expired invitations from the queue?`)) return;
+
+    const inactiveTokens = new Set(inactive.map(i => i.token));
+    const inactiveIds = new Set(inactive.map(i => i.id));
+    setInvitations(prev => prev.filter(i => !inactiveTokens.has(i.token) && !inactiveIds.has(i.id)));
+
+    for (const inv of inactive) {
+      await deleteInvitation(inv.id, inv.token);
     }
   };
 
@@ -227,30 +241,44 @@ export const InvitationsView: React.FC = () => {
       </div>
 
       {/* Sub Tabs */}
-      <div className="flex border-b border-zinc-800 gap-6 text-xs font-bold">
-        <button
-          onClick={() => setActiveSubTab('invites')}
-          className={`pb-3 relative transition ${
-            activeSubTab === 'invites' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <span>Invitations Queue ({invitations.length})</span>
-          {activeSubTab === 'invites' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
-          )}
-        </button>
+      <div className="flex items-center justify-between border-b border-zinc-800 gap-4 text-xs font-bold">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setActiveSubTab('invites')}
+            className={`pb-3 relative transition ${
+              activeSubTab === 'invites' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <span>Invitations Queue ({invitations.length})</span>
+            {activeSubTab === 'invites' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+            )}
+          </button>
 
-        <button
-          onClick={() => setActiveSubTab('members')}
-          className={`pb-3 relative transition ${
-            activeSubTab === 'members' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <span>Active Team &amp; Clients ({teamMembers.length})</span>
-          {activeSubTab === 'members' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
-          )}
-        </button>
+          <button
+            onClick={() => setActiveSubTab('members')}
+            className={`pb-3 relative transition ${
+              activeSubTab === 'members' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <span>Active Team &amp; Clients ({teamMembers.length})</span>
+            {activeSubTab === 'members' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+            )}
+          </button>
+        </div>
+
+        {activeSubTab === 'invites' && invitations.some(i => i.status === 'revoked' || i.status === 'accepted' || isExpired(i.expires_at)) && (
+          <button
+            type="button"
+            onClick={handleClearInactiveInvitations}
+            className="pb-2 text-[11px] text-zinc-400 hover:text-red-400 transition flex items-center gap-1 font-semibold"
+            title="Clear all revoked, accepted, or expired invitations"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear Inactive ({invitations.filter(i => i.status === 'revoked' || i.status === 'accepted' || isExpired(i.expires_at)).length})</span>
+          </button>
+        )}
       </div>
 
       {/* Invitations Table & Mobile Cards */}
@@ -298,29 +326,22 @@ export const InvitationsView: React.FC = () => {
                       </span>
 
                       <div className="flex items-center gap-1.5">
-                        {!isRedeemed && !expired && (
-                          <>
-                            <button
-                              onClick={() => copyToClipboard(inv.token)}
-                              className="px-2.5 py-1 rounded-lg bg-white text-black font-black text-[10px] flex items-center gap-1 active:scale-95 transition"
-                            >
-                              {copiedToken === inv.token ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                              <span>{copiedToken === inv.token ? 'Copied' : 'Copy Link'}</span>
-                            </button>
-                            <button
-                              onClick={() => handleRevoke(inv.id)}
-                              className="p-1 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white transition"
-                              title="Revoke Invitation"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
+                        {!isRedeemed && !expired && inv.status === 'pending' && (
+                          <button
+                            onClick={() => copyToClipboard(inv.token)}
+                            className="px-2.5 py-1 rounded-lg bg-white text-black font-black text-[10px] flex items-center gap-1 active:scale-95 transition"
+                          >
+                            {copiedToken === inv.token ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                            <span>{copiedToken === inv.token ? 'Copied' : 'Copy Link'}</span>
+                          </button>
                         )}
-                        {isRedeemed && (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
-                            Expired (Used)
-                          </span>
-                        )}
+                        <button
+                          onClick={() => handleDeleteInvitation(inv)}
+                          className="p-1 rounded-lg bg-zinc-800 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 border border-zinc-700/60 transition active:scale-95"
+                          title="Delete Invitation"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -353,6 +374,7 @@ export const InvitationsView: React.FC = () => {
                   ) : (
                     invitations.map((inv) => {
                       const expired = isExpired(inv.expires_at);
+                      const isRedeemed = inv.status === 'accepted';
                       return (
                         <tr key={inv.id} className="hover:bg-zinc-800/40 transition">
                           <td className="py-3 px-4 font-semibold text-white">
@@ -400,24 +422,22 @@ export const InvitationsView: React.FC = () => {
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {inv.status === 'pending' && !expired && (
-                                <>
-                                  <button
-                                    onClick={() => copyToClipboard(inv.token)}
-                                    className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition"
-                                    title="Copy Invitation Link"
-                                  >
-                                    {copiedToken === inv.token ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
-                                  </button>
-                                  <button
-                                    onClick={() => handleRevoke(inv.id)}
-                                    className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition"
-                                    title="Revoke Invitation"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </>
+                              {inv.status === 'pending' && !expired && !isRedeemed && (
+                                <button
+                                  onClick={() => copyToClipboard(inv.token)}
+                                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition"
+                                  title="Copy Invitation Link"
+                                >
+                                  {copiedToken === inv.token ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+                                </button>
                               )}
+                              <button
+                                onClick={() => handleDeleteInvitation(inv)}
+                                className="p-1.5 rounded-lg bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-zinc-700/60 transition active:scale-95"
+                                title="Delete Invitation"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </td>
                         </tr>

@@ -195,11 +195,21 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
           let assignedEditorId: string | undefined = undefined;
           let editorName = 'Unassigned';
           if (rec.notes) {
-            for (const ed of editorList) {
-              if (rec.notes.toLowerCase().includes(ed.full_name?.toLowerCase() || '')) {
-                assignedEditorId = ed.id;
-                editorName = ed.full_name || 'Editor';
-                break;
+            const edIdMatch = rec.notes.match(/\[EditorId:\s*([^\]]+)\]/i);
+            const edNameMatch = rec.notes.match(/\[Editor:\s*([^\]]+)\]/i);
+            if (edIdMatch && edIdMatch[1] && edIdMatch[1] !== 'undefined') {
+              assignedEditorId = edIdMatch[1].trim();
+            }
+            if (edNameMatch && edNameMatch[1]) {
+              editorName = edNameMatch[1].trim();
+            }
+            if (!assignedEditorId) {
+              for (const ed of editorList) {
+                if (ed.full_name && rec.notes.toLowerCase().includes(ed.full_name.toLowerCase())) {
+                  assignedEditorId = ed.id;
+                  editorName = ed.full_name || 'Editor';
+                  break;
+                }
               }
             }
           }
@@ -286,6 +296,13 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
   useEffect(() => {
     fetchBoardData();
 
+    const handleSync = () => {
+      fetchBoardData();
+    };
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('channels-updated', handleSync);
+    window.addEventListener('focus', handleSync);
+
     const delivSub = supabase
       .channel('production-board-deliverables')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, () => {
@@ -301,6 +318,9 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
       .subscribe();
 
     return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('channels-updated', handleSync);
+      window.removeEventListener('focus', handleSync);
       supabase.removeChannel(delivSub);
       supabase.removeChannel(recSub);
     };

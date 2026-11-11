@@ -266,23 +266,82 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       const handledProjectIds = new Set<string>();
 
       for (const rec of recs as any[]) {
-        const podDelivs = dels.filter(d => d.recording_id === rec.id);
+        let podDelivs = dels.filter(d => 
+          d.recording_id === rec.id || 
+          d.project_id === rec.id || 
+          (d.title && rec.title && d.title.toLowerCase().startsWith(rec.title.toLowerCase()))
+        );
 
-        // If all tasks for this podcast have been deleted (0 deliverables),
-        // do NOT display this empty card in the editor's workspace!
+        // If no deliverables exist yet for this recording, synthesize a master deliverable
         if (podDelivs.length === 0) {
-          continue;
+          const isFullVideo = 
+            rec.title?.toLowerCase().includes('full video') || 
+            rec.title?.toLowerCase().includes('full episode') ||
+            (rec.notes && /full video|16:9/i.test(rec.notes));
+
+          let assignedEditorId: string | undefined = undefined;
+          let editorName = 'Unassigned';
+          if (rec.notes) {
+            const edIdMatch = rec.notes.match(/\[EditorId:\s*([^\]]+)\]/i);
+            const edNameMatch = rec.notes.match(/\[Editor:\s*([^\]]+)\]/i);
+            if (edIdMatch && edIdMatch[1] && edIdMatch[1] !== 'undefined') {
+              assignedEditorId = edIdMatch[1].trim();
+            }
+            if (edNameMatch && edNameMatch[1]) {
+              editorName = edNameMatch[1].trim();
+            }
+          }
+
+          const dId = `deliv-rec-${rec.id}-1`;
+          const cachedProps = progressCache[dId] || progressCache[rec.id] || {};
+          podDelivs = [{
+            id: dId,
+            recording_id: rec.id,
+            recording_title: rec.title,
+            project_id: rec.id,
+            client_id: rec.client_id || 'internal',
+            client_name: rec.hard_disk_name || 'Internal Studio',
+            title: `${rec.title} - ${isFullVideo ? 'Full Episode Video (16:9)' : 'Reel (9:16)'}`,
+            deliverable_type: isFullVideo ? 'full_length_video' : 'reel',
+            aspect_ratio: isFullVideo ? '16:9' : '9:16',
+            assigned_editor_id: assignedEditorId,
+            editor_name: editorName,
+            editing_status: assignedEditorId ? 'assigned' : 'not_started',
+            priority: isFullVideo ? 'high' : 'medium',
+            deadline: extractDeadline(rec.notes, []),
+            progress_percentage: 0,
+            created_at: rec.created_at || new Date().toISOString(),
+            ...cachedProps
+          }];
         }
 
         const deadline = extractDeadline(rec.notes, podDelivs);
 
         // Find primary assigned editor for this podcast
         const assignedDeliv = podDelivs.find(d => d.assigned_editor_id);
-        const assignedEditorId = assignedDeliv?.assigned_editor_id;
-        const editorName = assignedDeliv?.editor_name || (assignedEditorId === currentUser.id ? currentUser.full_name : 'Unassigned');
+        let assignedEditorId = assignedDeliv?.assigned_editor_id;
+        let editorName = assignedDeliv?.editor_name;
+
+        // If not directly on deliverable, check notes tag
+        if (!assignedEditorId && rec.notes) {
+          const edIdMatch = rec.notes.match(/\[EditorId:\s*([^\]]+)\]/i);
+          const edNameMatch = rec.notes.match(/\[Editor:\s*([^\]]+)\]/i);
+          if (edIdMatch && edIdMatch[1] && edIdMatch[1] !== 'undefined') {
+            assignedEditorId = edIdMatch[1].trim();
+          }
+          if (edNameMatch && edNameMatch[1]) {
+            editorName = edNameMatch[1].trim();
+          }
+        }
+        if (!editorName) {
+          editorName = assignedEditorId === currentUser.id ? currentUser.full_name : 'Unassigned';
+        }
 
         // Check if assigned to current editor
-        const isAssignedDirectly = podDelivs.some(d => d.assigned_editor_id === currentUser.id);
+        const isAssignedDirectly = 
+          podDelivs.some(d => d.assigned_editor_id === currentUser.id) ||
+          assignedEditorId === currentUser.id ||
+          (rec.notes && currentUser.full_name && rec.notes.toLowerCase().includes(currentUser.full_name.toLowerCase()));
         const isAccepted = acceptedSet.has(rec.id);
         const isMyPodcast = isAssignedDirectly || isAccepted;
 

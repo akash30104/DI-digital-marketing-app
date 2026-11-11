@@ -59,13 +59,22 @@ export function isTaskDeleted(task: {
     return false;
   }
 
+  // Tasks explicitly stored in active project deliverables cache are never deleted
+  try {
+    const rawP = localStorage.getItem('di_project_deliverables');
+    if (rawP && rawP.includes(task.id)) {
+      return false;
+    }
+  } catch {}
+
   const purgeAt = localStorage.getItem(STORAGE_PURGED_TASKS_KEY);
   if (purgeAt) {
     // If updated after the purge, it is active
     if (task.updated_at && new Date(task.updated_at).getTime() > new Date(purgeAt).getTime()) {
       return false;
     }
-    if (!task.created_at || new Date(task.created_at).getTime() <= new Date(purgeAt).getTime()) {
+    // Only purge tasks that have a created_at strictly older than the purge timestamp
+    if (task.created_at && new Date(task.created_at).getTime() <= new Date(purgeAt).getTime()) {
       return true;
     }
   }
@@ -85,7 +94,7 @@ export function isRecordingDeleted(rec: { id: string; created_at?: string }): bo
 
   const purgeAt = localStorage.getItem(STORAGE_PURGED_RECORDINGS_KEY);
   if (purgeAt) {
-    if (!rec.created_at || new Date(rec.created_at).getTime() <= new Date(purgeAt).getTime()) {
+    if (rec.created_at && new Date(rec.created_at).getTime() <= new Date(purgeAt).getTime()) {
       return true;
     }
   }
@@ -167,6 +176,25 @@ export async function deleteSingleClient(clientId: string, clientName?: string):
   } catch (e) {
     console.warn('Delete profile note:', e);
   }
+
+  // Also remove associated invitations for this client from local cache & Supabase
+  try {
+    const raw = localStorage.getItem('di_platform_invitations_v2');
+    if (raw) {
+      const invs = JSON.parse(raw);
+      const toKeep = invs.filter((i: any) => {
+        const matchesClient = 
+          (clientId && (i.client_id === clientId || i.id === clientId)) ||
+          (clientName && (
+            (i.client_brand && i.client_brand.toLowerCase() === clientName.toLowerCase()) ||
+            (i.client_name && i.client_name.toLowerCase() === clientName.toLowerCase()) ||
+            (i.email && i.email.toLowerCase() === clientName.toLowerCase())
+          ));
+        return !matchesClient;
+      });
+      localStorage.setItem('di_platform_invitations_v2', JSON.stringify(toKeep));
+    }
+  } catch {}
 
   window.dispatchEvent(new Event('storage'));
   window.dispatchEvent(new CustomEvent('channels-updated'));
