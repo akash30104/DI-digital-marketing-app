@@ -20,6 +20,7 @@ import {
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, getCachedTargets, TargetConfig } from '../lib/targets';
 import { submitPublishingProof, createAuditLog } from '../lib/api';
+import { fetchAllChannels, ChannelItem } from '../lib/channels';
 
 export const SocialMediaPublishing: React.FC = () => {
   const { currentUser } = useAuth();
@@ -27,6 +28,7 @@ export const SocialMediaPublishing: React.FC = () => {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [allRecentDeliverables, setAllRecentDeliverables] = useState<Deliverable[]>([]);
   const [publishedToday, setPublishedToday] = useState<PublishingLog[]>([]);
+  const [availableChannels, setAvailableChannels] = useState<ChannelItem[]>([]);
   const [streak, setStreak] = useState<StreakInfo>({
     currentStreak: 0,
     publishedToday: false,
@@ -60,12 +62,19 @@ export const SocialMediaPublishing: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 0. Fetch Synced Daily Targets
+      // 0. Fetch Synced Daily Targets & Channels
       try {
         const syncedTargets = await fetchDailyTargets();
         setTargets(syncedTargets);
       } catch (err) {
         console.warn('Error fetching daily targets in publishing hub:', err);
+      }
+
+      try {
+        const chans = await fetchAllChannels();
+        setAvailableChannels(chans);
+      } catch (err) {
+        console.warn('Channels load note:', err);
       }
 
       // 1. Fetch Approved & Ready Deliverables for Publishing
@@ -141,12 +150,15 @@ export const SocialMediaPublishing: React.FC = () => {
 
     const handleStorage = () => {
       setTargets(getCachedTargets());
+      loadData();
     };
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('channels-updated', handleStorage);
 
     return () => {
       supabase.removeChannel(sub);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('channels-updated', handleStorage);
     };
   }, []);
 
@@ -968,14 +980,14 @@ export const SocialMediaPublishing: React.FC = () => {
 
                 {/* Channel Suggestions */}
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {CHANNEL_PRESETS.map((preset) => (
+                  {(availableChannels.length > 0 ? availableChannels.map(c => c.name) : CHANNEL_PRESETS).map((preset) => (
                     <button
                       key={preset}
                       type="button"
                       onClick={() => setChannelName(preset)}
                       className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${
-                        channelName === preset
-                          ? 'bg-white text-black border-white'
+                        channelName.toLowerCase() === preset.toLowerCase()
+                          ? 'bg-white text-black border-white shadow-md'
                           : 'bg-zinc-800 text-zinc-300 border-zinc-700/60 hover:border-zinc-500'
                       }`}
                     >

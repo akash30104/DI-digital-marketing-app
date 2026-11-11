@@ -9,12 +9,13 @@ import {
   Radio, Plus, Briefcase, Sparkles, Building, Film, Check, ExternalLink, ShieldCheck
 } from 'lucide-react';
 import { 
-  purgeAllDeliverables, purgeAllRecordings, purgeAllPublishingHistory 
+  purgeAllDeliverables, purgeAllRecordings, purgeAllPublishingHistory,
+  isClientDeleted, isInternalBrand
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, saveDailyTargets } from '../lib/targets';
 import { 
   fetchAllChannels, addNewChannel, removeChannel, ChannelItem, 
-  extractClientBrandName 
+  extractClientBrandName, filterChannelsForUser
 } from '../lib/channels';
 
 interface FounderMoreProps {
@@ -273,7 +274,11 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
     loadChannels();
   }, []);
 
-  const clientProfiles = profiles.filter(p => p.role === 'client' || (p.full_name && p.full_name.includes('(') && p.role !== 'founder'));
+  const clientProfiles = profiles.filter(p => 
+    (p.role === 'client' || (p.full_name && p.full_name.includes('(') && p.role !== 'founder')) &&
+    !isClientDeleted(p) &&
+    !isInternalBrand(p.full_name)
+  );
 
   return (
     <div className="space-y-6 pb-20">
@@ -430,15 +435,18 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
               </div>
             </form>
 
-            {/* Explanatory Box: When a Client is Added */}
+            {/* Explanatory Box: Channel Visibility Rules */}
             <div className="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/80 flex items-start gap-3">
               <Building className="w-5 h-5 text-white shrink-0 mt-0.5" />
-              <div className="text-xs text-zinc-400 leading-relaxed space-y-1">
+              <div className="text-xs text-zinc-400 leading-relaxed space-y-1.5">
                 <p className="font-bold text-white">
-                  How Client Channels Work:
+                  Channel Visibility &amp; Synchronization Rules:
                 </p>
                 <p>
-                  Whenever a client account is created (e.g., <span className="text-zinc-200 font-semibold">AK (LLBS)</span>), their brand is automatically detected and added to the official channel list without needing manual setup. You can also manually add standalone channels above at any time.
+                  • <strong className="text-white">🏢 Studio In-House Channel:</strong> When added without a client link, it automatically syncs and shows up across <strong className="text-zinc-200">ALL Social Media Managers and Founder</strong> dashboards across all devices. Clients will never see in-house channels.
+                </p>
+                <p>
+                  • <strong className="text-white">💼 Client Brand Channel:</strong> When linked to a client partner, it appears for <strong className="text-zinc-200">THAT Client in their Connected Channels Portal</strong>, as well as for Founder and all SMMs.
                 </p>
               </div>
             </div>
@@ -461,52 +469,58 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {channels.map((ch) => (
-                  <div
-                    key={ch.id}
-                    className="p-3.5 rounded-2xl bg-black border border-zinc-800 flex items-center justify-between gap-3 group"
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <div className="w-7 h-7 rounded-xl bg-zinc-800 flex items-center justify-center shrink-0">
-                        <Radio className="w-3.5 h-3.5 text-zinc-300" />
-                      </div>
-                      <div className="truncate">
-                        <div className="text-xs font-bold text-white truncate">
-                          {ch.name}
+                {channels.map((ch) => {
+                  const isInHouse = !ch.client_id && !ch.client_name;
+                  return (
+                    <div
+                      key={ch.id}
+                      className="p-3.5 rounded-2xl bg-black border border-zinc-800 flex items-center justify-between gap-3 group"
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        <div className="w-7 h-7 rounded-xl bg-zinc-800 flex items-center justify-center shrink-0">
+                          <Radio className="w-3.5 h-3.5 text-zinc-300" />
                         </div>
-                        <div className="text-[10px] text-zinc-500 truncate">
-                          {ch.client_name ? `Client: ${ch.client_name}` : (ch.is_default ? 'Studio Default' : 'Custom Channel')}
+                        <div className="truncate">
+                          <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                            <span>{ch.name}</span>
+                          </div>
+                          <div className="text-[10px] text-zinc-400 truncate">
+                            {isInHouse ? (
+                              <span className="text-zinc-400">🏢 In-House • Visible to all SMMs &amp; Founder</span>
+                            ) : (
+                              <span className="text-zinc-300 font-semibold">💼 Client: {ch.client_name || 'Partner'} • Visible to Client, Founder &amp; SMMs</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {ch.source === 'client' && (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-300">
-                          Client Brand
-                        </span>
-                      )}
-                      {ch.is_default && (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-400">
-                          Core
-                        </span>
-                      )}
-                      {!ch.is_default && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveChannel(ch);
-                          }}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition active:scale-95"
-                          title="Delete Channel"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isInHouse ? (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-300">
+                            🏢 In-House
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white text-black font-black">
+                            💼 Client Channel
+                          </span>
+                        )}
+                        {!ch.is_default && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveChannel(ch);
+                            }}
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition active:scale-95"
+                            title="Delete Channel"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

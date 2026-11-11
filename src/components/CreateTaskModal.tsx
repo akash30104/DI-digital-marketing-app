@@ -60,9 +60,6 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setClients(validClients);
     setProjects(projectList);
     setEditors(memberList.filter((m: Profile) => m.role === 'editor' && !m.is_suspended));
-    if (validClients.length > 0 && !clientId) {
-      setClientId(validClients[0].id);
-    }
   };
 
   if (!isOpen) return null;

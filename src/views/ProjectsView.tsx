@@ -169,9 +169,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
     const allDelivs = filterDeliverables([...backfilledDelivs, ...existingDelivs]);
     setDeliverables(allDelivs);
 
-    if (clientList.length > 0 && !clientId) {
-      setClientId(clientList[0].id);
-    }
     setIsLoading(false);
   };
 

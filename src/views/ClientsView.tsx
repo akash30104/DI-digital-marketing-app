@@ -719,8 +719,15 @@ Digital Inertia Production Team`;
 
           {/* WORK ITEMS DISPLAY */}
           {(() => {
-            // Resolve current scope items
-            const targetRecs = selectedSummary ? selectedSummary.recordings : recordings;
+            // Resolve current scope items strictly for client brands (exclude internal studio bloopers/shoots)
+            const clientRecIdSet = new Set(clientSummaries.flatMap(s => s.recordings.map(r => r.id)));
+            const targetRecs = selectedSummary 
+              ? selectedSummary.recordings 
+              : recordings.filter(r => 
+                  clientRecIdSet.has(r.id) && 
+                  !isInternalBrand(r.hard_disk_name) && 
+                  !isInternalBrand(r.title)
+                );
 
             return (
               <div className="space-y-4">
