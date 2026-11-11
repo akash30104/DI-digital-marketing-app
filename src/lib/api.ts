@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { filterProjects, deleteSingleProject } from './deletionFilter';
+import { filterProjects, filterClients, deleteSingleProject } from './deletionFilter';
 import { 
   Client, Project, SocialChannel, Invitation, Deliverable, 
   VideoVersion, ApprovalFeedback, PublishingProof, NotificationItem, 
@@ -447,7 +447,18 @@ export async function createInvitation(
 export async function fetchInvitations(): Promise<Invitation[]> {
   const localList = getLocal<Invitation[]>(STORAGE_KEYS.INVITATIONS, []);
   const deletedInvs = new Set(getLocal<string[]>('STUDIO_DELETED_INVITATION_IDS', []));
-  const cleanList = localList.filter(i => !deletedInvs.has(i.id) && !deletedInvs.has(i.token));
+  
+  // Exclude any deleted or revoked invitations so deleted accounts disappear completely from UI
+  const cleanList = localList.filter(i => 
+    i.status !== 'revoked' && 
+    !deletedInvs.has(i.id) && 
+    !deletedInvs.has(i.token)
+  );
+
+  // Permanently purge revoked or deleted invitations from localStorage
+  if (cleanList.length !== localList.length) {
+    setLocal(STORAGE_KEYS.INVITATIONS, cleanList);
+  }
 
   const redeemed = getLocal<string[]>('di_redeemed_tokens', []);
   const redeemedEmails = getLocal<string[]>('di_redeemed_emails', []);
@@ -482,7 +493,8 @@ export async function fetchInvitations(): Promise<Invitation[]> {
     return inv;
   });
 
-  return synced;
+  // Filter out any revoked or explicitly deleted items
+  return synced.filter(i => i.status !== 'revoked' && !deletedInvs.has(i.id) && !deletedInvs.has(i.token));
 }
 
 export const getInvitations = fetchInvitations;
@@ -743,6 +755,7 @@ export async function toggleUserSuspension(userId: string, isSuspended: boolean)
 // 4. CLIENTS SERVICE (Isolated Workspaces)
 // ==============================================================================
 export async function fetchClients(): Promise<Client[]> {
+  let clients: Client[] = [];
   try {
     const { data, error } = await supabase
       .from('clients')
@@ -750,35 +763,40 @@ export async function fetchClients(): Promise<Client[]> {
       .order('created_at', { ascending: false });
 
     if (!error && data && data.length > 0) {
-      return data as Client[];
+      clients = data as Client[];
     }
   } catch {
     // fallback
   }
-  return getLocal<Client[]>(STORAGE_KEYS.CLIENTS, [
-    {
-      id: 'client-llbs',
-      name: 'LLBS Media Group',
-      brand_name: 'LLBS',
-      contact_name: 'Arjun Kumar',
-      email: 'arjun@llbsmedia.com',
-      phone: '+91 98765 43210',
-      status: 'active',
-      notes: 'Weekly Podcast & Reel Production',
-      created_at: new Date(Date.now() - 30 * 86400000).toISOString()
-    },
-    {
-      id: 'client-pulse',
-      name: 'Pulse Fitness India',
-      brand_name: 'PulseFit',
-      contact_name: 'Sarah Mitchell',
-      email: 'marketing@pulsefit.in',
-      phone: '+91 98765 12345',
-      status: 'active',
-      notes: 'Daily Fitness Tips & YouTube Shorts',
-      created_at: new Date(Date.now() - 15 * 86400000).toISOString()
-    }
-  ]);
+
+  if (clients.length === 0) {
+    clients = getLocal<Client[]>(STORAGE_KEYS.CLIENTS, [
+      {
+        id: 'client-llbs',
+        name: 'LLBS Media Group',
+        brand_name: 'LLBS',
+        contact_name: 'Arjun Kumar',
+        email: 'arjun@llbsmedia.com',
+        phone: '+91 98765 43210',
+        status: 'active',
+        notes: 'Weekly Podcast & Reel Production',
+        created_at: new Date(Date.now() - 30 * 86400000).toISOString()
+      },
+      {
+        id: 'client-pulse',
+        name: 'Pulse Fitness India',
+        brand_name: 'PulseFit',
+        contact_name: 'Sarah Mitchell',
+        email: 'marketing@pulsefit.in',
+        phone: '+91 98765 12345',
+        status: 'active',
+        notes: 'Daily Fitness Tips & YouTube Shorts',
+        created_at: new Date(Date.now() - 15 * 86400000).toISOString()
+      }
+    ]);
+  }
+
+  return filterClients(clients);
 }
 
 export async function createClient(data: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<Client> {

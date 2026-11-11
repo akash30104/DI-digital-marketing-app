@@ -249,7 +249,7 @@ export const InvitationsView: React.FC = () => {
               activeSubTab === 'invites' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <span>Invitations Queue ({invitations.length})</span>
+            <span>Invitations Queue ({invitations.filter(i => i.status !== 'revoked').length})</span>
             {activeSubTab === 'invites' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
             )}
@@ -286,12 +286,12 @@ export const InvitationsView: React.FC = () => {
         <div className="space-y-3">
           {/* Mobile Cards (Visible on screens < md) */}
           <div className="block md:hidden space-y-3">
-            {invitations.length === 0 ? (
+            {invitations.filter(i => i.status !== 'revoked').length === 0 ? (
               <div className="p-8 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs">
-                No invitations issued yet. Tap "+ Invite" above to send one.
+                No active invitations in queue. Tap "+ Invite" above to generate one.
               </div>
             ) : (
-              invitations.map((inv) => {
+              invitations.filter(i => i.status !== 'revoked').map((inv) => {
                 const expired = isExpired(inv.expires_at);
                 const isRedeemed = inv.status === 'accepted';
                 return (
@@ -365,14 +365,14 @@ export const InvitationsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {invitations.length === 0 ? (
+                  {invitations.filter(i => i.status !== 'revoked').length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-zinc-500">
-                        No invitations issued yet. Click "+ Invite Editor" or "+ Invite SMM" to send one.
+                        No active invitations in queue. Click "+ Invite Editor" or "+ Invite SMM" to send one.
                       </td>
                     </tr>
                   ) : (
-                    invitations.map((inv) => {
+                    invitations.filter(i => i.status !== 'revoked').map((inv) => {
                       const expired = isExpired(inv.expires_at);
                       const isRedeemed = inv.status === 'accepted';
                       return (

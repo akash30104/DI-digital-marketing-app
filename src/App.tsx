@@ -22,10 +22,12 @@ import { ProjectsView } from './views/ProjectsView';
 import { InvitationsView } from './views/InvitationsView';
 import { AuditLogsView } from './views/AuditLogsView';
 import { CreateTaskModal } from './components/CreateTaskModal';
+import { BottomNav } from './components/BottomNav';
 
 export const App: React.FC = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showCreateTaskModal, setShowCreateTaskModal] = useState<boolean>(false);
 
@@ -167,13 +169,15 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex font-sans selection:bg-white selection:text-black">
-      {/* Desktop Sidebar */}
+    <div className="min-h-screen bg-black text-zinc-100 flex font-sans selection:bg-white selection:text-black relative">
+      {/* Sidebar (Desktop Persistent + Mobile Slide-over Drawer) */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
+        mobileOpen={mobileMenuOpen}
+        setMobileOpen={setMobileMenuOpen}
       />
 
       {/* Main Content Area */}
@@ -181,12 +185,20 @@ export const App: React.FC = () => {
         <TopBar
           onSearchChange={setSearchQuery}
           onNavigateTab={setActiveTab}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
         />
 
-        <main className="flex-1 overflow-y-auto px-6 py-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 pb-24 md:pb-6 max-w-7xl w-full mx-auto">
           {renderActiveScreen()}
         </main>
       </div>
+
+      {/* Mobile Fixed Bottom Navigation Bar */}
+      <BottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenSideMenu={() => setMobileMenuOpen(true)}
+      />
 
       {/* SMM / Founder Quick Create Task Modal */}
       <CreateTaskModal

@@ -69,25 +69,45 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   return (
-    <header className="h-16 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/80 px-6 flex items-center justify-between gap-4 sticky top-0 z-30">
+    <header className="h-16 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/80 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 sticky top-0 z-30">
+      {/* Left Corner: Interactive Logo Button (Opens side bar drawer on mobile) */}
+      <button
+        type="button"
+        onClick={() => onOpenMobileMenu?.()}
+        className="flex items-center gap-2 p-1 rounded-xl hover:bg-zinc-900 active:scale-95 transition group shrink-0"
+        title="Click logo to open menu"
+      >
+        <div className="w-8 h-8 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg shrink-0 ring-1 ring-white/20 group-hover:ring-white">
+          <img src="/logo.png" alt="Digital Inertia" className="w-full h-full object-contain" />
+        </div>
+        <div className="hidden xs:flex sm:flex flex-col text-left leading-tight">
+          <span className="font-black text-xs sm:text-sm tracking-wider uppercase text-white group-hover:text-zinc-200 transition">
+            Digital Inertia
+          </span>
+          <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block md:hidden">
+            Menu ☰
+          </span>
+        </div>
+      </button>
+
       {/* Search Input */}
-      <div className="flex-1 max-w-md relative">
-        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
-          <Search className="w-4 h-4" />
+      <div className="flex-1 max-w-xs sm:max-w-md relative min-w-0">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </div>
         <input
           type="text"
           value={searchQuery}
           onChange={handleSearch}
-          placeholder="Search projects, video tasks, editors, clients..."
-          className="w-full pl-10 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
+          placeholder="Search..."
+          className="w-full pl-8 sm:pl-10 pr-3 py-1.5 sm:py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
         />
       </div>
 
       {/* Right controls */}
-      <div className="flex items-center gap-3">
-        {/* User Role Badge (Clean display, no switcher) */}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-white shadow-sm select-none">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* User Role Badge (Clean display) */}
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-white shadow-sm select-none">
           {role === 'founder' && <Crown className="w-3.5 h-3.5 text-zinc-300" />}
           {role === 'social_media_manager' && <Megaphone className="w-3.5 h-3.5 text-zinc-300" />}
           {role === 'editor' && <Film className="w-3.5 h-3.5 text-zinc-300" />}
@@ -96,10 +116,10 @@ export const TopBar: React.FC<TopBarProps> = ({
             {role === 'founder'
               ? 'Founder'
               : role === 'social_media_manager'
-              ? 'Social Media Manager'
+              ? 'SMM Manager'
               : role === 'editor'
-              ? 'Video Editor'
-              : 'Client Partner'}
+              ? 'Editor'
+              : 'Client'}
           </span>
         </div>
 
