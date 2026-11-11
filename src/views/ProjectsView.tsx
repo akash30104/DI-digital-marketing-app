@@ -6,7 +6,7 @@ import {
   getClients, getProfiles, getSocialChannels, createAuditLog, createNotification 
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { filterDeliverables } from '../lib/deletionFilter';
+import { filterDeliverables, filterClients, isClientDeleted } from '../lib/deletionFilter';
 import { 
   FolderKanban, Plus, Calendar, CheckCircle2, Clock, 
   Users, Briefcase, Share2, AlertCircle, ArrowUpRight,
@@ -69,7 +69,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
     ]);
 
     setProjects(projList);
-    setClients(clientList);
+    setClients(filterClients(clientList));
     setTeamMembers(members);
     setChannels(chanList);
 
@@ -481,7 +481,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
             className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-300 font-semibold focus:outline-none"
           >
             <option value="all">All Clients</option>
-            {clients.map(c => (
+            {clients.filter(c => !isClientDeleted(c)).map(c => (
               <option key={c.id} value={c.id}>{c.brand_name || c.company_name || c.name}</option>
             ))}
           </select>
@@ -1027,7 +1027,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-semibold"
                   >
                     <option value="">Internal Studio Production</option>
-                    {clients.map(c => (
+                    {clients.filter(c => !isClientDeleted(c)).map(c => (
                       <option key={c.id} value={c.id}>{c.brand_name || c.company_name || c.name}</option>
                     ))}
                   </select>

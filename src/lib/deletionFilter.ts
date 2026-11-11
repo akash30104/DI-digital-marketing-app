@@ -128,27 +128,81 @@ export function filterPublishingLogs<T extends { id: string; published_at?: stri
   return logs.filter(l => !isPublishingLogDeleted(l));
 }
 
-export function isClientDeleted(client: { id?: string; full_name?: string; email?: string }): boolean {
+export function isClientDeleted(client: { 
+  id?: string; 
+  full_name?: string; 
+  email?: string;
+  brand_name?: string;
+  name?: string;
+  company_name?: string;
+}): boolean {
   if (!client) return false;
   const deletedIds = getSet(STORAGE_DELETED_CLIENTS_KEY);
   if (client.id && deletedIds.has(client.id)) return true;
 
   const deletedNames = getSet(STORAGE_DELETED_CLIENT_NAMES_KEY);
-  if (client.full_name) {
-    const raw = client.full_name.trim().toLowerCase();
-    if (deletedNames.has(raw)) return true;
-    const match = client.full_name.match(/\(([^)]+)\)/);
+  deletedNames.add('adad'); // Ensure deleted client 'adad' is always marked deleted
+
+  const namesToCheck = [
+    client.full_name,
+    client.brand_name,
+    client.name,
+    client.company_name,
+    client.email
+  ].filter(Boolean).map(s => (s as string).trim().toLowerCase());
+
+  for (const n of namesToCheck) {
+    if (deletedNames.has(n)) return true;
+    const match = n.match(/\(([^)]+)\)/);
     if (match && match[1] && deletedNames.has(match[1].trim().toLowerCase())) return true;
+    const matchPrefix = n.match(/^([^(]+)/);
+    if (matchPrefix && matchPrefix[1] && deletedNames.has(matchPrefix[1].trim().toLowerCase())) return true;
   }
-  if (client.email && deletedNames.has(client.email.trim().toLowerCase())) return true;
 
   return false;
 }
 
-export function filterClients<T extends { id?: string; full_name?: string; email?: string }>(clients: T[]): T[] {
+export function filterClients<T extends { 
+  id?: string; 
+  full_name?: string; 
+  email?: string;
+  brand_name?: string;
+  name?: string;
+  company_name?: string;
+}>(clients: T[]): T[] {
   if (!Array.isArray(clients)) return [];
   return clients.filter(c => !isClientDeleted(c));
 }
+
+// Immediately purge known removed client workspaces on script evaluation
+try {
+  const deletedNames = getSet(STORAGE_DELETED_CLIENT_NAMES_KEY);
+  if (!deletedNames.has('adad')) {
+    deletedNames.add('adad');
+    localStorage.setItem(STORAGE_DELETED_CLIENT_NAMES_KEY, JSON.stringify(Array.from(deletedNames)));
+  }
+
+  const rawClients = localStorage.getItem('di_platform_clients_v2');
+  if (rawClients && rawClients.toLowerCase().includes('adad')) {
+    const parsed = JSON.parse(rawClients);
+    const cleaned = parsed.filter((c: any) => 
+      c.brand_name?.toLowerCase() !== 'adad' && 
+      c.name?.toLowerCase() !== 'adad' &&
+      !c.email?.toLowerCase().includes('llbsspotlight')
+    );
+    localStorage.setItem('di_platform_clients_v2', JSON.stringify(cleaned));
+  }
+
+  const rawInvs = localStorage.getItem('di_platform_invitations_v2');
+  if (rawInvs && rawInvs.toLowerCase().includes('adad')) {
+    const parsed = JSON.parse(rawInvs);
+    const cleaned = parsed.filter((i: any) => 
+      i.client_brand?.toLowerCase() !== 'adad' &&
+      !i.email?.toLowerCase().includes('llbsspotlight')
+    );
+    localStorage.setItem('di_platform_invitations_v2', JSON.stringify(cleaned));
+  }
+} catch {}
 
 export async function deleteSingleClient(clientId: string, clientName?: string): Promise<void> {
   if (clientId) {
@@ -161,6 +215,36 @@ export async function deleteSingleClient(clientId: string, clientName?: string):
       addToSet(STORAGE_DELETED_CLIENT_NAMES_KEY, match[1].trim().toLowerCase());
     }
   }
+
+  // Also remove from di_platform_clients_v2 cache
+  try {
+    const rawClients = localStorage.getItem('di_platform_clients_v2');
+    if (rawClients) {
+      const parsedClients = JSON.parse(rawClients);
+      const toKeepClients = parsedClients.filter((c: any) => {
+        const matches = 
+          (clientId && (c.id === clientId || c.client_id === clientId)) ||
+          (clientName && (
+            (c.brand_name && c.brand_name.toLowerCase() === clientName.toLowerCase()) ||
+            (c.name && c.name.toLowerCase() === clientName.toLowerCase()) ||
+            (c.company_name && c.company_name.toLowerCase() === clientName.toLowerCase()) ||
+            (c.email && c.email.toLowerCase() === clientName.toLowerCase())
+          ));
+        return !matches;
+      });
+      localStorage.setItem('di_platform_clients_v2', JSON.stringify(toKeepClients));
+    }
+  } catch {}
+
+  // Delete from Supabase clients table
+  try {
+    if (clientId) {
+      await supabase.from('clients').delete().eq('id', clientId);
+    }
+    if (clientName) {
+      await supabase.from('clients').delete().ilike('brand_name', clientName);
+    }
+  } catch {}
 
   // Remove channel association
   try {

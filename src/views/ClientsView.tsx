@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Deliverable, Recording, PublishingLog, Profile } from '../types';
-import { filterDeliverables, filterPublishingLogs, filterRecordings, filterClients, deleteSingleClient, deleteSingleRecording } from '../lib/deletionFilter';
+import { filterDeliverables, filterPublishingLogs, filterRecordings, filterClients, isClientDeleted, deleteSingleClient, deleteSingleRecording } from '../lib/deletionFilter';
 import { createInvitation, createClient, createAuditLog } from '../lib/api';
 import { 
   Briefcase, Film, CheckCircle2, Clock, ExternalLink, Search, 
@@ -341,6 +341,9 @@ Digital Inertia Production Team`;
         brandFromRec = rec.title.split(' - ')[0].trim();
       }
       if (brandFromRec && !brandMap.has(brandFromRec.toLowerCase())) {
+        if (isClientDeleted({ brand_name: brandFromRec, name: brandFromRec, full_name: brandFromRec })) {
+          return;
+        }
         brandMap.set(brandFromRec.toLowerCase(), {
           client: {
             id: `brand-${brandFromRec.toLowerCase().replace(/\s+/g, '-')}`,
