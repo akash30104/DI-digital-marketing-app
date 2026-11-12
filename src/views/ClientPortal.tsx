@@ -227,16 +227,22 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({ activeTab, onNavigat
   // Counts
   const readyForReviewDeliverables = useMemo(() => {
     return deliverables.filter(
-      d => d.editing_status === 'submitted_for_approval' || ((d.progress_percentage || 0) === 100 && d.editing_status !== 'approved')
+      d => (d.editing_status === 'submitted_for_approval' || (d.progress_percentage || 0) === 100) && 
+           d.editing_status !== 'approved' && 
+           d.editing_status !== 'published'
     );
   }, [deliverables]);
 
   const approvedDeliverables = useMemo(() => {
-    return deliverables.filter(d => d.editing_status === 'approved');
+    return deliverables.filter(d => d.editing_status === 'approved' || d.editing_status === 'published');
   }, [deliverables]);
 
   const inEditingDeliverables = useMemo(() => {
-    return deliverables.filter(d => d.editing_status !== 'approved' && d.editing_status !== 'submitted_for_approval');
+    return deliverables.filter(d => 
+      d.editing_status !== 'approved' && 
+      d.editing_status !== 'published' && 
+      d.editing_status !== 'submitted_for_approval'
+    );
   }, [deliverables]);
 
   // Overall average progress percentage
@@ -478,7 +484,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({ activeTab, onNavigat
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredDeliverables.map((del) => {
                 const progress = del.progress_percentage || 0;
-                const isApproved = del.editing_status === 'approved';
+                const isApproved = del.editing_status === 'approved' || del.editing_status === 'published';
                 const isReady = del.editing_status === 'submitted_for_approval' || progress === 100;
                 const previewLink = del.final_video_link || del.preview_link;
 

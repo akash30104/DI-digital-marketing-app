@@ -321,23 +321,57 @@ export const SocialMediaPublishing: React.FC = () => {
       }
 
       if (insertRes.data) {
-        // Automatically sync deliverable to approved & 100% complete with final live video link
+        // Automatically sync deliverable to published & 100% complete with final live video link
         if (finalDeliverableId) {
+          const nowStr = new Date().toISOString();
+          const pubNote = `Approved & Published to ${channelName.trim()} on ${formatPlatformLabel(selectedPlatform)}`;
           try {
             await supabase
               .from('deliverables')
               .update({
-                editing_status: 'approved',
+                editing_status: 'published',
                 progress_percentage: 100,
                 final_video_link: postUrl.trim(),
-                approval_notes: `Approved & Published to ${channelName.trim()} on ${formatPlatformLabel(selectedPlatform)}`,
+                approval_notes: pubNote,
                 approved_by: currentUser.id,
-                approved_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                approved_at: nowStr,
+                updated_at: nowStr
               })
               .eq('id', finalDeliverableId);
           } catch (delSyncErr) {
             console.error('Failed to update deliverable on publish:', delSyncErr);
+          }
+
+          // Update local deliverable caches so Production Board excludes it immediately
+          try {
+            const raw = localStorage.getItem('di_deliverable_progress_cache') || '{}';
+            const cache = JSON.parse(raw);
+            cache[finalDeliverableId] = {
+              ...(cache[finalDeliverableId] || {}),
+              editing_status: 'published',
+              progress_percentage: 100,
+              final_video_link: postUrl.trim(),
+              approval_notes: pubNote,
+              updated_at: nowStr
+            };
+            localStorage.setItem('di_deliverable_progress_cache', JSON.stringify(cache));
+
+            const rawP = localStorage.getItem('di_project_deliverables');
+            if (rawP) {
+              const pDelivs = JSON.parse(rawP);
+              const updated = pDelivs.map((d: any) => d.id === finalDeliverableId ? {
+                ...d,
+                editing_status: 'published',
+                progress_percentage: 100,
+                final_video_link: postUrl.trim(),
+                approval_notes: pubNote,
+                updated_at: nowStr
+              } : d);
+              localStorage.setItem('di_project_deliverables', JSON.stringify(updated));
+            }
+            window.dispatchEvent(new Event('storage'));
+          } catch (cacheErr) {
+            console.warn('Cache update note on publish:', cacheErr);
           }
         }
 

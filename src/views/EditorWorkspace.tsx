@@ -391,6 +391,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         const completedCuts = podDelivs.filter(d => 
           (d.progress_percentage || 0) === 100 || 
           d.editing_status === 'approved' || 
+          d.editing_status === 'published' || 
           d.editing_status === 'submitted_for_approval'
         ).length;
 
@@ -514,6 +515,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         const completedCuts = projDelivs.filter(d => 
           (d.progress_percentage || 0) === 100 || 
           d.editing_status === 'approved' || 
+          d.editing_status === 'published' || 
           d.editing_status === 'submitted_for_approval'
         ).length;
 
@@ -576,6 +578,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           const completedCuts = groupDelivs.filter(d => 
             (d.progress_percentage || 0) === 100 || 
             d.editing_status === 'approved' || 
+            d.editing_status === 'published' || 
             d.editing_status === 'submitted_for_approval'
           ).length;
 

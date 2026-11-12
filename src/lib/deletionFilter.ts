@@ -87,6 +87,66 @@ export function filterDeliverables<T extends { id: string; created_at?: string; 
   return tasks.filter(t => !isTaskDeleted(t));
 }
 
+export function isDeliverablePublished(
+  task: {
+    id?: string;
+    editing_status?: string;
+    publication_status?: string;
+    approval_notes?: string;
+    description?: string;
+    title?: string;
+    notes?: string;
+  },
+  publishedIds?: Set<string>
+): boolean {
+  if (!task) return false;
+
+  // 1. Explicit published status
+  if (task.editing_status === 'published' || task.publication_status === 'published') {
+    return true;
+  }
+
+  // 2. Known published task ID set from publishing_logs or proofs
+  if (task.id && publishedIds && publishedIds.has(task.id)) {
+    return true;
+  }
+
+  // 3. Check local storage publishing caches & proofs
+  if (task.id) {
+    try {
+      const proofsRaw = localStorage.getItem('di_platform_proofs_v2');
+      if (proofsRaw && proofsRaw.includes(task.id)) return true;
+
+      const logsRaw = localStorage.getItem('di_publishing_logs_v2');
+      if (logsRaw && logsRaw.includes(task.id)) return true;
+
+      const progressCache = localStorage.getItem('di_deliverable_progress_cache');
+      if (progressCache) {
+        const parsed = JSON.parse(progressCache);
+        if (parsed[task.id]?.editing_status === 'published') return true;
+        if (parsed[task.id]?.approval_notes && /published to|& published|approved & published/i.test(parsed[task.id].approval_notes)) {
+          return true;
+        }
+      }
+    } catch {}
+  }
+
+  // 4. Content / note keywords indicating publication
+  const text = `${task.approval_notes || ''} ${task.description || ''} ${task.notes || ''} ${task.title || ''}`.toLowerCase();
+  if (
+    text.includes('approved & published') ||
+    text.includes('& published to') ||
+    text.includes('published to') ||
+    text.includes('already published') ||
+    text.includes('publication proof submitted') ||
+    text.includes('proof submitted')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function isRecordingDeleted(rec: { id: string; created_at?: string; folder_path?: string; title?: string }): boolean {
   if (!rec || !rec.id) return false;
   if (

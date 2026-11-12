@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { 
   filterDeliverables, filterRecordings, 
-  deleteSingleDeliverable, purgeAllDeliverables 
+  deleteSingleDeliverable, purgeAllDeliverables,
+  isDeliverablePublished 
 } from '../lib/deletionFilter';
 import { getProjects, getProfiles } from '../lib/api';
 
@@ -19,6 +20,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [editors, setEditors] = useState<Profile[]>([]);
+  const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -40,7 +42,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
 
   const fetchBoardData = async () => {
     try {
-      const [recsRes, delivRes, profilesRes, projectsList] = await Promise.all([
+      const [recsRes, delivRes, profilesRes, projectsList, pubLogsRes, proofsRes] = await Promise.all([
         supabase
           .from('recordings')
           .select('*')
@@ -58,8 +60,52 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
           .select('*')
           .eq('role', 'editor')
           .order('full_name'),
-        getProjects()
+        getProjects(),
+        supabase
+          .from('publishing_logs')
+          .select('id, deliverable_id, notes, recording_id, publication_status'),
+        supabase
+          .from('publishing_proofs')
+          .select('id, task_id, project_id, notes')
       ]);
+
+      const publishedDelivIds = new Set<string>();
+
+      if (pubLogsRes?.data) {
+        for (const log of pubLogsRes.data) {
+          if (log.deliverable_id) publishedDelivIds.add(log.deliverable_id);
+          if (log.notes) {
+            const match = log.notes.match(/\[(?:TaskId|DelivId):\s*([^\]]+)\]/i);
+            if (match && match[1]) publishedDelivIds.add(match[1].trim());
+          }
+        }
+      }
+
+      if (proofsRes?.data) {
+        for (const proof of proofsRes.data) {
+          if (proof.task_id) publishedDelivIds.add(proof.task_id);
+        }
+      }
+
+      try {
+        const localProofs = JSON.parse(localStorage.getItem('di_platform_proofs_v2') || '[]');
+        if (Array.isArray(localProofs)) {
+          for (const p of localProofs) {
+            if (p.task_id) publishedDelivIds.add(p.task_id);
+          }
+        }
+      } catch {}
+
+      try {
+        const localLogs = JSON.parse(localStorage.getItem('di_publishing_logs_v2') || '[]');
+        if (Array.isArray(localLogs)) {
+          for (const l of localLogs) {
+            if (l.deliverable_id) publishedDelivIds.add(l.deliverable_id);
+          }
+        }
+      } catch {}
+
+      setPublishedIds(publishedDelivIds);
 
       if (recsRes.data) {
         setRecordings(filterRecordings(recsRes.data));
@@ -251,6 +297,12 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
             if (matchedEd) d.editor_name = matchedEd.full_name || 'Editor';
           }
         }
+        // If deliverable is published by status, proof, or publish notes, reconcile
+        if (isDeliverablePublished(d, publishedDelivIds)) {
+          publishedDelivIds.add(d.id);
+          d.editing_status = 'published';
+          d.progress_percentage = 100;
+        }
       }
 
       // Ensure any editors assigned to deliverables are in editorList
@@ -268,7 +320,11 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
       }
 
       setEditors(editorList);
-      setDeliverables(filterDeliverables(rawDels));
+      // Strictly exclude any published deliverables from the active Production Board
+      const activeDeliverables = filterDeliverables(rawDels).filter(
+        d => !isDeliverablePublished(d, publishedDelivIds) && d.editing_status !== 'published'
+      );
+      setDeliverables(activeDeliverables);
     } catch (err) {
       console.error('Failed to load production board:', err);
     } finally {
@@ -317,12 +373,20 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
       })
       .subscribe();
 
+    const pubSub = supabase
+      .channel('production-board-publishing')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'publishing_logs' }, () => {
+        fetchBoardData();
+      })
+      .subscribe();
+
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('channels-updated', handleSync);
       window.removeEventListener('focus', handleSync);
       supabase.removeChannel(delivSub);
       supabase.removeChannel(recSub);
+      supabase.removeChannel(pubSub);
     };
   }, []);
 
@@ -426,9 +490,11 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
   }, []);
 
   // Videos edited or actively in progress today, or ready with an edited video review link
+  // NOTE: Published videos strictly belong in Published Archive and are excluded from the active Production Board
   const todayEditedVideos = useMemo(() => {
     return deliverables.filter(d => {
-      if (d.editing_status === 'cancelled') return false;
+      if (d.editing_status === 'cancelled' || d.editing_status === 'published') return false;
+      if (isDeliverablePublished(d, publishedIds)) return false;
       const updatedDate = d.updated_at 
         ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(d.updated_at)) 
         : '';
@@ -443,29 +509,40 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
       const hasProgress = (d.progress_percentage || 0) > 0;
       const isActiveStatus = d.editing_status === 'editing_in_progress' || d.editing_status === 'internal_review';
       
-      // Video is edited/active: has edited link, submitted for review, approved, or edited today/progress > 0
+      // Video is edited/active: has edited link, submitted for review, approved (awaiting publish), or edited today/progress > 0
       return hasEditedVideo || isAwaitingApproval || isApproved || (isToday && (hasProgress || isActiveStatus)) || hasProgress;
     });
-  }, [deliverables, todayDateStr]);
+  }, [deliverables, todayDateStr, publishedIds]);
 
-  // Pending works (any task in pipeline not yet 100% completed & approved)
+  // Pending works (any task in pipeline not yet 100% completed & approved/published)
   const pendingDeliverables = useMemo(() => {
     return deliverables.filter(d => {
-      if (d.editing_status === 'cancelled') return false;
+      if (d.editing_status === 'cancelled' || d.editing_status === 'published') return false;
+      if (isDeliverablePublished(d, publishedIds)) return false;
       const isCompleted = (d.progress_percentage || 0) === 100 && d.editing_status === 'approved';
       return !isCompleted;
     });
-  }, [deliverables]);
+  }, [deliverables, publishedIds]);
 
   // Unassigned deliverables in pipeline
   const unassignedDeliverables = useMemo(() => {
-    return deliverables.filter(d => !d.assigned_editor_id && d.editing_status !== 'cancelled');
-  }, [deliverables]);
+    return deliverables.filter(d => 
+      !d.assigned_editor_id && 
+      d.editing_status !== 'cancelled' && 
+      d.editing_status !== 'published' &&
+      !isDeliverablePublished(d, publishedIds)
+    );
+  }, [deliverables, publishedIds]);
 
   // Detailed editor-wise breakdown for the modal
   const editorBreakdowns = useMemo(() => {
     return editors.map(editor => {
-      const assigned = deliverables.filter(d => d.assigned_editor_id === editor.id && d.editing_status !== 'cancelled');
+      const assigned = deliverables.filter(d => 
+        d.assigned_editor_id === editor.id && 
+        d.editing_status !== 'cancelled' &&
+        d.editing_status !== 'published' &&
+        !isDeliverablePublished(d, publishedIds)
+      );
       const todayVids = assigned.filter(d => todayEditedVideos.some(tv => tv.id === d.id));
       const pendingVids = assigned.filter(d => pendingDeliverables.some(pv => pv.id === d.id));
       const totalProgress = assigned.reduce((acc, d) => acc + (d.progress_percentage || 0), 0);
@@ -481,7 +558,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
         avgProgress
       };
     });
-  }, [editors, deliverables, todayEditedVideos, pendingDeliverables]);
+  }, [editors, deliverables, todayEditedVideos, pendingDeliverables, publishedIds]);
 
   // Filtered list based on active tab and search query
   const displayedVideos = useMemo(() => {
@@ -491,7 +568,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
     } else if (activeTab === 'pending') {
       list = pendingDeliverables;
     } else {
-      list = deliverables;
+      list = deliverables.filter(d => d.editing_status !== 'published' && !isDeliverablePublished(d, publishedIds));
     }
 
     if (searchQuery.trim()) {
@@ -504,7 +581,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
     }
 
     return list;
-  }, [activeTab, todayEditedVideos, pendingDeliverables, deliverables, searchQuery]);
+  }, [activeTab, todayEditedVideos, pendingDeliverables, deliverables, searchQuery, publishedIds]);
 
 interface ProductionProjectGroup {
   projectId: string;
@@ -526,6 +603,7 @@ interface ProductionProjectGroup {
     }>();
 
     displayedVideos.forEach((cut: Deliverable) => {
+      if (isDeliverablePublished(cut, publishedIds) || cut.editing_status === 'published') return;
       const projKey = cut.recording_id || (cut.recording_title ? cut.recording_title.trim() : '') || (cut.title.includes(' - ') ? cut.title.split(' - ')[0].trim() : 'Studio Project');
       const projTitle = cut.recording_title || (cut.title.includes(' - ') ? cut.title.split(' - ')[0].trim() : cut.title);
 
@@ -540,25 +618,29 @@ interface ProductionProjectGroup {
       map.get(projKey)!.videos.push(cut);
     });
 
-    return Array.from(map.values()).map(g => {
-      const reels = g.videos.filter((v: Deliverable) => v.deliverable_type === 'reel');
-      const fulls = g.videos.filter((v: Deliverable) => v.deliverable_type === 'full_length_video');
-      const totalProg = g.videos.reduce((acc: number, v: Deliverable) => acc + (v.progress_percentage || 0), 0);
-      const avgProg = g.videos.length > 0 ? Math.round(totalProg / g.videos.length) : 0;
-      const primaryEditor = g.videos.find((v: Deliverable) => v.editor_name && v.editor_name !== 'Unassigned')?.editor_name || g.editorName;
+    return Array.from(map.values())
+      .filter(g => g.videos.length > 0)
+      .map(g => {
+        const reels = g.videos.filter((v: Deliverable) => v.deliverable_type === 'reel');
+        const fulls = g.videos.filter((v: Deliverable) => v.deliverable_type === 'full_length_video');
+        const totalProg = g.videos.reduce((acc: number, v: Deliverable) => acc + (v.progress_percentage || 0), 0);
+        const avgProg = g.videos.length > 0 ? Math.round(totalProg / g.videos.length) : 0;
+        const primaryEditor = g.videos.find((v: Deliverable) => v.editor_name && v.editor_name !== 'Unassigned')?.editor_name || g.editorName;
 
-      return {
-        ...g,
-        editorName: primaryEditor,
-        reelsCount: reels.length,
-        fullVideosCount: fulls.length,
-        avgProgress: avgProg
-      };
-    });
-  }, [displayedVideos]);
+        return {
+          ...g,
+          editorName: primaryEditor,
+          reelsCount: reels.length,
+          fullVideosCount: fulls.length,
+          avgProgress: avgProg
+        };
+      });
+  }, [displayedVideos, publishedIds]);
 
   const getStatusBadge = (status: EditingStatus) => {
     switch (status) {
+      case 'published':
+        return { label: 'Published (Archive)', bg: 'bg-zinc-800 text-zinc-300 border-zinc-700' };
       case 'not_started':
         return { label: 'Not Started', bg: 'bg-zinc-800 text-zinc-300 border-zinc-700' };
       case 'assigned':
