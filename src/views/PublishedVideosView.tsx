@@ -177,7 +177,7 @@ export const PublishedVideosView: React.FC<PublishedVideosViewProps> = ({
       {/* Filter Tabs & Search */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-full [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {[
               { id: 'all', label: 'All Channels' },
               { id: 'instagram_reels', label: 'Instagram Reels' },

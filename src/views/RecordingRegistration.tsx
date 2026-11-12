@@ -151,10 +151,11 @@ export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ on
       const finalLocation = '/footage';
       const finalDeadline = deadline.trim() || todayStr;
 
-      const selectedClient = clients.find(c => c.id === selectedClientId);
+      const selectedClient = clients.find(c => c.id === selectedClientId && !isClientDeleted(c) && !isInternalBrand(c.full_name));
       const brandName = selectedClient ? getClientBrandName(selectedClient) : '';
-      const clientTag = selectedClient ? `[Client: ${selectedClient.id}] [Brand: ${brandName}] ` : '';
-      const fullShootTitle = brandName && !title.toLowerCase().includes(brandName.toLowerCase())
+      const isInternalStudio = !selectedClient || !selectedClientId || isInternalBrand(brandName);
+      const clientTag = !isInternalStudio ? `[Client: ${selectedClient.id}] [Brand: ${brandName}] ` : '[Studio Internal] ';
+      const fullShootTitle = !isInternalStudio && brandName && !title.toLowerCase().includes(brandName.toLowerCase())
         ? `${brandName} - ${title.trim()}`
         : title.trim();
 
@@ -166,7 +167,7 @@ export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ on
             title: fullShootTitle,
             recording_date: todayStr,
             date_received: todayStr,
-            hard_disk_name: finalMethod,
+            hard_disk_name: isInternalStudio ? 'Studio Internal' : finalMethod,
             folder_path: finalLocation,
             notes: `${clientTag}[Deadline: ${finalDeadline}]`,
             registered_by: currentUser?.id
@@ -474,9 +475,9 @@ export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ on
                   className="w-full px-3.5 py-2 text-xs rounded-xl border border-zinc-800 bg-black text-white font-medium focus:outline-none focus:border-zinc-500"
                 >
                   <option value="">Studio General (No specific client)</option>
-                  {clients.filter(c => !isClientDeleted(c) && !isInternalBrand(c.full_name)).map((c) => (
+                  {filterClients(clients).map((c) => (
                     <option key={c.id} value={c.id}>
-                      🏢 {c.full_name} {c.email ? `(${c.email})` : ''}
+                      🏢 {c.full_name || getClientBrandName(c)} {c.email ? `(${c.email})` : ''}
                     </option>
                   ))}
                 </select>

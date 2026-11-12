@@ -1560,7 +1560,7 @@ interface ProjectTaskGroup {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
             <div className="w-full max-w-2xl bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-800 overflow-hidden flex flex-col max-h-[92vh]">
               {/* Modal Header */}
-              <div className="p-4 sm:p-5 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+              <div className="p-4 sm:p-5 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between shrink-0">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white bg-zinc-800 border border-zinc-700 px-2.5 py-0.5 rounded-full flex items-center gap-1">
@@ -1584,16 +1584,17 @@ interface ProjectTaskGroup {
                 </button>
               </div>
 
-              {/* Filter Tabs across Channels */}
-              <div className="p-3 bg-black border-b border-zinc-800 overflow-x-auto no-scrollbar">
-                <div className="flex items-center gap-1.5 min-w-max">
+              {/* Filter Tabs across Channels - Fixed height & overflow padding */}
+              <div className="px-4 py-3 shrink-0 bg-black border-b border-zinc-800 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex items-center gap-2 min-w-max py-0.5">
                   {channelTabs.map(ch => (
                     <button
                       key={ch.id}
+                      type="button"
                       onClick={() => setSelectedChannelFilter(ch.id)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      className={`px-3.5 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                         selectedChannelFilter === ch.id
-                          ? 'bg-white text-black shadow-sm'
+                          ? 'bg-white text-black shadow-sm font-black ring-1 ring-white/50'
                           : 'bg-zinc-800 border border-zinc-700/60 text-zinc-400 hover:text-white hover:bg-zinc-700'
                       }`}
                     >

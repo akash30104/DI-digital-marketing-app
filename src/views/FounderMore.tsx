@@ -11,7 +11,7 @@ import {
 import { 
   purgeAllDeliverables, purgeAllRecordings, purgeAllPublishingHistory,
   purgeAllProjects, purgeAllClients, purgeAllProjectsTasksAndClients,
-  isClientDeleted, isInternalBrand
+  isClientDeleted, isInternalBrand, filterClients
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, saveDailyTargets } from '../lib/targets';
 import { 
@@ -428,7 +428,7 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
                     className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-zinc-900 border border-zinc-800 text-white focus:outline-none focus:border-zinc-500"
                   >
                     <option value="none">— None (Studio In-House Channel) —</option>
-                    {clientProfiles.map(cl => (
+                    {filterClients(clientProfiles).map(cl => (
                       <option key={cl.id} value={cl.id}>
                         {cl.full_name} ({cl.email})
                       </option>

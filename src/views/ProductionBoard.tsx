@@ -642,8 +642,10 @@ interface ProductionProjectGroup {
         <div 
           onClick={() => {
             setActiveTab('today');
-            setEditorModalTab('today');
-            setShowEditorModal(true);
+            setTimeout(() => {
+              const el = document.getElementById('production-deliverables-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }, 50);
           }}
           className={`bg-[#121214] border p-4 rounded-2xl transition-all cursor-pointer group shadow-sm ${
             activeTab === 'today'
@@ -663,7 +665,7 @@ interface ProductionProjectGroup {
                 setEditorModalTab('today');
                 setShowEditorModal(true);
               }}
-              className="text-[10px] font-bold text-zinc-300 group-hover:text-white flex items-center gap-1 transition-colors bg-zinc-800/90 px-2 py-0.5 rounded-full border border-zinc-700"
+              className="text-[10px] font-bold text-zinc-300 group-hover:text-white flex items-center gap-1 transition-colors bg-zinc-800/90 px-2.5 py-1 rounded-full border border-zinc-700 hover:bg-zinc-700"
             >
               Editor Overview ↗
             </button>
@@ -679,7 +681,7 @@ interface ProductionProjectGroup {
           <div className="text-[10px] text-zinc-500 mt-1 flex items-center justify-between">
             <span>Reels &amp; full videos with editor progress</span>
             <span className="text-zinc-400 group-hover:text-white transition-colors">
-              Tap to open Editor Overview ↗
+              Click to view videos ↓
             </span>
           </div>
         </div>
@@ -688,8 +690,10 @@ interface ProductionProjectGroup {
         <div 
           onClick={() => {
             setActiveTab('pending');
-            setEditorModalTab('pending');
-            setShowEditorModal(true);
+            setTimeout(() => {
+              const el = document.getElementById('production-deliverables-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }, 50);
           }}
           className={`bg-[#121214] border p-4 rounded-2xl transition-all cursor-pointer group shadow-sm ${
             activeTab === 'pending'
@@ -709,7 +713,7 @@ interface ProductionProjectGroup {
                 setEditorModalTab('pending');
                 setShowEditorModal(true);
               }}
-              className="text-[10px] font-bold text-zinc-300 group-hover:text-white flex items-center gap-1 transition-colors bg-zinc-800/90 px-2 py-0.5 rounded-full border border-zinc-700"
+              className="text-[10px] font-bold text-zinc-300 group-hover:text-white flex items-center gap-1 transition-colors bg-zinc-800/90 px-2.5 py-1 rounded-full border border-zinc-700 hover:bg-zinc-700"
             >
               Editor Overview ↗
             </button>
@@ -725,7 +729,7 @@ interface ProductionProjectGroup {
           <div className="text-[10px] text-zinc-500 mt-1 flex items-center justify-between">
             <span>Assigned, in-progress &amp; revision tasks</span>
             <span className="text-zinc-400 group-hover:text-white transition-colors">
-              Tap to open Editor Overview ↗
+              Click to view pipeline tasks ↓
             </span>
           </div>
         </div>
@@ -1039,7 +1043,7 @@ interface ProductionProjectGroup {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-5 border-b border-zinc-800 flex items-center justify-between bg-black/40">
+            <div className="p-5 border-b border-zinc-800 flex items-center justify-between bg-black/40 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
                   <User className="w-5 h-5 text-white" />
@@ -1063,7 +1067,7 @@ interface ProductionProjectGroup {
             </div>
 
             {/* Quick Metrics & Filter Tabs */}
-            <div className="px-5 py-3 border-b border-zinc-800/80 bg-zinc-950/60 flex items-center justify-between gap-2 flex-wrap">
+            <div className="px-5 py-3 border-b border-zinc-800/80 bg-zinc-950/60 flex items-center justify-between gap-2 flex-wrap shrink-0">
               <div className="flex items-center gap-1.5 p-1 bg-black border border-zinc-800 rounded-xl">
                 <button
                   type="button"
@@ -1112,6 +1116,30 @@ interface ProductionProjectGroup {
               {editors.length === 0 ? (
                 <div className="text-center py-10 text-zinc-500 text-xs">
                   No video editors registered in the system yet.
+                </div>
+              ) : editorBreakdowns.filter(item => 
+                  editorModalTab === 'all' ||
+                  (editorModalTab === 'today' && item.todayVideos.length > 0) ||
+                  (editorModalTab === 'pending' && item.pendingVideos.length > 0)
+                ).length === 0 ? (
+                <div className="p-8 text-center rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+                  {editorModalTab === 'today' ? (
+                    <>
+                      <CheckCircle2 className="w-8 h-8 text-zinc-500 mx-auto mb-1" />
+                      <h4 className="text-sm font-bold text-white">No videos completed or edited today yet</h4>
+                      <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                        When editors submit Google Drive video links or update task progress in Editor Workspace, their edited cuts will appear grouped by editor here.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-8 h-8 text-zinc-500 mx-auto mb-1" />
+                      <h4 className="text-sm font-bold text-white">No pending tasks currently in pipeline</h4>
+                      <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                        All assigned editor tasks have been completed or no pending deliverables are assigned.
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 editorBreakdowns.map((item) => {

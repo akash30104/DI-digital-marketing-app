@@ -7,6 +7,7 @@ import {
   deleteFounderProfile
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import { isClientDeleted } from '../lib/deletionFilter';
 import { 
   Users, Mail, Plus, Copy, Check, Clock, 
   Trash2, RefreshCw, ShieldAlert, CheckCircle2, 
@@ -19,6 +20,13 @@ export const InvitationsView: React.FC = () => {
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'invites' | 'members'>('invites');
+
+  const activeInvitations = React.useMemo(() => {
+    return invitations.filter(i => 
+      i.status !== 'revoked' && 
+      !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email })
+    );
+  }, [invitations]);
 
   // New Invite Form State
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -249,7 +257,7 @@ export const InvitationsView: React.FC = () => {
               activeSubTab === 'invites' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <span>Invitations Queue ({invitations.filter(i => i.status !== 'revoked').length})</span>
+            <span>Invitations Queue ({activeInvitations.length})</span>
             {activeSubTab === 'invites' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
             )}
@@ -286,12 +294,12 @@ export const InvitationsView: React.FC = () => {
         <div className="space-y-3">
           {/* Mobile Cards (Visible on screens < md) */}
           <div className="block md:hidden space-y-3">
-            {invitations.filter(i => i.status !== 'revoked').length === 0 ? (
+            {activeInvitations.length === 0 ? (
               <div className="p-8 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs">
                 No active invitations in queue. Tap "+ Invite" above to generate one.
               </div>
             ) : (
-              invitations.filter(i => i.status !== 'revoked').map((inv) => {
+              activeInvitations.map((inv) => {
                 const expired = isExpired(inv.expires_at);
                 const isRedeemed = inv.status === 'accepted';
                 return (
@@ -365,14 +373,14 @@ export const InvitationsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {invitations.filter(i => i.status !== 'revoked').length === 0 ? (
+                  {activeInvitations.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-zinc-500">
                         No active invitations in queue. Click "+ Invite Editor" or "+ Invite SMM" to send one.
                       </td>
                     </tr>
                   ) : (
-                    invitations.filter(i => i.status !== 'revoked').map((inv) => {
+                    activeInvitations.map((inv) => {
                       const expired = isExpired(inv.expires_at);
                       const isRedeemed = inv.status === 'accepted';
                       return (

@@ -9,7 +9,7 @@ import {
   UserCheck, X, ChevronRight, ChevronLeft, ArrowRight, ListTodo, 
   CheckSquare, Plus, ArrowLeft, Cloud, Film, Calendar, RefreshCw, User, Trash2, Briefcase
 } from 'lucide-react';
-import { filterDeliverables, filterRecordings, deleteSingleDeliverable, deleteSingleRecording, isInternalBrand, isClientDeleted } from '../lib/deletionFilter';
+import { filterDeliverables, filterRecordings, deleteSingleDeliverable, deleteSingleRecording, isInternalBrand, isClientDeleted, filterClients } from '../lib/deletionFilter';
 import { getClientBrandName } from '../lib/clientIsolation';
 import { recordTaskVersion, createNotification, createAuditLog, getProjects } from '../lib/api';
 
@@ -128,6 +128,10 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     if (
       notes.toLowerCase().includes('internal studio') ||
       notes.toLowerCase().includes('studio internal') ||
+      notes.toLowerCase().includes('studio general') ||
+      notes.toLowerCase().includes('studio production') ||
+      notes.toLowerCase().includes('[studio internal]') ||
+      notes.toLowerCase().includes('studio footage') ||
       title.toLowerCase().includes('internal studio') ||
       title.toLowerCase().includes('studio internal')
     ) {
@@ -147,40 +151,43 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     const clientMatch = notes.match(/\[Client:\s*([^\]]+)\]/i);
     if (clientMatch && clientMatch[1]) {
       const rawVal = clientMatch[1].trim();
-      if (!isInternalBrand(rawVal)) {
+      if (!isInternalBrand(rawVal) && rawVal.toLowerCase() !== 'internal') {
         const matchedProfile = clientProfiles.find(c => c.id === rawVal);
         if (matchedProfile && !isClientDeleted(matchedProfile)) {
           const brand = getClientBrandName(matchedProfile);
           if (!isInternalBrand(brand)) {
             return { isClientWork: true, clientBrandName: brand };
           }
-        } else {
+        } else if (!isInternalBrand(rawVal)) {
           return { isClientWork: true, clientBrandName: rawVal };
         }
       }
     }
 
     // 3. Match against known client profiles (full_name, brand parentheses e.g. "LLBS")
-    for (const client of clientProfiles) {
+    // Strictly require minimum length of 4 characters to prevent 2-letter false matches (e.g. "ak")
+    const cleanClients = filterClients(clientProfiles);
+    for (const client of cleanClients) {
       if (isClientDeleted(client)) continue;
       const brand = getClientBrandName(client);
       if (isInternalBrand(brand)) continue;
       const clientName = client.full_name || '';
       if (isInternalBrand(clientName)) continue;
 
-      if (brand && (title.toLowerCase().includes(brand.toLowerCase()) || notes.toLowerCase().includes(brand.toLowerCase()))) {
+      if (brand && brand.length >= 4 && (title.toLowerCase().includes(brand.toLowerCase()) || notes.toLowerCase().includes(brand.toLowerCase()))) {
         return { isClientWork: true, clientBrandName: brand };
       }
-      if (clientName && (title.toLowerCase().includes(clientName.toLowerCase()) || notes.toLowerCase().includes(clientName.toLowerCase()))) {
+      if (clientName && clientName.length >= 4 && (title.toLowerCase().includes(clientName.toLowerCase()) || notes.toLowerCase().includes(clientName.toLowerCase()))) {
         return { isClientWork: true, clientBrandName: brand || clientName };
       }
-      if (notes.includes(client.id)) {
+      if (client.id && notes.includes(client.id)) {
         return { isClientWork: true, clientBrandName: brand || clientName };
       }
     }
 
     // 4. Check deliverables notes, client_brand, client_name, or title
     for (const d of podDelivs) {
+      if (d.client_id === 'internal') continue;
       if (d.client_brand && !isInternalBrand(d.client_brand)) {
         return { isClientWork: true, clientBrandName: d.client_brand };
       }
@@ -192,21 +199,21 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       if (dBrandMatch && dBrandMatch[1] && !isInternalBrand(dBrandMatch[1])) {
         return { isClientWork: true, clientBrandName: dBrandMatch[1].trim() };
       }
-      for (const client of clientProfiles) {
+      for (const client of cleanClients) {
         if (isClientDeleted(client)) continue;
         const brand = getClientBrandName(client);
         if (isInternalBrand(brand)) continue;
-        if (brand && (d.title.toLowerCase().includes(brand.toLowerCase()) || dNotes.toLowerCase().includes(brand.toLowerCase()))) {
+        if (brand && brand.length >= 4 && (d.title.toLowerCase().includes(brand.toLowerCase()) || dNotes.toLowerCase().includes(brand.toLowerCase()))) {
           return { isClientWork: true, clientBrandName: brand };
         }
       }
     }
 
-    // 5. Keyword heuristic (exclude internal studio)
+    // 5. Keyword heuristic (strictly exclude internal studio)
     if (
       !isInternalBrand(notes) &&
       !isInternalBrand(title) &&
-      (/\[Client:\s*(?!internal)[^\]]+\]/i.test(notes) || /Client Work/i.test(notes) || /Client Work/i.test(title))
+      (/\[Client:\s*(?!internal)[^\]]+\]/i.test(notes) || /\[Brand:\s*(?!internal)[^\]]+\]/i.test(notes))
     ) {
       return { isClientWork: true, clientBrandName: 'Client Brand' };
     }

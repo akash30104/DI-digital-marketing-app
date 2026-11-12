@@ -1495,7 +1495,7 @@ Digital Inertia Production Team`;
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-black border border-zinc-800 text-white font-medium focus:outline-none focus:border-zinc-500"
                   >
                     <option value="">Select Client Brand...</option>
-                    {clients.map(c => (
+                    {filterClients(clients).map(c => (
                       <option key={c.id} value={c.id}>
                         {getClientBrandName(c) || c.full_name || c.email}
                       </option>

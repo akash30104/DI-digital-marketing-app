@@ -216,8 +216,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-zinc-800 bg-black text-white focus:outline-none focus:border-zinc-500 font-semibold"
               >
                 <option value="">Studio In-House Production</option>
-                {clients.filter(c => !isClientDeleted(c) && !isInternalBrand(c.brand_name || c.company_name || c.name)).map(c => (
-                  <option key={c.id} value={c.id}>{c.brand_name || c.company_name || c.name}</option>
+                {filterClients(clients).map(c => (
+                  <option key={c.id} value={c.id}>{c.brand_name || c.company_name || c.name || (c as any).full_name}</option>
                 ))}
               </select>
             </div>

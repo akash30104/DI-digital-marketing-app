@@ -149,13 +149,18 @@ export function isInternalBrand(name?: string | null): boolean {
     n === 'studio production' ||
     n === 'studio internal' ||
     n === 'studio general' ||
+    n === 'studio general (no specific client)' ||
+    n === 'studio footage' ||
     n === 'studio' ||
     n === 'direct' ||
     n === 'in-house' ||
     n === 'inhouse' ||
     n.includes('internal studio') ||
+    n.includes('studio internal') ||
     n.includes('studio production') ||
-    n.includes('studio in-house')
+    n.includes('studio in-house') ||
+    n.includes('studio general') ||
+    n.includes('studio footage')
   );
 }
 
