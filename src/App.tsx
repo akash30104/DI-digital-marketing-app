@@ -126,9 +126,8 @@ export const App: React.FC = () => {
         case 'hub':
           return <FounderDashboard onNavigateTab={setActiveTab} />;
         case 'projects':
-          return <ProjectsView onNavigateTab={setActiveTab} />;
         case 'footage':
-          return <RecordingRegistration onNavigateTab={setActiveTab} />;
+          return <ProjectsView onNavigateTab={setActiveTab} />;
         case 'pipeline':
         case 'editing':
           return <ProductionBoard onNavigateTab={setActiveTab} />;

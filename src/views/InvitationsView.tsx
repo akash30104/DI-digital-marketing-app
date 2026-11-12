@@ -7,7 +7,7 @@ import {
   deleteFounderProfile
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { isClientDeleted } from '../lib/deletionFilter';
+import { isClientDeleted, isProfileDeleted } from '../lib/deletionFilter';
 import { 
   Users, Mail, Plus, Copy, Check, Clock, 
   Trash2, RefreshCw, ShieldAlert, CheckCircle2, 
@@ -48,7 +48,7 @@ export const InvitationsView: React.FC = () => {
       getProfiles(),
     ]);
     setInvitations(invs);
-    setTeamMembers(profiles);
+    setTeamMembers(profiles.filter(p => !isProfileDeleted(p) && p.email?.toLowerCase() !== 'akash.uxui.design@gmail.com'));
     setIsLoading(false);
   };
 

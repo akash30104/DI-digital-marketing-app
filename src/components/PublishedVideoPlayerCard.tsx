@@ -322,82 +322,90 @@ export const PublishedVideoPlayerCard: React.FC<PublishedVideoPlayerCardProps> =
         <div className="flex items-center justify-between flex-wrap gap-1.5">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-zinc-300" />
-            <span>Live Video Insights</span>
-            {ins.isAutoCalculated ? (
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-zinc-800 text-zinc-300 border border-zinc-700">
-                ⚡ Auto Live Sync
-              </span>
-            ) : (
+            <span>VIDEO INSIGHTS</span>
+            {ins.isRecorded && (
               <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-white text-black">
                 ✓ Verified Real Stats
               </span>
             )}
           </span>
 
-          {canEditInsights && (
-            <button
-              onClick={openEditModal}
-              className="px-2.5 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-[10px] font-bold flex items-center gap-1 transition-colors"
-            >
-              <Edit3 className="w-3 h-3" />
-              <span>Update / Edit Stats</span>
-            </button>
-          )}
+          <button
+            onClick={openEditModal}
+            className="px-3 py-1 rounded-xl bg-white text-black hover:bg-zinc-200 text-[11px] font-black flex items-center gap-1 transition shadow-sm"
+          >
+            <Edit3 className="w-3 h-3" />
+            <span>{ins.isRecorded ? 'Update Real Stats' : '+ Enter Real Stats'}</span>
+          </button>
         </div>
 
-        {/* Metric Badges */}
-        <div className="grid grid-cols-4 gap-2">
-          <div className="p-2.5 rounded-xl bg-black border border-zinc-800 text-center">
-            <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400 uppercase font-bold mb-0.5">
-              <Eye className="w-3 h-3 text-zinc-400" />
-              <span>Views</span>
+        {!ins.isRecorded ? (
+          <div className="p-3.5 rounded-2xl bg-black border border-zinc-800/90 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold text-white">No live metrics logged yet</div>
+              <div className="text-[10px] text-zinc-400 mt-0.5">Verified views, likes, and comments from Studio/Dashboard</div>
             </div>
-            <div className="text-sm font-black text-white">
-              {formatCompactNumber(ins.views)}
-            </div>
-          </div>
-
-          <div className="p-2.5 rounded-xl bg-black border border-zinc-800 text-center">
-            <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400 uppercase font-bold mb-0.5">
-              <Heart className="w-3 h-3 text-zinc-400" />
-              <span>Likes</span>
-            </div>
-            <div className="text-sm font-black text-white">
-              {formatCompactNumber(ins.likes)}
+            <div className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-[10px] font-black uppercase tracking-wider text-zinc-400 shrink-0">
+              0 VIEWS
             </div>
           </div>
+        ) : (
+          <>
+            {/* Metric Badges */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="p-2.5 rounded-xl bg-black border border-zinc-800 text-center">
+                <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400 uppercase font-bold mb-0.5">
+                  <Eye className="w-3 h-3 text-zinc-400" />
+                  <span>Views</span>
+                </div>
+                <div className="text-sm font-black text-white">
+                  {formatCompactNumber(ins.views)}
+                </div>
+              </div>
 
-          <div className="p-2.5 rounded-xl bg-black border border-zinc-800 text-center">
-            <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400 uppercase font-bold mb-0.5">
-              <MessageSquare className="w-3 h-3 text-zinc-400" />
-              <span>Comments</span>
-            </div>
-            <div className="text-sm font-black text-white">
-              {formatCompactNumber(ins.comments)}
-            </div>
-          </div>
+              <div className="p-2.5 rounded-xl bg-black border border-zinc-800 text-center">
+                <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400 uppercase font-bold mb-0.5">
+                  <Heart className="w-3 h-3 text-zinc-400" />
+                  <span>Likes</span>
+                </div>
+                <div className="text-sm font-black text-white">
+                  {formatCompactNumber(ins.likes)}
+                </div>
+              </div>
 
-          <div className="p-2.5 rounded-xl bg-black border border-zinc-800 text-center">
-            <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400 uppercase font-bold mb-0.5">
-              <Share2 className="w-3 h-3 text-zinc-400" />
-              <span>Shares</span>
-            </div>
-            <div className="text-sm font-black text-white">
-              {formatCompactNumber(ins.shares)}
-            </div>
-          </div>
-        </div>
+              <div className="p-2.5 rounded-xl bg-black border border-zinc-800 text-center">
+                <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400 uppercase font-bold mb-0.5">
+                  <MessageSquare className="w-3 h-3 text-zinc-400" />
+                  <span>Comments</span>
+                </div>
+                <div className="text-sm font-black text-white">
+                  {formatCompactNumber(ins.comments)}
+                </div>
+              </div>
 
-        {/* Live Engagement Rate Footer */}
-        <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-900 flex-wrap gap-1">
-          <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Live Performance Tracking</span>
-          </span>
-          <span>
-            Engagement: <strong className="text-white font-black">{ins.views > 0 ? (((ins.likes + ins.comments + ins.shares) / ins.views) * 100).toFixed(1) : '7.8'}%</strong>
-          </span>
-        </div>
+              <div className="p-2.5 rounded-xl bg-black border border-zinc-800 text-center">
+                <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400 uppercase font-bold mb-0.5">
+                  <Share2 className="w-3 h-3 text-zinc-400" />
+                  <span>Shares</span>
+                </div>
+                <div className="text-sm font-black text-white">
+                  {formatCompactNumber(ins.shares)}
+                </div>
+              </div>
+            </div>
+
+            {/* Live Engagement Rate Footer */}
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-900 flex-wrap gap-1">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span>Verified Real Performance</span>
+              </span>
+              <span>
+                Engagement: <strong className="text-white font-black">{ins.views > 0 ? (((ins.likes + ins.comments + ins.shares) / ins.views) * 100).toFixed(1) : '0'}%</strong>
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Edit Insights Modal */}

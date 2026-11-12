@@ -770,16 +770,21 @@ export async function fetchProfiles(): Promise<Profile[]> {
   // Also collect any profiles stored in di_team_creds_* in localStorage (ensures DP, balakumaran, etc. are always present)
   try {
     if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('di_team_creds_akash.uxui.design@gmail.com');
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith('di_team_creds_')) {
+          if (k.includes('akash.uxui')) {
+            localStorage.removeItem(k);
+            continue;
+          }
           const raw = localStorage.getItem(k);
           if (raw) {
             const parsed = JSON.parse(raw);
             const prof: Profile = parsed.profile;
-            if (prof && prof.id && !seenIds.has(prof.id)) {
+            if (prof && prof.id && !seenIds.has(prof.id) && !isProfileDeleted(prof)) {
               const emailLower = (prof.email || '').toLowerCase();
-              if (!emailLower || !seenEmails.has(emailLower)) {
+              if (emailLower !== 'akash.uxui.design@gmail.com' && (!emailLower || !seenEmails.has(emailLower))) {
                 list.push(prof);
                 seenIds.add(prof.id);
                 if (emailLower) seenEmails.add(emailLower);
@@ -819,7 +824,12 @@ export async function fetchProfiles(): Promise<Profile[]> {
   } catch {}
 
   // Strictly filter deleted clients and explicitly deleted/purged profiles (e.g. Akash Founder)
-  return list.filter(p => !isProfileDeleted(p) && (p.role !== 'client' || !isClientDeleted(p)));
+  return list.filter(p => 
+    !isProfileDeleted(p) && 
+    p.email?.toLowerCase() !== 'akash.uxui.design@gmail.com' &&
+    !p.full_name?.toLowerCase().includes('akash (founder)') &&
+    (p.role !== 'client' || !isClientDeleted(p))
+  );
 }
 
 export const getProfiles = fetchProfiles;

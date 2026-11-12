@@ -132,14 +132,15 @@ export function isDeliverablePublished(
   }
 
   // 4. Content / note keywords indicating publication
-  const text = `${task.approval_notes || ''} ${task.description || ''} ${task.notes || ''} ${task.title || ''}`.toLowerCase();
+  const text = `${task.approval_notes || ''} ${task.description || ''} ${task.notes || ''} ${task.title || ''} ${(task as any).editor_note || ''}`.toLowerCase();
   if (
     text.includes('approved & published') ||
     text.includes('& published to') ||
     text.includes('published to') ||
     text.includes('already published') ||
     text.includes('publication proof submitted') ||
-    text.includes('proof submitted')
+    text.includes('proof submitted') ||
+    (text.includes('published') && text.includes('approved'))
   ) {
     return true;
   }
@@ -237,9 +238,9 @@ export function isProfileDeleted(profile: { id?: string; email?: string; full_na
   const name = (profile.full_name || '').trim().toLowerCase();
 
   // Explicitly purge the stale hardcoded Akash Founder account requested by user
-  if (email === 'akash.uxui.design@gmail.com') return true;
-  if (id === 'user-founder') return true;
-  if (name.includes('akash (founder)')) return true;
+  if (email === 'akash.uxui.design@gmail.com' || email.includes('akash.uxui')) return true;
+  if (id === 'user-founder' || id.includes('founder-akash')) return true;
+  if (name.includes('akash (founder)') || name.includes('akash founder') || (name.includes('akash') && name.includes('founder'))) return true;
 
   return false;
 }

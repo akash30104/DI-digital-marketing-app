@@ -489,14 +489,29 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
   }, []);
 
+  // Watertight check to ensure published deliverables NEVER appear on the active production board
+  const isAnyPublished = React.useCallback((d: Deliverable): boolean => {
+    if (!d) return false;
+    if (d.editing_status === 'published' || (d as any).publication_status === 'published') return true;
+    if (isDeliverablePublished(d, publishedIds)) return true;
+    const fullText = `${d.approval_notes || ''} ${d.description || ''} ${d.title || ''} ${(d as any).notes || ''} ${(d as any).editor_note || ''}`.toLowerCase();
+    if (
+      fullText.includes('published to') ||
+      fullText.includes('& published') ||
+      fullText.includes('approved & published') ||
+      fullText.includes('already published') ||
+      fullText.includes('publication proof')
+    ) {
+      return true;
+    }
+    return false;
+  }, [publishedIds]);
+
   // Videos edited or actively in progress today, or ready with an edited video review link
   // NOTE: Published videos strictly belong in Published Archive and are excluded from the active Production Board
   const todayEditedVideos = useMemo(() => {
     return deliverables.filter(d => {
-      if (d.editing_status === 'cancelled' || d.editing_status === 'published') return false;
-      if (isDeliverablePublished(d, publishedIds)) return false;
-      const noteCheck = `${d.approval_notes || ''} ${d.description || ''} ${d.title || ''}`.toLowerCase();
-      if (noteCheck.includes('published to') || noteCheck.includes('& published') || noteCheck.includes('approved & published')) return false;
+      if (d.editing_status === 'cancelled' || isAnyPublished(d)) return false;
       const updatedDate = d.updated_at 
         ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(d.updated_at)) 
         : '';
@@ -514,29 +529,25 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
       // Video is edited/active: has edited link, submitted for review, approved (awaiting publish), or edited today/progress > 0
       return hasEditedVideo || isAwaitingApproval || isApproved || (isToday && (hasProgress || isActiveStatus)) || hasProgress;
     });
-  }, [deliverables, todayDateStr, publishedIds]);
+  }, [deliverables, todayDateStr, isAnyPublished]);
 
   // Pending works (any task in pipeline not yet 100% completed & approved/published)
   const pendingDeliverables = useMemo(() => {
     return deliverables.filter(d => {
-      if (d.editing_status === 'cancelled' || d.editing_status === 'published') return false;
-      if (isDeliverablePublished(d, publishedIds)) return false;
-      const noteCheck = `${d.approval_notes || ''} ${d.description || ''} ${d.title || ''}`.toLowerCase();
-      if (noteCheck.includes('published to') || noteCheck.includes('& published') || noteCheck.includes('approved & published')) return false;
+      if (d.editing_status === 'cancelled' || isAnyPublished(d)) return false;
       const isCompleted = (d.progress_percentage || 0) === 100 && d.editing_status === 'approved';
       return !isCompleted;
     });
-  }, [deliverables, publishedIds]);
+  }, [deliverables, isAnyPublished]);
 
   // Unassigned deliverables in pipeline
   const unassignedDeliverables = useMemo(() => {
     return deliverables.filter(d => 
       !d.assigned_editor_id && 
       d.editing_status !== 'cancelled' && 
-      d.editing_status !== 'published' &&
-      !isDeliverablePublished(d, publishedIds)
+      !isAnyPublished(d)
     );
-  }, [deliverables, publishedIds]);
+  }, [deliverables, isAnyPublished]);
 
   // Detailed editor-wise breakdown for the modal
   const editorBreakdowns = useMemo(() => {
@@ -544,8 +555,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
       const assigned = deliverables.filter(d => 
         d.assigned_editor_id === editor.id && 
         d.editing_status !== 'cancelled' &&
-        d.editing_status !== 'published' &&
-        !isDeliverablePublished(d, publishedIds)
+        !isAnyPublished(d)
       );
       const todayVids = assigned.filter(d => todayEditedVideos.some(tv => tv.id === d.id));
       const pendingVids = assigned.filter(d => pendingDeliverables.some(pv => pv.id === d.id));
@@ -562,7 +572,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
         avgProgress
       };
     });
-  }, [editors, deliverables, todayEditedVideos, pendingDeliverables, publishedIds]);
+  }, [editors, deliverables, todayEditedVideos, pendingDeliverables, isAnyPublished]);
 
   // Filtered list based on active tab and search query
   const displayedVideos = useMemo(() => {
@@ -572,7 +582,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
     } else if (activeTab === 'pending') {
       list = pendingDeliverables;
     } else {
-      list = deliverables.filter(d => d.editing_status !== 'published' && !isDeliverablePublished(d, publishedIds));
+      list = deliverables.filter(d => !isAnyPublished(d));
     }
 
     if (searchQuery.trim()) {
@@ -584,8 +594,9 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
       );
     }
 
-    return list;
-  }, [activeTab, todayEditedVideos, pendingDeliverables, deliverables, searchQuery, publishedIds]);
+    // Double-safeguard: completely eliminate any published cuts
+    return list.filter(d => !isAnyPublished(d));
+  }, [activeTab, todayEditedVideos, pendingDeliverables, deliverables, searchQuery, isAnyPublished]);
 
 interface ProductionProjectGroup {
   projectId: string;
@@ -607,9 +618,7 @@ interface ProductionProjectGroup {
     }>();
 
     displayedVideos.forEach((cut: Deliverable) => {
-      if (isDeliverablePublished(cut, publishedIds) || cut.editing_status === 'published') return;
-      const cutNote = `${cut.approval_notes || ''} ${cut.description || ''} ${cut.title || ''}`.toLowerCase();
-      if (cutNote.includes('published to') || cutNote.includes('& published') || cutNote.includes('approved & published')) return;
+      if (isAnyPublished(cut)) return;
       const projKey = cut.recording_id || (cut.recording_title ? cut.recording_title.trim() : '') || (cut.title.includes(' - ') ? cut.title.split(' - ')[0].trim() : 'Studio Project');
       const projTitle = cut.recording_title || (cut.title.includes(' - ') ? cut.title.split(' - ')[0].trim() : cut.title);
 
@@ -641,7 +650,7 @@ interface ProductionProjectGroup {
           avgProgress: avgProg
         };
       });
-  }, [displayedVideos, publishedIds]);
+  }, [displayedVideos, isAnyPublished]);
 
   const getStatusBadge = (status: EditingStatus) => {
     switch (status) {

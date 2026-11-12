@@ -85,80 +85,26 @@ export function getVideoInsights(log?: {
   notes?: string | null;
 }): SocialInsights {
   if (!log) {
-    return { views: 0, comments: 0, shares: 0, likes: 0, isRecorded: false };
+    return { views: 0, comments: 0, shares: 0, likes: 0, isRecorded: false, isAutoCalculated: false };
   }
 
-  // 1. If manual insights are recorded in notes, use them directly
+  // 1. If real manual/API insights are recorded in notes, use them directly
   if (log.notes) {
     const parsed = parseInsights(log.notes);
-    if (parsed.isRecorded && (parsed.views > 0 || parsed.likes > 0)) {
-      return { ...parsed, isAutoCalculated: false };
+    if (parsed.isRecorded && (parsed.views > 0 || parsed.likes > 0 || parsed.comments > 0 || parsed.shares > 0)) {
+      return { ...parsed, isRecorded: true, isAutoCalculated: false };
     }
   }
 
-  // 2. Automatically generate deterministic, realistic live performance metrics
-  const seedString = `${log.id || ''}_${log.post_url || ''}_${log.platform || ''}`;
-  let hash = 0;
-  for (let i = 0; i < seedString.length; i++) {
-    hash = (hash << 5) - hash + seedString.charCodeAt(i);
-    hash |= 0;
-  }
-  const positiveHash = Math.abs(hash);
-
-  // Elapsed hours since publication
-  const pubTime = log.published_at 
-    ? new Date(log.published_at).getTime() 
-    : (log.created_at ? new Date(log.created_at).getTime() : Date.now());
-  const hoursElapsed = Math.max(0.3, (Date.now() - pubTime) / (1000 * 60 * 60));
-
-  // Determine platform characteristics
-  const plat = (log.platform || '').toLowerCase();
-  let baseViews = 1400 + (positiveHash % 2800); // initial baseline views: 1.4K to 4.2K
-  let hourlyRate = 65 + (positiveHash % 85);
-  let likeRatio = 0.068;
-  let commentRatio = 0.016;
-  let shareRatio = 0.026;
-
-  if (plat.includes('shorts') || plat.includes('reel') || plat.includes('tiktok')) {
-    baseViews = 2200 + (positiveHash % 4200);
-    hourlyRate = 120 + (positiveHash % 140);
-    likeRatio = 0.078;
-    commentRatio = 0.022;
-    shareRatio = 0.039;
-  } else if (plat.includes('full') || plat.includes('youtube')) {
-    baseViews = 1100 + (positiveHash % 2400);
-    hourlyRate = 58 + (positiveHash % 65);
-    likeRatio = 0.058;
-    commentRatio = 0.028;
-    shareRatio = 0.018;
-  } else if (plat.includes('facebook')) {
-    baseViews = 950 + (positiveHash % 2000);
-    hourlyRate = 48 + (positiveHash % 55);
-    likeRatio = 0.052;
-    shareRatio = 0.046;
-  } else if (plat.includes('x') || plat.includes('twitter')) {
-    baseViews = 1250 + (positiveHash % 2500);
-    hourlyRate = 70 + (positiveHash % 80);
-    likeRatio = 0.045;
-    shareRatio = 0.034;
-  }
-
-  // Smooth growth curve over time
-  const growth = Math.pow(Math.min(hoursElapsed, 720), 0.75);
-  const totalViews = Math.round(baseViews + (hourlyRate * growth));
-
-  const views = Math.max(350, totalViews);
-  const likes = Math.max(24, Math.round(views * (likeRatio + ((positiveHash % 15) / 1000))));
-  const comments = Math.max(6, Math.round(views * (commentRatio + ((positiveHash % 10) / 1000))));
-  const shares = Math.max(4, Math.round(views * (shareRatio + ((positiveHash % 12) / 1000))));
-
+  // 2. ZERO FAKE DATA: Strictly return unrecorded metrics (0 views, isRecorded: false)
+  // No synthetic hash-based numbers. Verified real metrics only.
   return {
-    views,
-    likes,
-    comments,
-    shares,
-    isRecorded: true,
-    isAutoCalculated: true,
+    views: 0,
+    likes: 0,
+    comments: 0,
+    shares: 0,
+    isRecorded: false,
+    isAutoCalculated: false,
   };
 }
 

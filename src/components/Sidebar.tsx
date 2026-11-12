@@ -72,7 +72,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return [
           { id: 'dashboard', label: 'SMM Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
           { id: 'projects', label: 'Projects', icon: <FolderKanban className="w-4 h-4" /> },
-          { id: 'footage', label: 'Shoots & Tasks', icon: <PlusCircle className="w-4 h-4" /> },
           { id: 'pipeline', label: 'Production Board', icon: <Layers className="w-4 h-4" /> },
           { id: 'approvals', label: 'SMM Approvals', icon: <CheckCheck className="w-4 h-4" />, badge: pendingApprovalsCount },
           { id: 'publishing', label: 'Social Publishing', icon: <Share2 className="w-4 h-4" /> },

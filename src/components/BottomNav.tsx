@@ -46,7 +46,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           { id: 'dashboard', label: 'Hub', icon: <BarChart3 className="w-5 h-5" /> },
           { id: 'projects', label: 'Projects', icon: <FolderKanban className="w-5 h-5" /> },
           { id: 'pipeline', label: 'Pipeline', icon: <Layers className="w-5 h-5" /> },
-          { id: 'footage', label: 'Shoots', icon: <PlusCircle className="w-5 h-5" /> },
+          { id: 'publishing', label: 'Publish', icon: <Share2 className="w-5 h-5" /> },
           { id: 'more_menu', label: 'More', icon: <Menu className="w-5 h-5" />, isMenuTrigger: true }
         ];
       case 'editor':

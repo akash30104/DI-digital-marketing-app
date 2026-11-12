@@ -1741,12 +1741,8 @@ interface ProjectTaskGroup {
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-zinc-300" />
-                        <span>Live Video Insights</span>
-                        {ins.isAutoCalculated ? (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-zinc-800 text-zinc-300 border border-zinc-700">
-                            ⚡ Auto Live Sync
-                          </span>
-                        ) : (
+                        <span>VIDEO INSIGHTS</span>
+                        {ins.isRecorded && (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-white text-black">
                             ✓ Verified Real Stats
                           </span>
@@ -1756,66 +1752,80 @@ interface ProjectTaskGroup {
                       <button
                         type="button"
                         onClick={() => openEditInsights(log)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition active:scale-95"
-                        title="Update or override video metrics"
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black text-black bg-white hover:bg-zinc-200 transition active:scale-95 shadow-sm"
+                        title="Enter or update real video metrics"
                       >
                         <Edit3 className="w-3 h-3" />
-                        <span>Update / Edit Stats</span>
+                        <span>{ins.isRecorded ? 'Update Real Stats' : '+ Enter Real Stats'}</span>
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2 text-center">
-                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
-                          <Eye className="w-3 h-3 text-zinc-400" />
-                          <span>Views</span>
+                    {!ins.isRecorded ? (
+                      <div className="p-3.5 rounded-xl bg-black border border-zinc-800/90 flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-bold text-white">No live metrics logged yet</div>
+                          <div className="text-[10px] text-zinc-400 mt-0.5">Verified views, likes, and comments from Studio/Dashboard</div>
                         </div>
-                        <div className="text-sm sm:text-base font-black text-white mt-1">
-                          {formatCompactNumber(ins.views)}
-                        </div>
-                      </div>
-
-                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
-                          <Heart className="w-3 h-3 text-zinc-400" />
-                          <span>Likes</span>
-                        </div>
-                        <div className="text-sm sm:text-base font-black text-white mt-1">
-                          {formatCompactNumber(ins.likes)}
+                        <div className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-[10px] font-black uppercase tracking-wider text-zinc-400 shrink-0">
+                          0 VIEWS
                         </div>
                       </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-4 gap-2 text-center">
+                          <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                            <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                              <Eye className="w-3 h-3 text-zinc-400" />
+                              <span>Views</span>
+                            </div>
+                            <div className="text-sm sm:text-base font-black text-white mt-1">
+                              {formatCompactNumber(ins.views)}
+                            </div>
+                          </div>
 
-                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
-                          <MessageSquare className="w-3 h-3 text-zinc-400" />
-                          <span>Comments</span>
-                        </div>
-                        <div className="text-sm sm:text-base font-black text-white mt-1">
-                          {formatCompactNumber(ins.comments)}
-                        </div>
-                      </div>
+                          <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                            <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                              <Heart className="w-3 h-3 text-zinc-400" />
+                              <span>Likes</span>
+                            </div>
+                            <div className="text-sm sm:text-base font-black text-white mt-1">
+                              {formatCompactNumber(ins.likes)}
+                            </div>
+                          </div>
 
-                      <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-                        <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
-                          <Share2 className="w-3.5 h-3.5 text-zinc-400" />
-                          <span>Shares</span>
-                        </div>
-                        <div className="text-sm sm:text-base font-black text-white mt-1">
-                          {formatCompactNumber(ins.shares)}
-                        </div>
-                      </div>
-                    </div>
+                          <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                            <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                              <MessageSquare className="w-3 h-3 text-zinc-400" />
+                              <span>Comments</span>
+                            </div>
+                            <div className="text-sm sm:text-base font-black text-white mt-1">
+                              {formatCompactNumber(ins.comments)}
+                            </div>
+                          </div>
 
-                    {/* Live Engagement Rate Footer */}
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-900 flex-wrap gap-1">
-                      <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>Live Performance Tracking</span>
-                      </span>
-                      <span>
-                        Engagement: <strong className="text-white font-black">{engRate}%</strong>
-                      </span>
-                    </div>
+                          <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
+                            <div className="text-[10px] font-bold text-zinc-400 uppercase flex items-center justify-center gap-1">
+                              <Share2 className="w-3.5 h-3.5 text-zinc-400" />
+                              <span>Shares</span>
+                            </div>
+                            <div className="text-sm sm:text-base font-black text-white mt-1">
+                              {formatCompactNumber(ins.shares)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Live Engagement Rate Footer */}
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-900 flex-wrap gap-1">
+                          <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            <span>Verified Real Performance</span>
+                          </span>
+                          <span>
+                            Engagement: <strong className="text-white font-black">{engRate}%</strong>
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })()}
@@ -1853,16 +1863,15 @@ interface ProjectTaskGroup {
 
               {/* Filter Tabs across Channels - Clean horizontal scroll with ample vertical clearance */}
               <div 
-                className="px-4 py-3.5 shrink-0 bg-black border-b border-zinc-800 overflow-x-auto overflow-y-hidden"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                className="px-4 py-3 shrink-0 bg-black border-b border-zinc-800 overflow-x-auto no-scrollbar"
               >
-                <div className="flex items-center gap-2 min-w-max pb-1">
+                <div className="flex items-center gap-2.5 min-w-max py-1">
                   {channelTabs.map(ch => (
                     <button
                       key={ch.id}
                       type="button"
                       onClick={() => setSelectedChannelFilter(ch.id)}
-                      className={`px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
+                      className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                         selectedChannelFilter === ch.id
                           ? 'bg-white text-black shadow-md font-black ring-2 ring-white/50'
                           : 'bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white hover:bg-zinc-700'

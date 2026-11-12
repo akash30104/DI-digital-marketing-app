@@ -34,6 +34,17 @@
   background: #52525b;
 }
 
+/* Force-hide scrollbars utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 /* Black & Grey Luxury Tech Utility Classes */
 .stealth-card {
   background-color: #18181b;

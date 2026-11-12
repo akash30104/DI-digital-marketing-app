@@ -11,7 +11,7 @@ import {
 import { 
   purgeAllDeliverables, purgeAllRecordings, purgeAllPublishingHistory,
   purgeAllProjects, purgeAllClients, purgeAllProjectsTasksAndClients,
-  isClientDeleted, isInternalBrand, filterClients
+  isClientDeleted, isInternalBrand, filterClients, isProfileDeleted
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, saveDailyTargets } from '../lib/targets';
 import { getProfiles } from '../lib/api';
@@ -115,14 +115,17 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
   };
 
   const handleDeleteMember = async (profile: Profile) => {
-    if (profile.role === 'founder') {
-      alert('Founder account cannot be deleted.');
+    if (profile.email === currentUser?.email) {
+      alert('You cannot delete your own logged-in account.');
       return;
     }
-    if (!window.confirm(`Are you sure you want to delete ${profile.role === 'client' ? 'client' : 'team member'} "${profile.full_name || profile.email}"?`)) return;
+    if (!window.confirm(`Are you sure you want to permanently delete "${profile.full_name || profile.email}"?`)) return;
     try {
       setProfiles(prev => prev.filter(x => x.id !== profile.id));
       await supabase.from('profiles').delete().eq('id', profile.id);
+      if (profile.email) {
+        localStorage.removeItem(`di_team_creds_${profile.email.toLowerCase()}`);
+      }
       if (profile.full_name) {
         await removeChannel(`client-${profile.id}`, profile.full_name, profile.id);
       }
@@ -175,7 +178,12 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
   const fetchTeam = async () => {
     try {
       const profs = await getProfiles();
-      setProfiles(profs);
+      const filtered = profs.filter(p => 
+        !isProfileDeleted(p) && 
+        p.email?.toLowerCase() !== 'akash.uxui.design@gmail.com' &&
+        !p.full_name?.toLowerCase().includes('akash (founder)')
+      );
+      setProfiles(filtered);
     } catch (err) {
       console.error('Failed to load team:', err);
     }
@@ -687,7 +695,7 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
           </div>
 
           <div className="divide-y divide-zinc-800">
-            {profiles.map(p => (
+            {profiles.filter(p => !isProfileDeleted(p) && p.email?.toLowerCase() !== 'akash.uxui.design@gmail.com').map(p => (
               <div key={p.id} className="py-3.5 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-bold text-white">
@@ -702,7 +710,7 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
                   <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-zinc-800 text-zinc-200 border border-zinc-700">
                     {p.role === 'client' ? 'Client Partner' : p.role.replace('_', ' ')}
                   </span>
-                  {(p.role !== 'founder' || (p.email && p.email !== currentUser?.email)) && (
+                  {p.email !== currentUser?.email && (
                     <button
                       type="button"
                       onClick={() => handleDeleteMember(p)}
