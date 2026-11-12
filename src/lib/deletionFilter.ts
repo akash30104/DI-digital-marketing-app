@@ -226,16 +226,16 @@ export function isInternalBrand(name?: string | null): boolean {
 
 const DEFAULT_DELETED_CLIENT_NAMES = new Set([
   'adad',
-  'ak',
   'sge',
   'ah',
   'llbsspotlight@gmail.com',
-  'vtu23129@veltech.edu.in',
-  'srgtterg@gmail.com'
+  'srgtterg@gmail.com',
+  'vtu23129@veltech.edu.in'
 ]);
 
 export function isClientDeleted(client: { 
   id?: string; 
+  role?: string;
   full_name?: string; 
   email?: string;
   brand_name?: string;
@@ -244,6 +244,20 @@ export function isClientDeleted(client: {
   created_at?: string;
 }): boolean {
   if (!client) return false;
+
+  // IMPORTANT: TEAM MEMBERS (Founders, SMMs, Editors) are NEVER clients and must NEVER be deleted by client filters!
+  if (client.role && client.role !== 'client') {
+    return false;
+  }
+
+  // If this is an external client partner named "ak" (from deleted invite/account), treat as deleted
+  if (client.role === 'client') {
+    const bName = (client.brand_name || client.name || client.full_name || '').trim().toLowerCase();
+    if (bName === 'ak') {
+      return true;
+    }
+  }
+
   const deletedIds = getSet(STORAGE_DELETED_CLIENTS_KEY);
   if (client.id && deletedIds.has(client.id)) return true;
 
@@ -433,14 +447,14 @@ export async function deleteSingleClient(clientId: string, clientName?: string):
     console.warn('Channel removal note on client delete:', e);
   }
 
-  // Hard delete profile from Supabase
+  // Hard delete profile from Supabase (strictly client profiles only!)
   try {
     if (clientId) {
-      await supabase.from('profiles').delete().eq('id', clientId);
+      await supabase.from('profiles').delete().eq('role', 'client').eq('id', clientId);
     }
     if (clientName) {
-      await supabase.from('profiles').delete().ilike('full_name', `%${clientName}%`);
-      await supabase.from('profiles').delete().ilike('email', `%${clientName}%`);
+      await supabase.from('profiles').delete().eq('role', 'client').ilike('full_name', `%${clientName}%`);
+      await supabase.from('profiles').delete().eq('role', 'client').ilike('email', `%${clientName}%`);
     }
   } catch (e) {
     console.warn('Delete profile note:', e);

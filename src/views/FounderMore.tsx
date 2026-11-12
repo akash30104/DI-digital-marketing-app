@@ -14,6 +14,7 @@ import {
   isClientDeleted, isInternalBrand, filterClients
 } from '../lib/deletionFilter';
 import { fetchDailyTargets, saveDailyTargets } from '../lib/targets';
+import { getProfiles } from '../lib/api';
 import { 
   fetchAllChannels, addNewChannel, removeChannel, ChannelItem, 
   extractClientBrandName, filterChannelsForUser
@@ -173,8 +174,8 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
   // Fetch Team Profiles
   const fetchTeam = async () => {
     try {
-      const { data } = await supabase.from('profiles').select('*').order('role');
-      if (data) setProfiles(data);
+      const profs = await getProfiles();
+      setProfiles(profs);
     } catch (err) {
       console.error('Failed to load team:', err);
     }

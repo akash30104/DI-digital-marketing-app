@@ -12,13 +12,14 @@ import {
   Send, RefreshCw, Flame, Radio, ExternalLink, ArrowUpRight, 
   Share2, Plus, X, Check, Sparkles, Layers, Calendar, Clock,
   Play, Video, Trash2, Eye, MessageSquare, Heart, Edit3,
-  Zap, Key, Loader2, AlertCircle, Users
+  Zap, Key, Loader2, AlertCircle, Users, Target
 } from 'lucide-react';
 import { 
   filterDeliverables, filterPublishingLogs, deleteSingleDeliverable, 
   purgeAllDeliverables, deleteSinglePublishingLog 
 } from '../lib/deletionFilter';
-import { fetchDailyTargets, getCachedTargets, TargetConfig } from '../lib/targets';
+import { fetchDailyTargets, getCachedTargets, saveDailyTargets, TargetConfig } from '../lib/targets';
+import { getProfiles } from '../lib/api';
 import { 
   parseInsights, getVideoInsights, formatCompactNumber, formatInsightsNote, SocialInsights,
   extractYouTubeVideoId, isYouTubeUrl, fetchYouTubeLiveStats
@@ -170,6 +171,40 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
     return typeof window !== 'undefined' ? (localStorage.getItem('youtube_api_key') || '') : '';
   });
 
+  // Targets Configuration Modal State
+  const [showTargetsModal, setShowTargetsModal] = useState(false);
+  const [targetFormShorts, setTargetFormShorts] = useState(targets.shorts);
+  const [targetFormReels, setTargetFormReels] = useState(targets.reels);
+  const [targetFormFull, setTargetFormFull] = useState(targets.full);
+  const [targetFormFb, setTargetFormFb] = useState(targets.fb);
+  const [targetFormX, setTargetFormX] = useState(targets.x);
+  const [isSavingTargets, setIsSavingTargets] = useState(false);
+
+  // SMM team members for per-SMM dashboard views
+  const [smmTeamMembers, setSmmTeamMembers] = useState<{ id: string; full_name: string }[]>([]);
+  const [selectedSmmFilter, setSelectedSmmFilter] = useState<string>('all');
+
+  const handleSaveTargetsModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingTargets(true);
+    try {
+      const updated = await saveDailyTargets({
+        shorts: Number(targetFormShorts),
+        reels: Number(targetFormReels),
+        full: Number(targetFormFull),
+        fb: Number(targetFormFb),
+        x: Number(targetFormX)
+      });
+      setTargets(updated);
+      showToast(`🎯 Targets updated! Shorts: ${updated.shorts}, Reels: ${updated.reels}, Full: ${updated.full}, FB: ${updated.fb}, X: ${updated.x}`);
+      setShowTargetsModal(false);
+    } catch (err: any) {
+      alert(`Failed to save targets: ${err.message}`);
+    } finally {
+      setIsSavingTargets(false);
+    }
+  };
+
   const openEditInsights = (log: PublishingLog) => {
     const current = getVideoInsights(log);
     setInsightViews(current.views);
@@ -290,6 +325,17 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
         setTargets(syncedTargets);
       } catch (err) {
         console.warn('Could not sync daily targets:', err);
+      }
+
+      // 2b. Fetch SMM profiles for separate SMM views
+      try {
+        const profs = await getProfiles();
+        const smms = profs
+          .filter(p => p.role === 'social_media_manager')
+          .map(p => ({ id: p.id, full_name: p.full_name || 'SMM' }));
+        setSmmTeamMembers(smms);
+      } catch (err) {
+        console.warn('Could not load SMM profiles:', err);
       }
 
       // 2. Fetch Daily Summary RPC
@@ -699,14 +745,23 @@ interface ProjectTaskGroup {
     const handleChannelsUpdated = () => {
       fetchAllChannels().then(setChannelsList).catch(() => {});
     };
+    const handleTargetsUpdated = (e: any) => {
+      if (e.detail) {
+        setTargets(e.detail);
+      } else {
+        setTargets(getCachedTargets());
+      }
+    };
 
     window.addEventListener('storage', handleStorage);
     window.addEventListener('channels-updated', handleChannelsUpdated);
+    window.addEventListener('targets-updated', handleTargetsUpdated);
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('channels-updated', handleChannelsUpdated);
+      window.removeEventListener('targets-updated', handleTargetsUpdated);
     };
   }, []);
 
@@ -734,35 +789,65 @@ interface ProjectTaskGroup {
   const targetFb = targets.fb;
   const targetX = targets.x;
 
+  // Filter today's publications by individual SMM if selected
+  const displayedSmmLogs = useMemo(() => {
+    if (selectedSmmFilter === 'all') return todayPublishedLogs;
+    const smm = smmTeamMembers.find(s => s.id === selectedSmmFilter);
+    return todayPublishedLogs.filter(l => 
+      l.published_by === selectedSmmFilter || 
+      (smm && l.notes && smm.full_name && l.notes.toLowerCase().includes(smm.full_name.toLowerCase()))
+    );
+  }, [todayPublishedLogs, selectedSmmFilter, smmTeamMembers]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-16">
-      {/* Top Header (Visible for Founder Overview; removed from Social Media Hub) */}
-      {!isManager && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">
-              {todayFormatted} (Asia/Kolkata)
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">
+            {todayFormatted} (Asia/Kolkata)
+          </span>
+          <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <span>{isManager ? 'Social Media Manager Dashboard' : 'Founder Overview'}</span>
+            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 uppercase tracking-normal">
+              {isManager ? 'SMM View' : 'Executive'}
             </span>
-            <h2 className="text-2xl font-black text-white tracking-tight">
-              Founder Overview
-            </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Executive monitoring of video editing progress, channel publications, and manager consistency.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={loadData}
-              disabled={isLoading}
-              className="p-2 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-sm transition-all self-start sm:self-auto"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          </h2>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            {isManager 
+              ? 'Track daily channel targets, manage publications, and monitor production pipeline.'
+              : 'Executive monitoring of video editing progress, channel publications, and manager consistency.'}
+          </p>
         </div>
-      )}
+
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={() => {
+              setTargetFormShorts(targets.shorts);
+              setTargetFormReels(targets.reels);
+              setTargetFormFull(targets.full);
+              setTargetFormFb(targets.fb);
+              setTargetFormX(targets.x);
+              setShowTargetsModal(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-black shadow transition active:scale-95 flex items-center gap-1.5 shrink-0"
+            title="Configure daily publishing goals"
+          >
+            <Target className="w-4 h-4 text-black" />
+            <span>🎯 Configure Daily Targets</span>
+          </button>
+
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="p-2 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-sm transition-all self-start sm:self-auto"
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
 
       {/* Social Media Manager Direct Action Banner */}
       {isManager && (
@@ -828,13 +913,37 @@ interface ProjectTaskGroup {
 
       {/* Daily Publishing Goals (Read-Only Executive Overview) */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
-            Today's Output Across Official Channels
-          </h3>
-          <span className="text-[10px] font-bold text-zinc-300 bg-white/10 border border-white/10 px-2.5 py-0.5 rounded-full backdrop-blur-md">
-            Click any channel to view 7-day videos ↗
-          </span>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
+              Today's Output Across Official Channels
+            </h3>
+            <span className="text-[10px] font-bold text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
+              Daily Target: {targets.total} Posts / Day
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setTargetFormShorts(targets.shorts);
+                setTargetFormReels(targets.reels);
+                setTargetFormFull(targets.full);
+                setTargetFormFb(targets.fb);
+                setTargetFormX(targets.x);
+                setShowTargetsModal(true);
+              }}
+              className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white text-black hover:bg-zinc-200 transition flex items-center gap-1 shadow-sm"
+              title="Increase or change daily target"
+            >
+              <Target className="w-3 h-3 text-black" />
+              <span>+ Increase Target</span>
+            </button>
+            <span className="hidden sm:inline-block text-[10px] font-bold text-zinc-300 bg-white/10 border border-white/10 px-2.5 py-1 rounded-full backdrop-blur-md">
+              Click channel to view 7-day videos ↗
+            </span>
+          </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard
@@ -1053,24 +1162,63 @@ interface ProjectTaskGroup {
 
       {/* Social Media Manager's Today's Published Videos & Live Proofs */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
               Today's Verified Publications by Social Media Manager
             </h3>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-200">
-              {todayPublishedLogs.length} Posted Today
+              {displayedSmmLogs.length} Posted Today
             </span>
           </div>
+
+          {/* SMM Filter Selector so each SMM can view their separate dashboard output */}
+          {smmTeamMembers.length > 0 && (
+            <div className="flex items-center gap-1.5 p-1 bg-black border border-zinc-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setSelectedSmmFilter('all')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                  selectedSmmFilter === 'all'
+                    ? 'bg-white text-black font-black'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                All SMMs ({todayPublishedLogs.length})
+              </button>
+              {smmTeamMembers.map(smm => {
+                const count = todayPublishedLogs.filter(l => 
+                  l.published_by === smm.id || 
+                  (l.notes && smm.full_name && l.notes.toLowerCase().includes(smm.full_name.toLowerCase()))
+                ).length;
+                return (
+                  <button
+                    key={smm.id}
+                    type="button"
+                    onClick={() => setSelectedSmmFilter(smm.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                      selectedSmmFilter === smm.id
+                        ? 'bg-white text-black font-black'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {smm.full_name} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {todayPublishedLogs.length === 0 ? (
+        {displayedSmmLogs.length === 0 ? (
           <div className="p-6 text-center rounded-3xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-500">
-            No videos posted today yet. The Social Media Manager's published proofs will appear here live.
+            {selectedSmmFilter === 'all'
+              ? "No videos posted today yet. The Social Media Manager's published proofs will appear here live."
+              : "No videos published by this Social Media Manager today yet."}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {todayPublishedLogs.map((log, idx) => {
+            {displayedSmmLogs.map((log, idx) => {
               const channel = getLogChannelName(log);
               const postTime = new Date(log.published_at).toLocaleTimeString('en-IN', {
                 timeZone: 'Asia/Kolkata',
@@ -1078,6 +1226,15 @@ interface ProjectTaskGroup {
                 minute: '2-digit',
                 hour12: true
               });
+              let publisherDisplay = 'Social Media Manager';
+              if (log.notes) {
+                const m = log.notes.match(/\[(?:Publisher|PublishedBy|SMM):\s*([^\]]+)\]/i);
+                if (m && m[1]) publisherDisplay = m[1].trim();
+              }
+              if (publisherDisplay === 'Social Media Manager' && log.published_by) {
+                const matched = smmTeamMembers.find(s => s.id === log.published_by);
+                if (matched) publisherDisplay = matched.full_name;
+              }
 
               return (
                 <div 
@@ -1087,7 +1244,7 @@ interface ProjectTaskGroup {
                   <div className="space-y-1.5 min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white text-black">
-                        #{todayPublishedLogs.length - idx}
+                        #{displayedSmmLogs.length - idx}
                       </span>
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-200 flex items-center gap-1 truncate">
                         <Radio className="w-3 h-3 shrink-0" />
@@ -1100,8 +1257,8 @@ interface ProjectTaskGroup {
                     <p className="font-bold text-sm text-white truncate">
                       {log.deliverable_title}
                     </p>
-                    <span className="text-[11px] text-zinc-500">
-                      Published at {postTime} IST
+                    <span className="text-[11px] text-zinc-400 flex items-center gap-1.5">
+                      <span>Published by <strong className="text-white">{publisherDisplay}</strong> at {postTime} IST</span>
                     </span>
                   </div>
 
@@ -1905,6 +2062,137 @@ interface ProjectTaskGroup {
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-white text-black hover:bg-zinc-200 transition shadow disabled:opacity-50"
                 >
                   {isSavingInsights ? 'Saving...' : 'Save Real Insights'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🎯 EDIT DAILY TARGETS MODAL */}
+      {showTargetsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-800 overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                  Publishing Targets Configuration
+                </span>
+                <h3 className="font-bold text-white text-base">
+                  Increase Daily Publishing Target
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowTargetsModal(false)} 
+                className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTargetsModal} className="p-6 space-y-4">
+              <p className="text-xs text-zinc-400">
+                Set the daily output goal for each channel. Changing these targets updates the dashboard and SMM publishing goals instantly.
+              </p>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700">
+                  <div>
+                    <label className="text-xs font-bold text-white block">YouTube Shorts Target</label>
+                    <span className="text-[10px] text-zinc-400">Daily shorts goal</span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={targetFormShorts}
+                    onChange={(e) => setTargetFormShorts(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-20 px-3 py-1.5 text-center text-sm font-black bg-black border border-zinc-600 rounded-xl text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700">
+                  <div>
+                    <label className="text-xs font-bold text-white block">Instagram Reels Target</label>
+                    <span className="text-[10px] text-zinc-400">Daily reels goal</span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={targetFormReels}
+                    onChange={(e) => setTargetFormReels(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-20 px-3 py-1.5 text-center text-sm font-black bg-black border border-zinc-600 rounded-xl text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700">
+                  <div>
+                    <label className="text-xs font-bold text-white block">YouTube Full Video Target</label>
+                    <span className="text-[10px] text-zinc-400">Daily full episode goal</span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={targetFormFull}
+                    onChange={(e) => setTargetFormFull(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-20 px-3 py-1.5 text-center text-sm font-black bg-black border border-zinc-600 rounded-xl text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700">
+                  <div>
+                    <label className="text-xs font-bold text-white block">Facebook Video Target</label>
+                    <span className="text-[10px] text-zinc-400">Daily FB post goal</span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={targetFormFb}
+                    onChange={(e) => setTargetFormFb(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-20 px-3 py-1.5 text-center text-sm font-black bg-black border border-zinc-600 rounded-xl text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700">
+                  <div>
+                    <label className="text-xs font-bold text-white block">X (Twitter) Video Target</label>
+                    <span className="text-[10px] text-zinc-400">Daily X post goal</span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={targetFormX}
+                    onChange={(e) => setTargetFormX(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-20 px-3 py-1.5 text-center text-sm font-black bg-black border border-zinc-600 rounded-xl text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between text-xs">
+                <span className="text-zinc-400 font-bold">Total Daily Output Target:</span>
+                <span className="text-base font-black text-white">
+                  {targetFormShorts + targetFormReels + targetFormFull + targetFormFb + targetFormX} Posts / Day
+                </span>
+              </div>
+
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowTargetsModal(false)}
+                  className="flex-1 py-3 rounded-full bg-zinc-800 text-zinc-300 font-bold text-xs hover:bg-zinc-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingTargets}
+                  className="flex-1 py-3 rounded-full bg-white text-black font-black text-xs hover:bg-zinc-200 transition shadow-lg flex items-center justify-center gap-2"
+                >
+                  {isSavingTargets ? 'Saving...' : 'Save Publishing Targets'}
                 </button>
               </div>
             </form>

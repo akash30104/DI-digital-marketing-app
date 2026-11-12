@@ -22,10 +22,13 @@ export const InvitationsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'invites' | 'members'>('invites');
 
   const activeInvitations = React.useMemo(() => {
-    return invitations.filter(i => 
-      i.status !== 'revoked' && 
-      !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email })
-    );
+    return invitations.filter(i => {
+      if (i.status === 'revoked') return false;
+      if (i.role === 'client') {
+        return !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email, role: 'client' });
+      }
+      return true;
+    });
   }, [invitations]);
 
   // New Invite Form State
@@ -229,14 +232,14 @@ export const InvitationsView: React.FC = () => {
         <div className="p-3 sm:p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
           <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Pending Invites</span>
           <div className="text-xl sm:text-2xl font-black text-white mt-1">
-            {invitations.filter(i => i.status === 'pending' && !isExpired(i.expires_at)).length}
+            {activeInvitations.filter(i => i.status === 'pending' && !isExpired(i.expires_at)).length}
           </div>
         </div>
 
         <div className="p-3 sm:p-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
           <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Accepted (Expired)</span>
           <div className="text-xl sm:text-2xl font-black text-white mt-1">
-            {invitations.filter(i => i.status === 'accepted').length}
+            {activeInvitations.filter(i => i.status === 'accepted').length}
           </div>
         </div>
 

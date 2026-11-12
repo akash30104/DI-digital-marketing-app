@@ -157,13 +157,23 @@ export const SocialMediaPublishing: React.FC = () => {
       setTargets(getCachedTargets());
       loadData();
     };
+    const handleTargetsUpdated = (e: any) => {
+      if (e.detail) {
+        setTargets(e.detail);
+      } else {
+        setTargets(getCachedTargets());
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
     window.addEventListener('channels-updated', handleStorage);
+    window.addEventListener('targets-updated', handleTargetsUpdated);
 
     return () => {
       supabase.removeChannel(sub);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('channels-updated', handleStorage);
+      window.removeEventListener('targets-updated', handleTargetsUpdated);
     };
   }, []);
 

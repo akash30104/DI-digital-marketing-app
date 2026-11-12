@@ -453,7 +453,7 @@ export async function fetchInvitations(): Promise<Invitation[]> {
     i.status !== 'revoked' && 
     !deletedInvs.has(i.id) && 
     !deletedInvs.has(i.token) &&
-    !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email })
+    (i.role !== 'client' ? true : !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email, role: 'client' }))
   );
 
   // Permanently purge revoked or deleted invitations from localStorage
@@ -499,7 +499,7 @@ export async function fetchInvitations(): Promise<Invitation[]> {
     i.status !== 'revoked' && 
     !deletedInvs.has(i.id) && 
     !deletedInvs.has(i.token) && 
-    !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email })
+    (i.role !== 'client' ? true : !isClientDeleted({ full_name: i.full_name, brand_name: i.client_brand || i.client_name, email: i.email, role: 'client' }))
   );
 }
 
@@ -744,7 +744,7 @@ export async function fetchProfiles(): Promise<Profile[]> {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, full_name, email, role, avatar_url, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (!error && data && data.length > 0) {
@@ -753,10 +753,55 @@ export async function fetchProfiles(): Promise<Profile[]> {
   } catch {
     // fallback
   }
-  if (list.length === 0) {
-    list = getLocal<Profile[]>(STORAGE_KEYS.PROFILES, []);
+
+  // Merge with local profiles storage
+  const localProfs = getLocal<Profile[]>(STORAGE_KEYS.PROFILES, []);
+  const seenIds = new Set(list.map(p => p.id));
+  for (const lp of localProfs) {
+    if (!seenIds.has(lp.id)) {
+      list.push(lp);
+      seenIds.add(lp.id);
+    }
   }
-  return list.filter(p => !isClientDeleted(p));
+
+  // Ensure default essential team members are ALWAYS present and never disappear!
+  const defaultTeam: Profile[] = [
+    {
+      id: 'user-founder',
+      email: 'akash.uxui.design@gmail.com',
+      full_name: 'Akash (Founder)',
+      role: 'founder',
+      created_at: '2026-01-01T00:00:00Z'
+    },
+    {
+      id: 'user-smm-akash',
+      email: 'akash30104@gmail.com',
+      full_name: 'Akash (Social Media Manager)',
+      role: 'social_media_manager',
+      created_at: '2026-01-01T00:00:00Z'
+    },
+    {
+      id: 'user-editor-ak',
+      email: 'ak.editor@digitalinertia.com',
+      full_name: 'AK',
+      role: 'editor',
+      created_at: '2026-01-01T00:00:00Z'
+    }
+  ];
+
+  for (const dt of defaultTeam) {
+    const exists = list.some(p => 
+      p.id === dt.id || 
+      (p.email && dt.email && p.email.toLowerCase() === dt.email.toLowerCase()) ||
+      (p.full_name && dt.full_name && p.full_name.toLowerCase() === dt.full_name.toLowerCase())
+    );
+    if (!exists) {
+      list.push(dt);
+    }
+  }
+
+  // Strictly filter deleted clients only; team members (Founders, SMMs, Editors) are NEVER filtered out!
+  return list.filter(p => p.role !== 'client' || !isClientDeleted(p));
 }
 
 export const getProfiles = fetchProfiles;

@@ -7,6 +7,7 @@ export interface TargetConfig {
   fb: number;
   x: number;
   total: number;
+  updated_at?: number;
 }
 
 export const DEFAULT_TARGETS: TargetConfig = {
@@ -15,22 +16,43 @@ export const DEFAULT_TARGETS: TargetConfig = {
   full: 1,
   fb: 4,
   x: 4,
-  total: 17
+  total: 17,
+  updated_at: 0
 };
+
+const STORAGE_KEY = 'di_daily_targets_v3';
 
 export function getCachedTargets(): TargetConfig {
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.shorts === 'number') {
+        return {
+          shorts: parsed.shorts,
+          reels: parsed.reels,
+          full: parsed.full,
+          fb: parsed.fb ?? DEFAULT_TARGETS.fb,
+          x: parsed.x ?? DEFAULT_TARGETS.x,
+          total: parsed.shorts + parsed.reels + parsed.full + (parsed.fb ?? DEFAULT_TARGETS.fb) + (parsed.x ?? DEFAULT_TARGETS.x),
+          updated_at: parsed.updated_at || 0
+        };
+      }
+    }
+
     const s = localStorage.getItem('DAILY_TARGET_SHORTS');
     const r = localStorage.getItem('DAILY_TARGET_REELS');
     const f = localStorage.getItem('DAILY_TARGET_FULL');
     const fb = localStorage.getItem('DAILY_TARGET_FB');
     const x = localStorage.getItem('DAILY_TARGET_X');
+    const upd = localStorage.getItem('DAILY_TARGET_UPDATED_AT');
 
     const shorts = s ? parseInt(s, 10) : DEFAULT_TARGETS.shorts;
     const reels = r ? parseInt(r, 10) : DEFAULT_TARGETS.reels;
     const full = f ? parseInt(f, 10) : DEFAULT_TARGETS.full;
     const fbCount = fb ? parseInt(fb, 10) : DEFAULT_TARGETS.fb;
     const xCount = x ? parseInt(x, 10) : DEFAULT_TARGETS.x;
+    const updated_at = upd ? parseInt(upd, 10) : 0;
 
     return {
       shorts,
@@ -38,36 +60,60 @@ export function getCachedTargets(): TargetConfig {
       full,
       fb: fbCount,
       x: xCount,
-      total: shorts + reels + full + fbCount + xCount
+      total: shorts + reels + full + fbCount + xCount,
+      updated_at
     };
   } catch {
     return DEFAULT_TARGETS;
   }
 }
 
-export function cacheTargetsLocally(t: { shorts: number; reels: number; full: number; fb: number; x: number }) {
+export function cacheTargetsLocally(t: { shorts: number; reels: number; full: number; fb: number; x: number; updated_at?: number }): TargetConfig {
+  const now = t.updated_at || Date.now();
+  const config: TargetConfig = {
+    shorts: Number(t.shorts) || DEFAULT_TARGETS.shorts,
+    reels: Number(t.reels) || DEFAULT_TARGETS.reels,
+    full: Number(t.full) || DEFAULT_TARGETS.full,
+    fb: Number(t.fb) || DEFAULT_TARGETS.fb,
+    x: Number(t.x) || DEFAULT_TARGETS.x,
+    total: (Number(t.shorts) || DEFAULT_TARGETS.shorts) +
+           (Number(t.reels) || DEFAULT_TARGETS.reels) +
+           (Number(t.full) || DEFAULT_TARGETS.full) +
+           (Number(t.fb) || DEFAULT_TARGETS.fb) +
+           (Number(t.x) || DEFAULT_TARGETS.x),
+    updated_at: now
+  };
+
   try {
-    localStorage.setItem('DAILY_TARGET_SHORTS', String(t.shorts));
-    localStorage.setItem('DAILY_TARGET_REELS', String(t.reels));
-    localStorage.setItem('DAILY_TARGET_FULL', String(t.full));
-    localStorage.setItem('DAILY_TARGET_FB', String(t.fb));
-    localStorage.setItem('DAILY_TARGET_X', String(t.x));
-    window.dispatchEvent(new Event('storage'));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem('DAILY_TARGET_SHORTS', String(config.shorts));
+    localStorage.setItem('DAILY_TARGET_REELS', String(config.reels));
+    localStorage.setItem('DAILY_TARGET_FULL', String(config.full));
+    localStorage.setItem('DAILY_TARGET_FB', String(config.fb));
+    localStorage.setItem('DAILY_TARGET_X', String(config.x));
+    localStorage.setItem('DAILY_TARGET_UPDATED_AT', String(now));
   } catch (e) {
     console.warn('Cache targets error:', e);
   }
+
+  // Broadcast to all listening React views in real time!
+  try {
+    window.dispatchEvent(new CustomEvent('targets-updated', { detail: config }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return config;
 }
 
 /**
- * Loads the current active targets for today from Supabase
- * Uses daily_targets table AND founder profile bio backup to ensure 100% sync across all roles
+ * Loads the current active targets for today.
+ * Preserves user-configured targets and synchronizes across all devices.
  */
 export async function fetchDailyTargets(): Promise<TargetConfig> {
   const cached = getCachedTargets();
-  let current: TargetConfig = { ...cached };
 
   try {
-    // 1. Fetch from daily_targets table (latest configuration)
+    // 1. Fetch from daily_targets table
     const { data: targetRecord } = await supabase
       .from('daily_targets')
       .select('*')
@@ -76,114 +122,84 @@ export async function fetchDailyTargets(): Promise<TargetConfig> {
       .maybeSingle();
 
     if (targetRecord) {
-      if (targetRecord.youtube_shorts_target !== undefined && targetRecord.youtube_shorts_target !== null) {
-        current.shorts = Number(targetRecord.youtube_shorts_target);
-      }
-      if (targetRecord.instagram_reels_target !== undefined && targetRecord.instagram_reels_target !== null) {
-        current.reels = Number(targetRecord.instagram_reels_target);
-      }
-      if (targetRecord.youtube_full_target !== undefined && targetRecord.youtube_full_target !== null) {
-        current.full = Number(targetRecord.youtube_full_target);
+      // If user recently configured targets locally in this browser within the last 24h, respect the user's settings!
+      if (cached.updated_at && (Date.now() - cached.updated_at < 86400000)) {
+        return cached;
       }
 
-      // Decode facebook & X targets
-      if ((targetRecord as any).facebook_target !== undefined && (targetRecord as any).facebook_target !== null) {
-        current.fb = Number((targetRecord as any).facebook_target);
+      let shorts = targetRecord.youtube_shorts_target != null ? Number(targetRecord.youtube_shorts_target) : cached.shorts;
+      let reels = targetRecord.instagram_reels_target != null ? Number(targetRecord.instagram_reels_target) : cached.reels;
+      let full = targetRecord.youtube_full_target != null ? Number(targetRecord.youtube_full_target) : cached.full;
+      let fb = cached.fb;
+      let x = cached.x;
+
+      if ((targetRecord as any).facebook_target != null) {
+        fb = Number((targetRecord as any).facebook_target);
       } else if (targetRecord.other_target) {
         if (targetRecord.other_target >= 1000) {
-          current.fb = Math.floor(targetRecord.other_target / 1000);
+          fb = Math.floor(targetRecord.other_target / 1000);
         } else {
-          current.fb = Math.ceil(targetRecord.other_target / 2);
+          fb = Math.ceil(targetRecord.other_target / 2);
         }
       }
 
-      if ((targetRecord as any).x_target !== undefined && (targetRecord as any).x_target !== null) {
-        current.x = Number((targetRecord as any).x_target);
+      if ((targetRecord as any).x_target != null) {
+        x = Number((targetRecord as any).x_target);
       } else if (targetRecord.other_target) {
         if (targetRecord.other_target >= 1000) {
-          current.x = targetRecord.other_target % 1000;
+          x = targetRecord.other_target % 1000;
         } else {
-          current.x = Math.floor(targetRecord.other_target / 2);
+          x = Math.floor(targetRecord.other_target / 2);
         }
       }
+
+      const remoteConfig: TargetConfig = {
+        shorts,
+        reels,
+        full,
+        fb,
+        x,
+        total: shorts + reels + full + fb + x,
+        updated_at: Date.now()
+      };
+      cacheTargetsLocally(remoteConfig);
+      return remoteConfig;
     }
-
-    // 2. Cross-verify with Founder profile bio backup (guaranteed readable by SMM and all roles)
-    try {
-      const { data: founderProfile } = await supabase
-        .from('profiles')
-        .select('bio')
-        .eq('role', 'founder')
-        .limit(1)
-        .maybeSingle();
-
-      if (founderProfile?.bio && founderProfile.bio.startsWith('TARGETS:')) {
-        const rawJson = founderProfile.bio.substring('TARGETS:'.length);
-        const parsed = JSON.parse(rawJson);
-        if (parsed.shorts !== undefined) current.shorts = Number(parsed.shorts);
-        if (parsed.reels !== undefined) current.reels = Number(parsed.reels);
-        if (parsed.full !== undefined) current.full = Number(parsed.full);
-        if (parsed.fb !== undefined) current.fb = Number(parsed.fb);
-        if (parsed.x !== undefined) current.x = Number(parsed.x);
-      }
-    } catch (pe) {
-      console.warn('Founder profile bio check note:', pe);
-    }
-
-    current.total = current.shorts + current.reels + current.full + current.fb + current.x;
-    cacheTargetsLocally(current);
-    return current;
   } catch (err) {
-    console.warn('Error fetching daily targets, using local cache:', err);
-    return current;
+    console.warn('Error fetching daily targets from Supabase, using local cache:', err);
   }
+
+  return cached;
 }
 
 /**
- * Saves targets to both Supabase daily_targets and Founder Profile bio backup
+ * Saves targets locally and synchronizes to Supabase
  */
-export async function saveDailyTargets(t: { shorts: number; reels: number; full: number; fb: number; x: number }): Promise<void> {
+export async function saveDailyTargets(t: { shorts: number; reels: number; full: number; fb: number; x: number }): Promise<TargetConfig> {
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
-  // 1. Save to local device storage immediately
-  cacheTargetsLocally(t);
+  // 1. Save to local device storage immediately & broadcast to all components
+  const config = cacheTargetsLocally({ ...t, updated_at: Date.now() });
 
-  // 2. Save to daily_targets table (encodes fb & x into other_target to prevent schema cache errors)
-  const otherEncoded = (Number(t.fb) * 1000) + Number(t.x);
+  // 2. Try saving to daily_targets table in Supabase
+  const otherEncoded = (Number(config.fb) * 1000) + Number(config.x);
   try {
     const { error } = await supabase
       .from('daily_targets')
       .upsert({
         target_date: todayStr,
-        youtube_shorts_target: Number(t.shorts),
-        youtube_full_target: Number(t.full),
-        instagram_reels_target: Number(t.reels),
+        youtube_shorts_target: config.shorts,
+        youtube_full_target: config.full,
+        instagram_reels_target: config.reels,
         other_target: otherEncoded
       }, { onConflict: 'target_date' });
 
-    if (error) console.warn('Supabase daily_targets upsert note:', error);
+    if (error) {
+      console.warn('Supabase daily_targets upsert note (will use local cache):', error.message);
+    }
   } catch (e) {
     console.warn('daily_targets upsert exception:', e);
   }
 
-  // 3. Save to founder profile bio as universal shared backup for SMM and team members
-  try {
-    const backupJson = JSON.stringify({
-      shorts: Number(t.shorts),
-      reels: Number(t.reels),
-      full: Number(t.full),
-      fb: Number(t.fb),
-      x: Number(t.x),
-      updated_at: new Date().toISOString()
-    });
-
-    const { error: bioErr } = await supabase
-      .from('profiles')
-      .update({ bio: `TARGETS:${backupJson}` })
-      .eq('role', 'founder');
-
-    if (bioErr) console.warn('Founder profile backup note:', bioErr);
-  } catch (be) {
-    console.warn('Profile targets backup exception:', be);
-  }
+  return config;
 }

@@ -1122,10 +1122,12 @@ Digital Inertia Production Team`;
                   className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black border border-zinc-800 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-medium"
                 />
                 <datalist id="client-brand-options">
-                  {clients.map(c => {
-                    const bName = getClientBrandName(c);
-                    return <option key={c.id} value={bName}>{c.full_name || bName} ({c.email})</option>;
-                  })}
+                  {filterClients(clients)
+                    .filter(c => !isClientDeleted(c) && !isInternalBrand(getClientBrandName(c)))
+                    .map(c => {
+                      const bName = getClientBrandName(c);
+                      return <option key={c.id} value={bName}>{c.full_name || bName} ({c.email})</option>;
+                    })}
                 </datalist>
 
                 {clients.length > 0 && (
@@ -1495,11 +1497,13 @@ Digital Inertia Production Team`;
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-black border border-zinc-800 text-white font-medium focus:outline-none focus:border-zinc-500"
                   >
                     <option value="">Select Client Brand...</option>
-                    {filterClients(clients).map(c => (
-                      <option key={c.id} value={c.id}>
-                        {getClientBrandName(c) || c.full_name || c.email}
-                      </option>
-                    ))}
+                    {filterClients(clients)
+                      .filter(c => !isClientDeleted(c) && !isInternalBrand(getClientBrandName(c)))
+                      .map(c => (
+                        <option key={c.id} value={c.id}>
+                          {getClientBrandName(c) || c.full_name || c.email}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
