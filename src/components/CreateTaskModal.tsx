@@ -59,7 +59,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     const validClients = filterClients(clientList);
     setClients(validClients);
     setProjects(projectList);
-    setEditors(memberList.filter((m: Profile) => m.role === 'editor' && !m.is_suspended));
+    setEditors(memberList.filter((m: Profile) => {
+      const r = (m.role || '').toLowerCase().trim();
+      const isSuspended = m.is_suspended === true || (m.is_suspended as any) === 'true';
+      return (r === 'editor' || r === 'video_editor' || r.includes('editor')) && !isSuspended;
+    }));
   };
 
   if (!isOpen) return null;

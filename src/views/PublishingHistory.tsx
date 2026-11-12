@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import { PlatformType, PublishingLog } from '../types';
 import { getLogChannelName } from '../lib/streak';
 import { 
@@ -11,6 +12,7 @@ import {
 } from '../lib/deletionFilter';
 
 export const PublishingHistory: React.FC = () => {
+  const { currentUser, role } = useAuth();
   const [logs, setLogs] = useState<PublishingLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,12 +51,21 @@ export const PublishingHistory: React.FC = () => {
       if (error) throw error;
 
       if (data) {
-        const mapped: PublishingLog[] = data.map((item: any) => ({
+        let mapped: PublishingLog[] = data.map((item: any) => ({
           ...item,
           deliverable_title: item.deliverables?.title,
           publisher_name: item.profiles?.full_name || 'Team Member',
           channel_name: getLogChannelName(item)
         }));
+
+        if (role === 'social_media_manager' && currentUser) {
+          mapped = mapped.filter(item => 
+            item.published_by === currentUser.id ||
+            (item.notes && item.notes.includes(currentUser.id)) ||
+            (currentUser.full_name && item.notes && item.notes.toLowerCase().includes(currentUser.full_name.toLowerCase()))
+          );
+        }
+
         setLogs(filterPublishingLogs(mapped));
       }
     } catch (err) {

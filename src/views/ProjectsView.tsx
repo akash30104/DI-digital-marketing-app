@@ -10,7 +10,7 @@ import { filterDeliverables, filterClients, isClientDeleted, isInternalBrand } f
 import { 
   FolderKanban, Plus, Calendar, CheckCircle2, Clock, 
   Users, Briefcase, Share2, AlertCircle, ArrowUpRight,
-  Filter, Search, Trash2, Film, Tv, ExternalLink, X, ChevronRight, Layers
+  Filter, Search, Trash2, Film, Tv, ExternalLink, X, ChevronRight, Layers, Check
 } from 'lucide-react';
 
 interface ProjectsViewProps {
@@ -440,8 +440,16 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
     return true;
   });
 
-  const editors = teamMembers.filter(m => m.role === 'editor' && !m.is_suspended);
-  const smms = teamMembers.filter(m => m.role === 'social_media_manager' && !m.is_suspended);
+  const editors = teamMembers.filter(m => {
+    const r = (m.role || '').toLowerCase().trim();
+    const isSuspended = m.is_suspended === true || (m.is_suspended as any) === 'true';
+    return (r === 'editor' || r === 'video_editor' || r.includes('editor')) && !isSuspended;
+  });
+  const smms = teamMembers.filter(m => {
+    const r = (m.role || '').toLowerCase().trim();
+    const isSuspended = m.is_suspended === true || (m.is_suspended as any) === 'true';
+    return (r === 'social_media_manager' || r === 'smm' || r.includes('manager')) && !isSuspended;
+  });
 
   return (
     <div className="space-y-6">
@@ -1158,13 +1166,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onSelectProject, onN
                         key={ed.id}
                         type="button"
                         onClick={() => toggleEditor(ed.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                           assignedEditorIds.includes(ed.id)
-                            ? 'bg-white text-black font-black'
-                            : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                            ? 'bg-white text-black font-black shadow-md ring-2 ring-white/50'
+                            : 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-700'
                         }`}
                       >
-                        {ed.full_name || ed.email}
+                        <Film className="w-3.5 h-3.5" />
+                        <span>{ed.full_name || ed.email}</span>
+                        {assignedEditorIds.includes(ed.id) && <Check className="w-3.5 h-3.5 ml-0.5 text-black" />}
                       </button>
                     ))
                   )}

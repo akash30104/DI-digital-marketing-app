@@ -26,9 +26,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const isFounderEmail = (email?: string | null): boolean => {
   if (!email) return false;
   const clean = email.trim().toLowerCase();
-  // akash30104@gmail.com is strictly Social Media Manager (SMM)
-  if (clean === 'akash30104@gmail.com') return false;
-  return clean === 'akash.uxui.design@gmail.com';
+  // akash30104@gmail.com is strictly Social Media Manager (SMM); akash.uxui.design@gmail.com was removed per user request
+  if (clean === 'akash30104@gmail.com' || clean === 'akash.uxui.design@gmail.com') return false;
+  return clean === 'blavenlokesh@gmail.com';
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -450,7 +450,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // fallback
     }
 
-    // 3. Store credentials backup for guaranteed seamless login
+    // 3. Store credentials backup for guaranteed seamless login and team discovery
     try {
       localStorage.setItem(`di_team_creds_${cleanEmail}`, JSON.stringify({
         email: cleanEmail,
@@ -458,6 +458,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile: newProfile
       }));
       localStorage.setItem('di_authenticated_user_session', JSON.stringify(newProfile));
+
+      // Append to local profiles list so all screens (Projects, Footage Sharing, etc.) discover this editor/member
+      const existingProfsRaw = localStorage.getItem('di_platform_profiles_v2');
+      const existingProfs: Profile[] = existingProfsRaw ? JSON.parse(existingProfsRaw) : [];
+      const updatedProfs = [newProfile, ...existingProfs.filter(p => p.id !== newProfile.id && p.email !== cleanEmail)];
+      localStorage.setItem('di_platform_profiles_v2', JSON.stringify(updatedProfs));
+      window.dispatchEvent(new Event('storage'));
     } catch {}
 
     // 4. Immediately set active session state so user enters workspace!

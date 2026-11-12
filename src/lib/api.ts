@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { filterProjects, filterClients, deleteSingleProject, deleteSingleClient, isInternalBrand, isClientDeleted } from './deletionFilter';
+import { filterProjects, filterClients, deleteSingleProject, deleteSingleClient, isInternalBrand, isClientDeleted, isProfileDeleted } from './deletionFilter';
 import { 
   Client, Project, SocialChannel, Invitation, Deliverable, 
   VideoVersion, ApprovalFeedback, PublishingProof, NotificationItem, 
@@ -757,51 +757,69 @@ export async function fetchProfiles(): Promise<Profile[]> {
   // Merge with local profiles storage
   const localProfs = getLocal<Profile[]>(STORAGE_KEYS.PROFILES, []);
   const seenIds = new Set(list.map(p => p.id));
+  const seenEmails = new Set(list.map(p => (p.email || '').toLowerCase()).filter(Boolean));
+
   for (const lp of localProfs) {
-    if (!seenIds.has(lp.id)) {
+    if (!seenIds.has(lp.id) && (!lp.email || !seenEmails.has(lp.email.toLowerCase()))) {
       list.push(lp);
       seenIds.add(lp.id);
+      if (lp.email) seenEmails.add(lp.email.toLowerCase());
     }
   }
 
-  // Ensure default essential team members are ALWAYS present and never disappear!
-  const defaultTeam: Profile[] = [
-    {
-      id: 'user-founder',
-      email: 'akash.uxui.design@gmail.com',
-      full_name: 'Akash (Founder)',
-      role: 'founder',
-      created_at: '2026-01-01T00:00:00Z'
-    },
-    {
-      id: 'user-smm-akash',
-      email: 'akash30104@gmail.com',
-      full_name: 'Akash (Social Media Manager)',
-      role: 'social_media_manager',
-      created_at: '2026-01-01T00:00:00Z'
-    },
-    {
-      id: 'user-editor-ak',
-      email: 'ak.editor@digitalinertia.com',
-      full_name: 'AK',
-      role: 'editor',
-      created_at: '2026-01-01T00:00:00Z'
+  // Also collect any profiles stored in di_team_creds_* in localStorage (ensures DP, balakumaran, etc. are always present)
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('di_team_creds_')) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const prof: Profile = parsed.profile;
+            if (prof && prof.id && !seenIds.has(prof.id)) {
+              const emailLower = (prof.email || '').toLowerCase();
+              if (!emailLower || !seenEmails.has(emailLower)) {
+                list.push(prof);
+                seenIds.add(prof.id);
+                if (emailLower) seenEmails.add(emailLower);
+              }
+            }
+          }
+        }
+      }
     }
-  ];
+  } catch {}
 
-  for (const dt of defaultTeam) {
-    const exists = list.some(p => 
-      p.id === dt.id || 
-      (p.email && dt.email && p.email.toLowerCase() === dt.email.toLowerCase()) ||
-      (p.full_name && dt.full_name && p.full_name.toLowerCase() === dt.full_name.toLowerCase())
-    );
-    if (!exists) {
-      list.push(dt);
+  // Also collect any accepted/active invitations for team members (Editors and SMMs)
+  try {
+    const rawInvs = localStorage.getItem('di_platform_invitations_v2');
+    if (rawInvs) {
+      const invs = JSON.parse(rawInvs);
+      if (Array.isArray(invs)) {
+        for (const inv of invs) {
+          if (inv.email && inv.role && inv.role !== 'client') {
+            const emailLower = inv.email.toLowerCase();
+            if (!seenEmails.has(emailLower)) {
+              const pId = inv.id || `inv-prof-${emailLower}`;
+              list.push({
+                id: pId,
+                email: inv.email,
+                full_name: inv.full_name || inv.email.split('@')[0],
+                role: inv.role,
+                created_at: inv.created_at || new Date().toISOString()
+              });
+              seenIds.add(pId);
+              seenEmails.add(emailLower);
+            }
+          }
+        }
+      }
     }
-  }
+  } catch {}
 
-  // Strictly filter deleted clients only; team members (Founders, SMMs, Editors) are NEVER filtered out!
-  return list.filter(p => p.role !== 'client' || !isClientDeleted(p));
+  // Strictly filter deleted clients and explicitly deleted/purged profiles (e.g. Akash Founder)
+  return list.filter(p => !isProfileDeleted(p) && (p.role !== 'client' || !isClientDeleted(p)));
 }
 
 export const getProfiles = fetchProfiles;

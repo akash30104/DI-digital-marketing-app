@@ -182,19 +182,42 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({ onNavigateTa
 
   // SMM team members for per-SMM dashboard views
   const [smmTeamMembers, setSmmTeamMembers] = useState<{ id: string; full_name: string }[]>([]);
-  const [selectedSmmFilter, setSelectedSmmFilter] = useState<string>('all');
+  const [selectedSmmFilter, setSelectedSmmFilter] = useState<string>(() => {
+    return isManager && currentUser ? currentUser.id : 'all';
+  });
+
+  useEffect(() => {
+    if (isManager && currentUser) {
+      setSelectedSmmFilter(currentUser.id);
+    }
+  }, [isManager, currentUser]);
+
+  // Load dedicated targets for the selected SMM or global
+  useEffect(() => {
+    const targetUserId = isManager && currentUser 
+      ? currentUser.id 
+      : (selectedSmmFilter !== 'all' ? selectedSmmFilter : undefined);
+
+    fetchDailyTargets(targetUserId).then(t => {
+      setTargets(t);
+    });
+  }, [selectedSmmFilter, isManager, currentUser]);
 
   const handleSaveTargetsModal = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingTargets(true);
     try {
+      const targetUserId = isManager && currentUser 
+        ? currentUser.id 
+        : (selectedSmmFilter !== 'all' ? selectedSmmFilter : undefined);
+
       const updated = await saveDailyTargets({
         shorts: Number(targetFormShorts),
         reels: Number(targetFormReels),
         full: Number(targetFormFull),
         fb: Number(targetFormFb),
         x: Number(targetFormX)
-      });
+      }, targetUserId);
       setTargets(updated);
       showToast(`🎯 Targets updated! Shorts: ${updated.shorts}, Reels: ${updated.reels}, Full: ${updated.full}, FB: ${updated.fb}, X: ${updated.x}`);
       setShowTargetsModal(false);
@@ -746,10 +769,16 @@ interface ProjectTaskGroup {
       fetchAllChannels().then(setChannelsList).catch(() => {});
     };
     const handleTargetsUpdated = (e: any) => {
+      const activeUserId = isManager && currentUser 
+        ? currentUser.id 
+        : (selectedSmmFilter !== 'all' ? selectedSmmFilter : undefined);
+
       if (e.detail) {
-        setTargets(e.detail);
+        if (!e.detail.userId || e.detail.userId === activeUserId) {
+          setTargets(e.detail);
+        }
       } else {
-        setTargets(getCachedTargets());
+        setTargets(getCachedTargets(activeUserId));
       }
     };
 
@@ -763,7 +792,7 @@ interface ProjectTaskGroup {
       window.removeEventListener('channels-updated', handleChannelsUpdated);
       window.removeEventListener('targets-updated', handleTargetsUpdated);
     };
-  }, []);
+  }, [isManager, currentUser, selectedSmmFilter]);
 
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Kolkata',
@@ -772,32 +801,45 @@ interface ProjectTaskGroup {
     day: 'numeric'
   }).format(new Date());
 
-  // Compute live today counts directly from verified published logs
-  const todayShorts = todayPublishedLogs.filter(l => getLogPlatform(l) === 'youtube_shorts').length;
-  const todayReels = todayPublishedLogs.filter(l => getLogPlatform(l) === 'instagram_reels').length;
-  const todayFull = todayPublishedLogs.filter(l => getLogPlatform(l) === 'youtube_full').length;
-  const todayFb = todayPublishedLogs.filter(l => getLogPlatform(l) === 'facebook').length;
-  const todayX = todayPublishedLogs.filter(l => getLogPlatform(l) === 'x').length;
+  // Filter today's publications:
+  // If SMM logged in: strictly and only this SMM's publications!
+  // If Founder: filtered by selected SMM pill, or all if 'all' is selected.
+  const displayedSmmLogs = useMemo(() => {
+    if (isManager && currentUser) {
+      return todayPublishedLogs.filter(l => 
+        l.published_by === currentUser.id || 
+        (l.notes && l.notes.includes(currentUser.id)) ||
+        (currentUser.full_name && l.notes && l.notes.toLowerCase().includes(currentUser.full_name.toLowerCase()))
+      );
+    }
+    if (selectedSmmFilter !== 'all') {
+      const smm = smmTeamMembers.find(s => s.id === selectedSmmFilter);
+      return todayPublishedLogs.filter(l => 
+        l.published_by === selectedSmmFilter || 
+        (l.notes && l.notes.includes(selectedSmmFilter)) ||
+        (smm && l.notes && smm.full_name && l.notes.toLowerCase().includes(smm.full_name.toLowerCase()))
+      );
+    }
+    return todayPublishedLogs;
+  }, [isManager, currentUser, selectedSmmFilter, todayPublishedLogs, smmTeamMembers]);
 
-  const displayShorts = Math.max(summary?.published.youtube_shorts ?? 0, todayShorts);
-  const displayReels = Math.max(summary?.published.instagram_reels ?? 0, todayReels);
-  const displayFull = Math.max(summary?.published.youtube_full ?? 0, todayFull);
+  // Compute live today counts directly from active scope logs
+  const todayShorts = displayedSmmLogs.filter(l => getLogPlatform(l) === 'youtube_shorts').length;
+  const todayReels = displayedSmmLogs.filter(l => getLogPlatform(l) === 'instagram_reels').length;
+  const todayFull = displayedSmmLogs.filter(l => getLogPlatform(l) === 'youtube_full').length;
+  const todayFb = displayedSmmLogs.filter(l => getLogPlatform(l) === 'facebook').length;
+  const todayX = displayedSmmLogs.filter(l => getLogPlatform(l) === 'x').length;
+
+  const isFilteredScope = isManager || selectedSmmFilter !== 'all';
+  const displayShorts = isFilteredScope ? todayShorts : Math.max(summary?.published.youtube_shorts ?? 0, todayShorts);
+  const displayReels = isFilteredScope ? todayReels : Math.max(summary?.published.instagram_reels ?? 0, todayReels);
+  const displayFull = isFilteredScope ? todayFull : Math.max(summary?.published.youtube_full ?? 0, todayFull);
 
   const targetShorts = targets.shorts;
   const targetReels = targets.reels;
   const targetFull = targets.full;
   const targetFb = targets.fb;
   const targetX = targets.x;
-
-  // Filter today's publications by individual SMM if selected
-  const displayedSmmLogs = useMemo(() => {
-    if (selectedSmmFilter === 'all') return todayPublishedLogs;
-    const smm = smmTeamMembers.find(s => s.id === selectedSmmFilter);
-    return todayPublishedLogs.filter(l => 
-      l.published_by === selectedSmmFilter || 
-      (smm && l.notes && smm.full_name && l.notes.toLowerCase().includes(smm.full_name.toLowerCase()))
-    );
-  }, [todayPublishedLogs, selectedSmmFilter, smmTeamMembers]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-16">
@@ -808,15 +850,23 @@ interface ProjectTaskGroup {
             {todayFormatted} (Asia/Kolkata)
           </span>
           <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <span>{isManager ? 'Social Media Manager Dashboard' : 'Founder Overview'}</span>
+            <span>
+              {isManager 
+                ? `Social Media Manager Dashboard — ${currentUser?.full_name || 'My Dashboard'}`
+                : selectedSmmFilter !== 'all'
+                ? `${smmTeamMembers.find(s => s.id === selectedSmmFilter)?.full_name || 'SMM'} — Manager View`
+                : 'Founder Overview'}
+            </span>
             <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 uppercase tracking-normal">
-              {isManager ? 'SMM View' : 'Executive'}
+              {isManager ? 'Personal SMM View' : selectedSmmFilter !== 'all' ? 'Filtered SMM' : 'Executive'}
             </span>
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
             {isManager 
-              ? 'Track daily channel targets, manage publications, and monitor production pipeline.'
-              : 'Executive monitoring of video editing progress, channel publications, and manager consistency.'}
+              ? 'Your independent daily channel targets, published videos, and performance metrics.'
+              : selectedSmmFilter !== 'all'
+              ? `Viewing dedicated publishing output and daily targets for ${smmTeamMembers.find(s => s.id === selectedSmmFilter)?.full_name || 'this SMM'}.`
+              : 'Executive monitoring of video editing progress, channel publications, and manager consistency across all SMMs.'}
           </p>
         </div>
 
@@ -1172,47 +1222,57 @@ interface ProjectTaskGroup {
             </span>
           </div>
 
-          {/* SMM Filter Selector so each SMM can view their separate dashboard output */}
-          {smmTeamMembers.length > 0 && (
-            <div className="flex items-center gap-1.5 p-1 bg-black border border-zinc-800 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setSelectedSmmFilter('all')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
-                  selectedSmmFilter === 'all'
-                    ? 'bg-white text-black font-black'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                All SMMs ({todayPublishedLogs.length})
-              </button>
-              {smmTeamMembers.map(smm => {
-                const count = todayPublishedLogs.filter(l => 
-                  l.published_by === smm.id || 
-                  (l.notes && smm.full_name && l.notes.toLowerCase().includes(smm.full_name.toLowerCase()))
-                ).length;
-                return (
-                  <button
-                    key={smm.id}
-                    type="button"
-                    onClick={() => setSelectedSmmFilter(smm.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
-                      selectedSmmFilter === smm.id
-                        ? 'bg-white text-black font-black'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    {smm.full_name} ({count})
-                  </button>
-                );
-              })}
+          {/* SMM Filter Selector so each SMM has their own separate dashboard */}
+          {isManager ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-black border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Personal Dashboard: <strong className="text-white">{currentUser?.full_name || 'My Output'}</strong></span>
             </div>
+          ) : (
+            smmTeamMembers.length > 0 && (
+              <div className="flex items-center gap-1.5 p-1 bg-black border border-zinc-800 rounded-xl flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSmmFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                    selectedSmmFilter === 'all'
+                      ? 'bg-white text-black font-black'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  All SMMs ({todayPublishedLogs.length})
+                </button>
+                {smmTeamMembers.map(smm => {
+                  const count = todayPublishedLogs.filter(l => 
+                    l.published_by === smm.id || 
+                    (l.notes && l.notes.includes(smm.id)) ||
+                    (smm.full_name && l.notes && l.notes.toLowerCase().includes(smm.full_name.toLowerCase()))
+                  ).length;
+                  return (
+                    <button
+                      key={smm.id}
+                      type="button"
+                      onClick={() => setSelectedSmmFilter(smm.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                        selectedSmmFilter === smm.id
+                          ? 'bg-white text-black font-black'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {smm.full_name} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
 
         {displayedSmmLogs.length === 0 ? (
           <div className="p-6 text-center rounded-3xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-500">
-            {selectedSmmFilter === 'all'
+            {isManager
+              ? "You haven't posted any videos today yet. As soon as you publish to YouTube Shorts or Instagram Reels, your verified proofs will appear here live."
+              : selectedSmmFilter === 'all'
               ? "No videos posted today yet. The Social Media Manager's published proofs will appear here live."
               : "No videos published by this Social Media Manager today yet."}
           </div>
@@ -1485,7 +1545,21 @@ interface ProjectTaskGroup {
       {showChannelModal && (() => {
         const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
-        const filteredLogs = weekPublishedLogs.filter(l => {
+        const baseLogs = isManager && currentUser
+          ? weekPublishedLogs.filter(l => 
+              l.published_by === currentUser.id || 
+              (l.notes && l.notes.includes(currentUser.id)) ||
+              (currentUser.full_name && l.notes && l.notes.toLowerCase().includes(currentUser.full_name.toLowerCase()))
+            )
+          : selectedSmmFilter !== 'all'
+          ? weekPublishedLogs.filter(l => 
+              l.published_by === selectedSmmFilter || 
+              (l.notes && l.notes.includes(selectedSmmFilter)) ||
+              (smmTeamMembers.find(s => s.id === selectedSmmFilter)?.full_name && l.notes && l.notes.toLowerCase().includes(smmTeamMembers.find(s => s.id === selectedSmmFilter)!.full_name.toLowerCase()))
+            )
+          : weekPublishedLogs;
+
+        const filteredLogs = baseLogs.filter(l => {
           if (selectedChannelFilter === 'all') return true;
           if (selectedChannelFilter === 'youtube_shorts') {
             return l.platform === 'youtube_shorts' || (l.notes && l.notes.includes('youtube_shorts'));
@@ -1777,18 +1851,21 @@ interface ProjectTaskGroup {
                 </button>
               </div>
 
-              {/* Filter Tabs across Channels - Fixed height & overflow padding */}
-              <div className="px-4 py-3 shrink-0 bg-black border-b border-zinc-800 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex items-center gap-2 min-w-max py-0.5">
+              {/* Filter Tabs across Channels - Clean horizontal scroll with ample vertical clearance */}
+              <div 
+                className="px-4 py-3.5 shrink-0 bg-black border-b border-zinc-800 overflow-x-auto overflow-y-hidden"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                <div className="flex items-center gap-2 min-w-max pb-1">
                   {channelTabs.map(ch => (
                     <button
                       key={ch.id}
                       type="button"
                       onClick={() => setSelectedChannelFilter(ch.id)}
-                      className={`px-3.5 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
+                      className={`px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                         selectedChannelFilter === ch.id
-                          ? 'bg-white text-black shadow-sm font-black ring-1 ring-white/50'
-                          : 'bg-zinc-800 border border-zinc-700/60 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                          ? 'bg-white text-black shadow-md font-black ring-2 ring-white/50'
+                          : 'bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white hover:bg-zinc-700'
                       }`}
                     >
                       {ch.icon}
@@ -2076,10 +2153,10 @@ interface ProjectTaskGroup {
             <div className="p-5 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
-                  Publishing Targets Configuration
+                  {isManager ? 'Personal Daily Targets' : 'Publishing Targets Configuration'}
                 </span>
                 <h3 className="font-bold text-white text-base">
-                  Increase Daily Publishing Target
+                  {isManager ? `Configure Your Daily Target (${currentUser?.full_name || 'My Output'})` : 'Increase Daily Publishing Target'}
                 </h3>
               </div>
               <button 
@@ -2092,7 +2169,9 @@ interface ProjectTaskGroup {
 
             <form onSubmit={handleSaveTargetsModal} className="p-6 space-y-4">
               <p className="text-xs text-zinc-400">
-                Set the daily output goal for each channel. Changing these targets updates the dashboard and SMM publishing goals instantly.
+                {isManager 
+                  ? 'Set your personal daily output targets. When you publish reels and shorts, your personal dashboard counters will advance towards these goals.' 
+                  : 'Set the daily output goal for each channel. Changing these targets updates the dashboard and SMM publishing goals instantly.'}
               </p>
 
               <div className="space-y-3">

@@ -25,7 +25,7 @@ interface FounderMoreProps {
 }
 
 export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
-  const { role } = useAuth();
+  const { currentUser, role } = useAuth();
   const isFounder = role === 'founder';
   const isSMM = role === 'social_media_manager';
 
@@ -702,7 +702,7 @@ export const FounderMore: React.FC<FounderMoreProps> = ({ onNavigateTab }) => {
                   <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-zinc-800 text-zinc-200 border border-zinc-700">
                     {p.role === 'client' ? 'Client Partner' : p.role.replace('_', ' ')}
                   </span>
-                  {p.role !== 'founder' && (
+                  {(p.role !== 'founder' || (p.email && p.email !== currentUser?.email)) && (
                     <button
                       type="button"
                       onClick={() => handleDeleteMember(p)}

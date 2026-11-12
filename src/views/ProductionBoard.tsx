@@ -495,6 +495,8 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
     return deliverables.filter(d => {
       if (d.editing_status === 'cancelled' || d.editing_status === 'published') return false;
       if (isDeliverablePublished(d, publishedIds)) return false;
+      const noteCheck = `${d.approval_notes || ''} ${d.description || ''} ${d.title || ''}`.toLowerCase();
+      if (noteCheck.includes('published to') || noteCheck.includes('& published') || noteCheck.includes('approved & published')) return false;
       const updatedDate = d.updated_at 
         ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(d.updated_at)) 
         : '';
@@ -519,6 +521,8 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({ onNavigateTab 
     return deliverables.filter(d => {
       if (d.editing_status === 'cancelled' || d.editing_status === 'published') return false;
       if (isDeliverablePublished(d, publishedIds)) return false;
+      const noteCheck = `${d.approval_notes || ''} ${d.description || ''} ${d.title || ''}`.toLowerCase();
+      if (noteCheck.includes('published to') || noteCheck.includes('& published') || noteCheck.includes('approved & published')) return false;
       const isCompleted = (d.progress_percentage || 0) === 100 && d.editing_status === 'approved';
       return !isCompleted;
     });
@@ -604,6 +608,8 @@ interface ProductionProjectGroup {
 
     displayedVideos.forEach((cut: Deliverable) => {
       if (isDeliverablePublished(cut, publishedIds) || cut.editing_status === 'published') return;
+      const cutNote = `${cut.approval_notes || ''} ${cut.description || ''} ${cut.title || ''}`.toLowerCase();
+      if (cutNote.includes('published to') || cutNote.includes('& published') || cutNote.includes('approved & published')) return;
       const projKey = cut.recording_id || (cut.recording_title ? cut.recording_title.trim() : '') || (cut.title.includes(' - ') ? cut.title.split(' - ')[0].trim() : 'Studio Project');
       const projTitle = cut.recording_title || (cut.title.includes(' - ') ? cut.title.split(' - ')[0].trim() : cut.title);
 

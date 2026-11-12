@@ -215,6 +215,12 @@ export function isInternalBrand(name?: string | null): boolean {
     n === 'direct' ||
     n === 'in-house' ||
     n === 'inhouse' ||
+    n.includes('interstudeio') ||
+    n.includes('inter studeio') ||
+    n.includes('inter studio') ||
+    n.includes('interstudio') ||
+    n.includes('inter stud') ||
+    (n.includes('inter') && n.includes('stud')) ||
     n.includes('internal studio') ||
     n.includes('studio internal') ||
     n.includes('studio production') ||
@@ -222,6 +228,20 @@ export function isInternalBrand(name?: string | null): boolean {
     n.includes('studio general') ||
     n.includes('studio footage')
   );
+}
+
+export function isProfileDeleted(profile: { id?: string; email?: string; full_name?: string }): boolean {
+  if (!profile) return false;
+  const email = (profile.email || '').trim().toLowerCase();
+  const id = (profile.id || '').trim();
+  const name = (profile.full_name || '').trim().toLowerCase();
+
+  // Explicitly purge the stale hardcoded Akash Founder account requested by user
+  if (email === 'akash.uxui.design@gmail.com') return true;
+  if (id === 'user-founder') return true;
+  if (name.includes('akash (founder)')) return true;
+
+  return false;
 }
 
 const DEFAULT_DELETED_CLIENT_NAMES = new Set([

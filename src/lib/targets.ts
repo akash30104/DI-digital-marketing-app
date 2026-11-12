@@ -8,6 +8,7 @@ export interface TargetConfig {
   x: number;
   total: number;
   updated_at?: number;
+  userId?: string;
 }
 
 export const DEFAULT_TARGETS: TargetConfig = {
@@ -22,9 +23,10 @@ export const DEFAULT_TARGETS: TargetConfig = {
 
 const STORAGE_KEY = 'di_daily_targets_v3';
 
-export function getCachedTargets(): TargetConfig {
+export function getCachedTargets(userId?: string): TargetConfig {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = userId ? `di_daily_targets_v3_${userId}` : STORAGE_KEY;
+    const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (typeof parsed.shorts === 'number') {
@@ -35,9 +37,15 @@ export function getCachedTargets(): TargetConfig {
           fb: parsed.fb ?? DEFAULT_TARGETS.fb,
           x: parsed.x ?? DEFAULT_TARGETS.x,
           total: parsed.shorts + parsed.reels + parsed.full + (parsed.fb ?? DEFAULT_TARGETS.fb) + (parsed.x ?? DEFAULT_TARGETS.x),
-          updated_at: parsed.updated_at || 0
+          updated_at: parsed.updated_at || 0,
+          userId
         };
       }
+    }
+
+    // If querying for a specific user and no custom user target set yet, fall back to global cached targets
+    if (userId && key !== STORAGE_KEY) {
+      return { ...getCachedTargets(), userId };
     }
 
     const s = localStorage.getItem('DAILY_TARGET_SHORTS');
@@ -68,7 +76,10 @@ export function getCachedTargets(): TargetConfig {
   }
 }
 
-export function cacheTargetsLocally(t: { shorts: number; reels: number; full: number; fb: number; x: number; updated_at?: number }): TargetConfig {
+export function cacheTargetsLocally(
+  t: { shorts: number; reels: number; full: number; fb: number; x: number; updated_at?: number },
+  userId?: string
+): TargetConfig {
   const now = t.updated_at || Date.now();
   const config: TargetConfig = {
     shorts: Number(t.shorts) || DEFAULT_TARGETS.shorts,
@@ -81,17 +92,21 @@ export function cacheTargetsLocally(t: { shorts: number; reels: number; full: nu
            (Number(t.full) || DEFAULT_TARGETS.full) +
            (Number(t.fb) || DEFAULT_TARGETS.fb) +
            (Number(t.x) || DEFAULT_TARGETS.x),
-    updated_at: now
+    updated_at: now,
+    userId
   };
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-    localStorage.setItem('DAILY_TARGET_SHORTS', String(config.shorts));
-    localStorage.setItem('DAILY_TARGET_REELS', String(config.reels));
-    localStorage.setItem('DAILY_TARGET_FULL', String(config.full));
-    localStorage.setItem('DAILY_TARGET_FB', String(config.fb));
-    localStorage.setItem('DAILY_TARGET_X', String(config.x));
-    localStorage.setItem('DAILY_TARGET_UPDATED_AT', String(now));
+    const key = userId ? `di_daily_targets_v3_${userId}` : STORAGE_KEY;
+    localStorage.setItem(key, JSON.stringify(config));
+    if (!userId) {
+      localStorage.setItem('DAILY_TARGET_SHORTS', String(config.shorts));
+      localStorage.setItem('DAILY_TARGET_REELS', String(config.reels));
+      localStorage.setItem('DAILY_TARGET_FULL', String(config.full));
+      localStorage.setItem('DAILY_TARGET_FB', String(config.fb));
+      localStorage.setItem('DAILY_TARGET_X', String(config.x));
+      localStorage.setItem('DAILY_TARGET_UPDATED_AT', String(now));
+    }
   } catch (e) {
     console.warn('Cache targets error:', e);
   }
@@ -107,13 +122,18 @@ export function cacheTargetsLocally(t: { shorts: number; reels: number; full: nu
 
 /**
  * Loads the current active targets for today.
- * Preserves user-configured targets and synchronizes across all devices.
+ * Supports per-SMM targets as well as global organizational targets.
  */
-export async function fetchDailyTargets(): Promise<TargetConfig> {
-  const cached = getCachedTargets();
+export async function fetchDailyTargets(userId?: string): Promise<TargetConfig> {
+  const cached = getCachedTargets(userId);
+
+  // If a specific SMM's target is requested, the user-configured local target is authoritative
+  if (userId) {
+    return cached;
+  }
 
   try {
-    // 1. Fetch from daily_targets table
+    // Fetch from daily_targets table for global founder view
     const { data: targetRecord } = await supabase
       .from('daily_targets')
       .select('*')
@@ -122,7 +142,6 @@ export async function fetchDailyTargets(): Promise<TargetConfig> {
       .maybeSingle();
 
     if (targetRecord) {
-      // If user recently configured targets locally in this browser within the last 24h, respect the user's settings!
       if (cached.updated_at && (Date.now() - cached.updated_at < 86400000)) {
         return cached;
       }
@@ -173,32 +192,38 @@ export async function fetchDailyTargets(): Promise<TargetConfig> {
 }
 
 /**
- * Saves targets locally and synchronizes to Supabase
+ * Saves targets locally and synchronizes to Supabase.
+ * If userId is provided, saves specifically for that SMM without altering other SMMs' targets.
  */
-export async function saveDailyTargets(t: { shorts: number; reels: number; full: number; fb: number; x: number }): Promise<TargetConfig> {
+export async function saveDailyTargets(
+  t: { shorts: number; reels: number; full: number; fb: number; x: number },
+  userId?: string
+): Promise<TargetConfig> {
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
   // 1. Save to local device storage immediately & broadcast to all components
-  const config = cacheTargetsLocally({ ...t, updated_at: Date.now() });
+  const config = cacheTargetsLocally({ ...t, updated_at: Date.now() }, userId);
 
-  // 2. Try saving to daily_targets table in Supabase
-  const otherEncoded = (Number(config.fb) * 1000) + Number(config.x);
-  try {
-    const { error } = await supabase
-      .from('daily_targets')
-      .upsert({
-        target_date: todayStr,
-        youtube_shorts_target: config.shorts,
-        youtube_full_target: config.full,
-        instagram_reels_target: config.reels,
-        other_target: otherEncoded
-      }, { onConflict: 'target_date' });
+  // 2. If global targets, sync to Supabase daily_targets table
+  if (!userId) {
+    const otherEncoded = (Number(config.fb) * 1000) + Number(config.x);
+    try {
+      const { error } = await supabase
+        .from('daily_targets')
+        .upsert({
+          target_date: todayStr,
+          youtube_shorts_target: config.shorts,
+          youtube_full_target: config.full,
+          instagram_reels_target: config.reels,
+          other_target: otherEncoded
+        }, { onConflict: 'target_date' });
 
-    if (error) {
-      console.warn('Supabase daily_targets upsert note (will use local cache):', error.message);
+      if (error) {
+        console.warn('Supabase daily_targets upsert note (will use local cache):', error.message);
+      }
+    } catch (e) {
+      console.warn('daily_targets upsert exception:', e);
     }
-  } catch (e) {
-    console.warn('daily_targets upsert exception:', e);
   }
 
   return config;

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { filterDeliverables, filterRecordings, purgeAllRecordings, filterClients, isClientDeleted, isInternalBrand } from '../lib/deletionFilter';
 import { getClientBrandName } from '../lib/clientIsolation';
+import { getProfiles } from '../lib/api';
 
 interface RecordingWithDeliverables {
   id: string;
@@ -61,7 +62,7 @@ export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ on
   const loadRecordings = async () => {
     setIsLoading(true);
     try {
-      const [recRes, editorsRes, clientsRes] = await Promise.all([
+      const [recRes, memberList, clientsRes] = await Promise.all([
         supabase
           .from('recordings')
           .select(`
@@ -69,11 +70,7 @@ export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ on
             deliverables (id, title, deliverable_type, editing_status, progress_percentage, assigned_editor_id)
           `)
           .order('created_at', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'editor')
-          .order('full_name'),
+        getProfiles(),
         supabase
           .from('profiles')
           .select('*')
@@ -89,9 +86,12 @@ export const RecordingRegistration: React.FC<RecordingRegistrationProps> = ({ on
         setRecordings(mapped);
       }
 
-      if (!editorsRes.error && editorsRes.data) {
-        setEditors(editorsRes.data as Profile[]);
-      }
+      const activeEditors = (memberList || []).filter(m => {
+        const r = (m.role || '').toLowerCase().trim();
+        const isSuspended = m.is_suspended === true || (m.is_suspended as any) === 'true';
+        return (r === 'editor' || r === 'video_editor' || r.includes('editor')) && !isSuspended;
+      });
+      setEditors(activeEditors);
 
       if (!clientsRes.error && clientsRes.data) {
         const clientProfiles = clientsRes.data.filter((p: Profile) => 

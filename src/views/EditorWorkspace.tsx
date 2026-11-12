@@ -125,15 +125,19 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     const title = (recTitle || '').trim();
 
     // If explicit studio internal indicator, NEVER treat as client work
+    const combined = `${notes} ${title}`.toLowerCase();
     if (
-      notes.toLowerCase().includes('internal studio') ||
-      notes.toLowerCase().includes('studio internal') ||
-      notes.toLowerCase().includes('studio general') ||
-      notes.toLowerCase().includes('studio production') ||
-      notes.toLowerCase().includes('[studio internal]') ||
-      notes.toLowerCase().includes('studio footage') ||
-      title.toLowerCase().includes('internal studio') ||
-      title.toLowerCase().includes('studio internal')
+      combined.includes('internal studio') ||
+      combined.includes('studio internal') ||
+      combined.includes('interstudeio') ||
+      combined.includes('inter studeio') ||
+      combined.includes('inter studio') ||
+      combined.includes('interstudio') ||
+      (combined.includes('inter') && combined.includes('stud')) ||
+      combined.includes('studio general') ||
+      combined.includes('studio production') ||
+      combined.includes('[studio internal]') ||
+      combined.includes('studio footage')
     ) {
       return { isClientWork: false, clientBrandName: '' };
     }
@@ -401,14 +405,18 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           : 0;
 
         let { isClientWork, clientBrandName } = extractClientBrandInfo(rec.notes, rec.title, podDelivs, clientProfiles);
+        const notesAndTitle = `${rec.notes || ''} ${rec.title || ''} ${rec.hard_disk_name || ''}`.toLowerCase();
         if (
           isInternalBrand(rec.hard_disk_name) || 
           isInternalBrand(clientBrandName) || 
           !clientBrandName || 
-          rec.notes?.toLowerCase().includes('studio internal') ||
-          rec.notes?.toLowerCase().includes('internal studio') ||
-          rec.title?.toLowerCase().includes('studio internal') ||
-          rec.title?.toLowerCase().includes('internal studio')
+          notesAndTitle.includes('studio internal') ||
+          notesAndTitle.includes('internal studio') ||
+          notesAndTitle.includes('interstudeio') ||
+          notesAndTitle.includes('inter studeio') ||
+          notesAndTitle.includes('inter studio') ||
+          notesAndTitle.includes('interstudio') ||
+          (notesAndTitle.includes('inter') && notesAndTitle.includes('stud'))
         ) {
           isClientWork = false;
           clientBrandName = '';
@@ -1654,7 +1662,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             const completedReels = reels.filter(r => (r.progress_percentage || 0) === 100).length;
             const completedFull = fullVideos.filter(f => (f.progress_percentage || 0) === 100).length;
 
-            if (podcast.isClientWork && !isInternalBrand(podcast.clientBrandName)) {
+            if (podcast.isClientWork && !isInternalBrand(podcast.clientBrandName) && Boolean(podcast.clientBrandName)) {
               return (
                 <div
                   key={podcast.id}

@@ -23,7 +23,7 @@ import { submitPublishingProof, createAuditLog } from '../lib/api';
 import { fetchAllChannels, addNewChannel, ChannelItem } from '../lib/channels';
 
 export const SocialMediaPublishing: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, role } = useAuth();
   const [targets, setTargets] = useState<TargetConfig>(getCachedTargets());
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [allRecentDeliverables, setAllRecentDeliverables] = useState<Deliverable[]>([]);
@@ -67,9 +67,9 @@ export const SocialMediaPublishing: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 0. Fetch Synced Daily Targets & Channels
+      // 0. Fetch Synced Daily Targets & Channels (scoped to currentUser for SMM)
       try {
-        const syncedTargets = await fetchDailyTargets();
+        const syncedTargets = await fetchDailyTargets(role === 'social_media_manager' ? currentUser?.id : undefined);
         setTargets(syncedTargets);
       } catch (err) {
         console.warn('Error fetching daily targets in publishing hub:', err);
@@ -122,9 +122,18 @@ export const SocialMediaPublishing: React.FC = () => {
           channel_name: getLogChannelName(l)
         }));
 
-        const todayLogs = mappedLogs.filter(l => l.reporting_date === todayStr);
+        const isManager = role === 'social_media_manager';
+        const userLogs = isManager && currentUser
+          ? mappedLogs.filter(l => 
+              l.published_by === currentUser.id ||
+              (l.notes && l.notes.includes(currentUser.id)) ||
+              (currentUser.full_name && l.notes && l.notes.toLowerCase().includes(currentUser.full_name.toLowerCase()))
+            )
+          : mappedLogs;
+
+        const todayLogs = userLogs.filter(l => l.reporting_date === todayStr);
         setPublishedToday(todayLogs);
-        setStreak(calculatePublishingStreak(mappedLogs));
+        setStreak(calculatePublishingStreak(userLogs));
       }
     } catch (e) {
       console.error('Failed to load publishing data:', e);
@@ -143,25 +152,30 @@ export const SocialMediaPublishing: React.FC = () => {
         loadData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_targets' }, async () => {
-        const t = await fetchDailyTargets();
+        const t = await fetchDailyTargets(role === 'social_media_manager' ? currentUser?.id : undefined);
         setTargets(t);
         loadData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
-        const t = await fetchDailyTargets();
+        const t = await fetchDailyTargets(role === 'social_media_manager' ? currentUser?.id : undefined);
         setTargets(t);
       })
       .subscribe();
 
     const handleStorage = () => {
-      setTargets(getCachedTargets());
+      setTargets(getCachedTargets(role === 'social_media_manager' ? currentUser?.id : undefined));
       loadData();
     };
     const handleTargetsUpdated = (e: any) => {
-      if (e.detail) {
-        setTargets(e.detail);
+      if (role === 'social_media_manager' && currentUser) {
+        if (e.detail && e.detail.userId && e.detail.userId !== currentUser.id) return;
+        setTargets(getCachedTargets(currentUser.id));
       } else {
-        setTargets(getCachedTargets());
+        if (e.detail) {
+          setTargets(e.detail);
+        } else {
+          setTargets(getCachedTargets());
+        }
       }
     };
 
@@ -285,7 +299,8 @@ export const SocialMediaPublishing: React.FC = () => {
       }
 
       const cleanUserNotes = notes.trim();
-      const combinedNotes = `[Channel: ${channelName.trim()}] ${cleanUserNotes}`.trim();
+      const publisherTag = `[PublisherId: ${currentUser.id}] [Publisher: ${currentUser.full_name || currentUser.email || 'SMM'}]`;
+      const combinedNotes = `[Channel: ${channelName.trim()}] ${cleanUserNotes} ${publisherTag}`.trim();
 
       // First attempt with native channel_name column
       const basePayload = {

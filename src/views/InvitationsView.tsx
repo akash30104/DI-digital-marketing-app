@@ -136,8 +136,8 @@ export const InvitationsView: React.FC = () => {
   };
 
   const handleDeleteMember = async (member: Profile) => {
-    if (member.role === 'founder') {
-      alert('The Founder account is protected and cannot be deleted.');
+    if (member.role === 'founder' && member.email === currentUser?.email) {
+      alert('You cannot delete your own active Founder account.');
       return;
     }
     if (!window.confirm(`Are you sure you want to permanently delete profile "${member.full_name || member.email}"?`)) return;
